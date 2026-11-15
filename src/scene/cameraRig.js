@@ -44,10 +44,13 @@ export function createCameraRig({ store, renderer, immediate = false, duration =
   let from = current;
   let progress = 1;
 
+  // state.morph は、この配線だけが書く値。自分が書いた変化と、外から書かれた変化を区別する
+  let writing = false;
   const push = () => {
     renderer.setView(current);
     renderer.setLean(current.lean);
-    store.set({ morph: current.morph });
+    writing = true;
+    try { store.set({ morph: current.morph }); } finally { writing = false; }
   };
   push();
 
@@ -65,6 +68,14 @@ export function createCameraRig({ store, renderer, immediate = false, duration =
   };
 
   const off = store.subscribe((s, changed) => {
+    // 外から書かれた morph は巻き戻さず、今の値として受け入れる(遷移の途中でも、その値を保つ。次の定位置の変更で動き出す)
+    if (!writing && changed.includes('morph')) {
+      current = { ...current, morph: s.morph };
+      if (progress < 1) {
+        from = { ...from, morph: s.morph };
+        to = { ...to, morph: s.morph };
+      }
+    }
     if (changed.includes('camera')) {
       user.dAz = 0; user.dEl = 0; user.zoom = 1;
       retarget();
@@ -82,7 +93,7 @@ export function createCameraRig({ store, renderer, immediate = false, duration =
 
   // 利用者の操作を反映する。静止中は即座に、遷移中は目標だけを更新する
   const applyUser = () => {
-    to = target();
+    to = { ...target(), morph: to.morph }; // morph の目標は変えない
     if (progress >= 1) {
       current = { ...to, morph: current.morph, lean: current.lean };
       renderer.setView(current);
@@ -200,7 +211,7 @@ export function createCameraRig({ store, renderer, immediate = false, duration =
       push();
     },
     resize() {
-      to = target();
+      to = { ...target(), morph: to.morph }; // 画面の大きさが変わっても、morph の目標は変えない
       if (progress >= 1) {
         current = { ...to, morph: current.morph, lean: current.lean };
         push();

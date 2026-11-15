@@ -3,7 +3,8 @@
 //     preset: 'side' | 'oblique' | 'top'、aspect: 画面の幅 / 高さ、layout: renderer.layout({ line, geo, northAngle, bounds })。
 //     azimuth ... roll は renderer.setView にそのまま渡せる。morph は state.morph の目標値、lean は renderer.setLean の値。
 //     opts: { size: [幅, 高さ](CSS px)、region: 図を収める領域 { x0, y0, x1, y1 }(CSS px、画面の左上が原点)、
-//             portrait: 縦画面の構成か、selection: state.selection }。省略すると、画面いっぱいに収める。
+//             portrait: 縦画面の構成か(幅 1024px 未満。縦横比では判定しない)、selection: state.selection }。
+//             region を省略すると、画面いっぱいに収める。図は region の中央に収まり、center と zoom がそれを表す。
 //     anchor / target / size は、図の基準点(ワールド)がその領域のどこに来るかを表す。center はそこから決まる。
 //   tween(a, b, s) → 2つの視点を s(0〜1)で補間した視点。角度は短い側へ、zoom は対数で補間する。
 //   reorient(view, { azimuth, elevation, zoomScale }) → 利用者の回転・拡大を加えた視点(領域の中心まわりで回る)。
@@ -42,8 +43,9 @@ export const MORPH_DELAY = 0.15;
 /** 利用者が動かせる範囲。 */
 export const USER_LIMITS = { azimuth: 1.4, elevationMin: 0, elevationMax: Math.PI / 2, zoomMin: 0.6, zoomMax: 8 };
 
-export function isPortrait(width, height) {
-  return width < DESKTOP_BREAKPOINT || width < height;
+/** 縦画面の構成か。判定は幅だけ(縦横比では判定しない)。 */
+export function isPortrait(width) {
+  return width < DESKTOP_BREAKPOINT;
 }
 
 /**
@@ -52,7 +54,7 @@ export function isPortrait(width, height) {
  *  縦画面: 上の帯(72px まで)と、下のドック(高さ 150px)+ 余白 16px の間。左右は 16px。
  */
 export function figureRegion(width, height) {
-  const r = isPortrait(width, height)
+  const r = isPortrait(width)
     ? { x0: 16, y0: 72, x1: width - 16, y1: height - 166 }
     : { x0: 424, y0: 96, x1: width - 40, y1: height - 100 };
   // 小さな画面でも領域が潰れないようにする
@@ -63,7 +65,7 @@ export function figureRegion(width, height) {
 
 /** viewFor に渡す opts を、画面の大きさ(CSS px)と state.selection から作る。 */
 export function viewOptions(width, height, selection = null) {
-  return { size: [width, height], region: figureRegion(width, height), portrait: isPortrait(width, height), selection };
+  return { size: [width, height], region: figureRegion(width, height), portrait: isPortrait(width), selection };
 }
 
 // ---- 角度・ベクトルの道具 ----
@@ -187,9 +189,10 @@ function slide(lo, hi, cLo, cHi) {
 export function viewFor(preset, aspect, layout, opts = {}) {
   const name = CAMERA_PRESETS[preset] ? preset : 'side';
   const p = CAMERA_PRESETS[name];
-  const size = opts.size ?? [aspect * 1000, 1000];
+  // size を省略したときは、高さ 900px の画面として扱う(幅は aspect から決まる)
+  const size = opts.size ?? [aspect * 900, 900];
   const [W, H] = size;
-  const portrait = opts.portrait ?? (opts.size ? isPortrait(W, H) : aspect < 1);
+  const portrait = opts.portrait ?? isPortrait(W);
   let region = opts.region ?? { x0: 0, y0: 0, x1: W, y1: H };
   if (portrait && name === 'side') region = { ...region, x1: Math.max(region.x0 + 120, region.x1 - PORTRAIT_LABEL_GUTTER) };
 

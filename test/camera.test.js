@@ -80,9 +80,12 @@ describe('viewFor: 定位置', () => {
   });
 
   it('図の領域: デスクトップは左の柱と上下の帯を除いた右側、縦画面は上の帯と下のドックの間', () => {
-    expect(isPortrait(1440, 900)).toBe(false);
-    expect(isPortrait(390, 844)).toBe(true);
-    expect(isPortrait(900, 700)).toBe(true); // 幅 1024 未満は縦画面の構成
+    expect(isPortrait(1440)).toBe(false);
+    expect(isPortrait(390)).toBe(true);
+    expect(isPortrait(1023)).toBe(true); // 幅 1024 未満は縦画面の構成
+    expect(isPortrait(1024)).toBe(false);
+    expect(isPortrait(1100, 1400)).toBe(false); // 縦横比では判定しない
+    expect(figureRegion(1100, 1400).x0).toBe(424);
     expect(figureRegion(1440, 900)).toEqual({ x0: 424, y0: 96, x1: 1400, y1: 800 });
     expect(figureRegion(390, 844)).toEqual({ x0: 16, y0: 72, x1: 374, y1: 678 });
     expect(figureRegion(1920, 1080).x1).toBe(1880);
@@ -94,7 +97,7 @@ describe('viewFor: 定位置', () => {
       for (const preset of ['side', 'oblique', 'top']) {
         const v = view(preset, w, h);
         const pts = nodesOnScreen(v, [w, h]);
-        const rr = preset === 'side' && w < h ? { ...r, x1: r.x1 - 80 } : r; // 縦画面の真横は右に索引の余白
+        const rr = preset === 'side' && w < 1024 ? { ...r, x1: r.x1 - 80 } : r; // 縦画面の真横は右に索引の余白
         for (const pt of pts) expect(inside(pt, rr), `${preset} ${w}x${h} ${pt}`).toBe(true);
         // 図の中心(anchor)が領域の中心に映る
         const c = projectPoint(v, v.anchor, [w, h]);
@@ -389,6 +392,51 @@ describe('createCameraRig', () => {
     const top = view('top', 1440, 900, { type: 'metro', id: 'tokyo' });
     expect(rig.getView().azimuth).toBeCloseTo(top.azimuth, 9);
     expect(rig.getView().zoom).toBeCloseTo(top.zoom, 9);
+  });
+
+  it('外から書かれた morph を巻き戻さない(resize のあとも、次の定位置の遷移でも)', () => {
+    const { store, rig } = setup({ camera: 'oblique', reducedMotion: true, morph: 1 });
+    expect(store.get().morph).toBe(1);
+    store.set({ morph: 0.4 });
+    rig.resize();
+    expect(store.get().morph).toBe(0.4);
+    expect(rig.getView().morph).toBe(0.4);
+    rig.orbit(0.1, 0);
+    expect(store.get().morph).toBe(0.4);
+    // 次の定位置の変更は、その値から始まる
+    store.set({ camera: 'top' });
+    expect(store.get().morph).toBe(1); // reducedMotion なので即座に定位置の値
+  });
+
+  it('遷移の途中で外から morph が書かれても、そこから向かい直す', () => {
+    const { store, rig } = setup();
+    store.set({ camera: 'oblique' });
+    for (let i = 0; i < 4; i++) rig.update(0.16);
+    store.set({ morph: 0.2 });
+    expect(rig.getView().morph).toBe(0.2);
+    rig.resize(); // 遷移中の resize も値を戻さない
+    expect(store.get().morph).toBe(0.2);
+    rig.update(0.001);
+    expect(store.get().morph).toBeCloseTo(0.2, 9);
+    // 回転は続いている
+    const el = rig.getView().elevation;
+    rig.update(0.16);
+    expect(rig.getView().elevation).toBeGreaterThan(el);
+    expect(store.get().morph).toBeCloseTo(0.2, 9);
+  });
+
+  it('URL の morph で指定された初期値を尊重し、その値から補間を始める', () => {
+    const { store, rig } = setup({ camera: 'side', morph: 0.5 });
+    expect(store.get().morph).toBe(0.5);
+    expect(rig.getView().morph).toBe(0.5);
+    rig.resize();
+    expect(store.get().morph).toBe(0.5);
+    store.set({ camera: 'top' });
+    rig.update(0.001);
+    // 0.5 から 1 へ向かう(0 へ戻ってから始めない)
+    expect(store.get().morph).toBeGreaterThanOrEqual(0.5);
+    for (let i = 0; i < 12; i++) rig.update(0.16);
+    expect(store.get().morph).toBeCloseTo(1, 6);
   });
 
   it('回転は範囲に収まり、reset で戻る', () => {
