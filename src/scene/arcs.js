@@ -259,6 +259,21 @@ export function createArcsLayer(ctx) {
     hoverMesh.visible = true;
   }
 
+  // 弧ごとの側と濃さを shared.arcState に写す(粒子の層が同じ値で描く)
+  const arcState = shared.arcState;
+  function publish() {
+    if (!arcState) return;
+    const out = arcState.data;
+    for (let k = 0; k < count; k++) {
+      const c = (arcO[k] * 47 + arcD[k]) * 2;
+      out[c] = dyn[k * 2];
+      out[c + 1] = dyn[k * 2 + 1];
+    }
+    arcState.transitioning = progress < 1;
+    arcState.selMix = selCur;
+    arcState.commit();
+  }
+
   function snap() {
     for (let k = 0; k < count; k++) {
       dyn[k * 2] = toSide[k];
@@ -267,6 +282,7 @@ export function createArcsLayer(ctx) {
     selCur = selTo;
     progress = 1;
     dynAttr.needsUpdate = true;
+    publish();
   }
 
   function setSelection(mask) {
@@ -293,6 +309,7 @@ export function createArcsLayer(ctx) {
     selFrom = selCur;
     selTo = any ? 1 : 0;
     progress = 0;
+    if (arcState) arcState.transitioning = true;
     if (firstSelection) {
       // 最初の選択は、アニメーションせずに置く
       firstSelection = false;
@@ -322,6 +339,7 @@ export function createArcsLayer(ctx) {
         }
         selCur = selFrom + (selTo - selFrom) * s;
         dynAttr.needsUpdate = true;
+        publish();
         if (progress >= 1) snap();
       }
     }

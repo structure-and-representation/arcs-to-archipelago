@@ -37,8 +37,7 @@ uniform float uPhase;        // fract(timeSec / 14)、CPU で倍精度で計算�
 uniform float uStill;        // 1 = 静止の配置
 uniform float uSize;         // 直径(描画バッファの px = CSS px * DPR)
 uniform float uAlpha;
-uniform float uSel[47];
-uniform float uHasSel;
+uniform sampler2D uArcState; // shared: texel (d, o) = (side −1〜+1, alpha 0〜1)。弧の層が選択の切り替えに合わせて書く
 uniform float uPass;         // +1 地上、-1 地下
 uniform vec2  uHover;        // ホバー中の弧 (o, d)。なければ (-1, -1)
 uniform float uSizeHover;
@@ -61,8 +60,10 @@ float arcT(float s){
 
 void main(){
   int o = int(aSlot.x + 0.5), d = int(aSlot.y + 0.5); float k = aSlot.z;
-  float side = uHasSel > 0.5 ? (uSel[d] > 0.5 ? 1.0 : -1.0) : (o > d ? 1.0 : -1.0);
-  bool vis = (uHasSel < 0.5 || uSel[o] != uSel[d]) && side == uPass;   // drawRange があれば常に真(保険)
+  // 側と濃さは弧の層と同じ値(選択の切り替えの間も、弧と同じ側・同じ濃さで描く)
+  vec2 st = texelFetch(uArcState, ivec2(d, o), 0).rg;
+  float side = st.r;
+  bool vis = st.g > 0.002 && side * uPass > 0.0;
   float n = mix(texelFetch(uCounts, ivec2(d, uYearA * ${N} + o), 0).r,
                 texelFetch(uCounts, ivec2(d, uYearB * ${N} + o), 0).r, uYearMix) * 0.01;
   float w = clamp(n - k, 0.0, 1.0);                  // Σk w = 人数 / 100
@@ -85,7 +86,7 @@ void main(){
 
   gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
   gl_PointSize = vSize + 1.0;                        // +1 px は縁のなめらかさのぶん
-  vA = uAlpha * w * smoothstep(0.0, ${f(FADE)}, s) * smoothstep(1.0, ${f(1 - FADE)}, s);
+  vA = uAlpha * st.g * w * smoothstep(0.0, ${f(FADE)}, s) * smoothstep(1.0, ${f(1 - FADE)}, s);
 }`;
 
 export const PARTICLE_FRAG = /* glsl */ `
@@ -137,8 +138,6 @@ export function createParticlesLayer(ctx) {
     uSizeHover: { value: shared.style.particleSizeHover },
     uAlpha: { value: shared.style.particle },
     uHover: { value: new THREE.Vector2(-1, -1) },
-    uSel: { value: new Array(N).fill(0) },
-    uHasSel: { value: 0 },
   };
 
   const passes = [
@@ -170,19 +169,32 @@ export function createParticlesLayer(ctx) {
     return i >= 0 ? i : last;
   };
 
-  let maskKey = null;
+  // 枠の並び: 選択が決まっているときは [地下 | 地上] に並べて描かない弧を除き(orderSlots)、
+  // 弧の層が選択の切り替えを補間している間は、すべての枠を並べて、シェーダが弧の側と濃さ(uArcState)で振り分ける
+  let target = new Uint8Array(N);
+  let orderKey = null;
+  function applyOrder(key, mask) {
+    if (key === orderKey) return;
+    orderKey = key;
+    const ranges = orderSlots(per, mask, slotArr);
+    slotAttr.needsUpdate = true;
+    if (key === 'all') {
+      const n = ranges.below.count + ranges.above.count;
+      for (const p of passes) p.geom.setDrawRange(0, n);
+    } else {
+      passes[0].geom.setDrawRange(ranges.below.start, ranges.below.count);
+      passes[1].geom.setDrawRange(ranges.above.start, ranges.above.count);
+    }
+  }
+  function syncOrder() {
+    if (shared.arcState?.transitioning) applyOrder('all', null);
+    else applyOrder(target.join(''), target);
+  }
   function setSelection(mask) {
     const m = new Uint8Array(N);
     if (mask) for (let i = 0; i < N; i++) m[i] = mask[i] ? 1 : 0;
-    const key = m.join('');
-    if (key === maskKey) return;
-    maskKey = key;
-    const ranges = orderSlots(per, m, slotArr);
-    slotAttr.needsUpdate = true;
-    passes[0].geom.setDrawRange(ranges.below.start, ranges.below.count);
-    passes[1].geom.setDrawRange(ranges.above.start, ranges.above.count);
-    for (let i = 0; i < N; i++) own.uSel.value[i] = m[i];
-    own.uHasSel.value = m.some(Boolean) ? 1 : 0;
+    target = m;
+    syncOrder();
   }
   setSelection(null);
 
@@ -196,12 +208,14 @@ export function createParticlesLayer(ctx) {
       const motionless = !!frame?.still || !!frame?.reducedMotion;
       own.uStill.value = motionless ? 1 : 0;
       own.uPhase.value = phaseAt(frame?.time ?? 0, motionless);
+      syncOrder();
       const st = shared.style;
-      const sel = own.uHasSel.value > 0.5;
+      // 全国 ↔ 地域の見た目は、弧の層の補間(selMix)に合わせて移る
+      const k = shared.arcState?.selMix ?? (target.some(Boolean) ? 1 : 0);
       const dpr = shared.uniforms.uPixelRatio.value;
-      own.uSize.value = (sel ? st.particleSizeSel : st.particleSize) * dpr;
+      own.uSize.value = (st.particleSize + (st.particleSizeSel - st.particleSize) * k) * dpr;
       own.uSizeHover.value = st.particleSizeHover * dpr;
-      own.uAlpha.value = sel ? st.particleSel : st.particle;
+      own.uAlpha.value = st.particle + (st.particleSel - st.particle) * k;
     },
     setYear(a, b, mix) {
       own.uYearA.value = yearIndex(a);
