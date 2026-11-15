@@ -43,3 +43,14 @@ describe('scene/yearTween.js(年の補間)', () => {
     expect(last()).toEqual([2014, 2012, 0]);
   });
 });
+
+describe('parseDuration(--dur-year の読み取り)', async () => {
+  const { parseDuration } = await import('../src/scene/yearTween.js');
+  it('ms と s のどちらの単位も秒にする(ビルドの圧縮で 600ms が .6s になる)', () => {
+    expect(parseDuration('600ms')).toBeCloseTo(0.6, 10);
+    expect(parseDuration(' .6s')).toBeCloseTo(0.6, 10);
+    expect(parseDuration('0ms')).toBe(0);
+    expect(parseDuration('')).toBeNull();
+    expect(parseDuration('fast')).toBeNull();
+  });
+});

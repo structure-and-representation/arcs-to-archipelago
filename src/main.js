@@ -19,7 +19,7 @@ import { createRenderer } from './scene/renderer.js';
 import { createCameraRig } from './scene/cameraRig.js';
 import { createFallback } from './scene/fallback2d.js';
 import { createPicker } from './scene/picking.js';
-import { createYearTween, YEAR_SECONDS } from './scene/yearTween.js';
+import { createYearTween, parseDuration, YEAR_SECONDS } from './scene/yearTween.js';
 import * as labels from './ui/labels.js';
 import * as timeline from './ui/timeline.js';
 import * as selector from './ui/selector.js';
@@ -103,8 +103,8 @@ async function main() {
   const rig = createCameraRig({ store, renderer, immediate: still, partners });
   // 年の補間(--dur-year)。動きを減らす設定と still=1 では即時
   const yearSeconds = () => {
-    const v = parseFloat(getComputedStyle(root).getPropertyValue('--dur-year'));
-    return Number.isFinite(v) ? v / 1000 : YEAR_SECONDS;
+    const v = parseDuration(getComputedStyle(root).getPropertyValue('--dur-year'));
+    return v ?? YEAR_SECONDS;
   };
   const years = createYearTween({ renderer, year: store.get().year, duration: yearSeconds() });
 

@@ -9,6 +9,15 @@ import { easeInOut } from '../geometry/particles.js';
 
 export const YEAR_SECONDS = 0.6;
 
+/** CSS の時間('600ms'、'.6s'。ビルドの圧縮で単位が変わる)を秒にする。読めなければ null。 */
+export function parseDuration(text) {
+  const m = /^\s*(-?[\d.]+)\s*(ms|s)\s*$/i.exec(String(text ?? ''));
+  if (!m) return null;
+  const v = Number(m[1]);
+  if (!Number.isFinite(v)) return null;
+  return m[2].toLowerCase() === 'ms' ? v / 1000 : v;
+}
+
 export function createYearTween({ renderer, year, duration = YEAR_SECONDS, ease = easeInOut }) {
   let a = year;
   let b = year;
