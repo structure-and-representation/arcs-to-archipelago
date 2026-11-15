@@ -12,7 +12,7 @@
   line-height: var(--lh-ui);
   letter-spacing: var(--ls-ui);
 }
-#controls button {
+:where(#controls) button {
   font: inherit;
   letter-spacing: inherit;
   color: inherit;

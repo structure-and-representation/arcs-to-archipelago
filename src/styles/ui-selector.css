@@ -14,7 +14,7 @@
   color: var(--fg-1);
 }
 #selector [hidden] { display: none !important; }
-#selector button {
+:where(#selector) button {
   font: inherit;
   letter-spacing: inherit;
   color: inherit;
@@ -27,7 +27,7 @@
 }
 #selector button:focus { outline: none; }
 #selector button:focus-visible { outline: 1.5px solid var(--focus); outline-offset: 3px; border-radius: 1px; }
-#selector p { margin: 0; }
+:where(#selector) p { margin: 0; }
 
 /* ---- 読み出しの見出し(選択のボタン) ---- */
 .sel-head { position: relative; display: inline-block; }
