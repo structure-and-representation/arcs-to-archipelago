@@ -1,0 +1,114 @@
+/* arcs-to-archipelago — design tokens (src/styles/tokens.css にそのまま移せる形)
+   3色: 紙 / 墨 / 朱。ほかの色はすべてこの3色の不透明度違い。
+   ライト(paper) = 紙の地に墨、ダーク(ink) = 墨の地に紙。 */
+
+:root {
+  /* ---- 原色(テーマで入れ替わらない値) ---- */
+  --paper: #F3F0E8;
+  --ink: #1C1B18;
+  --vermilion: #C23B22;          /* 紙の地の朱  4.68:1 on paper */
+  --vermilion-on-ink: #E5603F;   /* 墨の地の朱  4.98:1 on ink(同じ朱を墨の上で明度だけ上げた値) */
+
+  /* ---- 意味のトークン(ライト = paper) ---- */
+  --bg-rgb: 243 240 232;   /* = --paper */
+  --fg-rgb: 28 27 24;      /* = --ink */
+  --accent-rgb: 194 59 34; /* = --vermilion */
+
+  --bg: rgb(var(--bg-rgb));
+  --accent: rgb(var(--accent-rgb));
+
+  /* 文字(本文 AA 4.5:1 以上は fg-1〜fg-3) */
+  --fg-1: rgb(var(--fg-rgb) / 1);      /* 15.1:1 見出し・本文・数値 */
+  --fg-2: rgb(var(--fg-rgb) / .74);    /*  6.8:1 補助の文、通常状態のUI文字 */
+  --fg-3: rgb(var(--fg-rgb) / .64);    /*  4.9:1 注記・キャプション・ラベル(これより薄い文字は使わない) */
+  --fg-off: rgb(var(--fg-rgb) / .38);  /*  2.3:1 無効状態のみ(WCAG 対象外) */
+
+  /* 線 */
+  --line-1: rgb(var(--fg-rgb) / .32);  /* 推移の折れ線、強い罫 */
+  --line-2: rgb(var(--fg-rgb) / .16);  /* 罫線(ヘアライン) */
+  --line-3: rgb(var(--fg-rgb) / .08);  /* 目盛りの補助 */
+
+  /* 面 */
+  --veil: rgb(var(--bg-rgb) / .88);        /* 図の上に載る文の下敷き */
+  --veil-solid: rgb(var(--bg-rgb) / .97);  /* ポップオーバー、表、ツールチップ */
+  --halo: rgb(var(--bg-rgb) / .92);        /* ラベルの縁取り */
+  --grain: .055;                           /* 紙の繊維(fg の不透明度) */
+  --mottle: .02;                          /* 紙のむら */
+
+  /* three.js に渡す値(CSS から getComputedStyle で読む) */
+  --gl-fg: #1C1B18;
+  --gl-accent: #C23B22;
+  --gl-arc-all: .10;        /* 全国表示の弧 */
+  --gl-arc-sel: .30;        /* 地域選択時の弧 */
+  --gl-arc-hover: .95;      /* ホバー中の弧(朱) */
+  --gl-particle: .60;       /* 粒子1粒の最大不透明度(全国) */
+  --gl-particle-sel: .75;   /* 粒子(地域選択時) */
+  --gl-line-width: .7;      /* 弧の線幅 CSS px(全国)。選択時は .8 */
+  --gl-particle-size: 2;    /* 粒子の径 CSS px。縦画面 1.8、選択時 2.2 */
+  --gl-ground: .30;         /* 地面(bg 色) */
+  --gl-border: .22;         /* 境界線(fg 色) */
+
+  --focus: var(--fg-1);
+  color-scheme: light;
+}
+
+/* ---- ダーク(ink) ---- */
+:root[data-theme="ink"] {
+  --bg-rgb: 28 27 24;
+  --fg-rgb: 243 240 232;
+  --accent-rgb: 229 96 63;
+  --fg-1: rgb(var(--fg-rgb) / .92);    /* 12.9:1 紙色そのままは眩しいので少し落とす */
+  --fg-2: rgb(var(--fg-rgb) / .70);    /*  8.0:1 */
+  --fg-3: rgb(var(--fg-rgb) / .58);    /*  5.9:1 */
+  --fg-off: rgb(var(--fg-rgb) / .34);
+  --line-1: rgb(var(--fg-rgb) / .30);
+  --line-2: rgb(var(--fg-rgb) / .15);
+  --line-3: rgb(var(--fg-rgb) / .07);
+  --grain: .045;
+  --mottle: .03;
+  --gl-fg: #F3F0E8;
+  --gl-accent: #E5603F;
+  --gl-arc-all: .085;       /* 明るい線は暗い地で太って見えるので 15% 落とす */
+  --gl-arc-sel: .26;
+  --gl-particle: .50;
+  --gl-particle-sel: .65;
+  --gl-ground: .35;
+  --gl-border: .20;
+  color-scheme: dark;
+}
+
+/* ---- 文字 ---- */
+:root {
+  --font-serif: "Source Serif 4", "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-sans: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif;
+
+  --fs-label: 11px;    /* 都道府県名、目盛り */
+  --fs-caption: 12px;  /* 注記、凡例、表 */
+  --fs-ui: 13px;       /* ボタン、選択、読み出しの見出し */
+  --fs-body: 15px;     /* 章の本文(和) */
+  --fs-body-en: 16px;  /* 章の本文(欧) */
+  --fs-h2: 22px;       /* 章の見出し */
+  --fs-num: 28px;      /* 読み出しの大きな数 */
+  --fs-title: 17px;    /* 作品名 */
+
+  --lh-tight: 1.3;
+  --lh-ui: 1.5;
+  --lh-body: 1.95;     /* 和文本文 */
+  --lh-body-en: 1.6;
+
+  --ls-body: .04em;    /* 和文本文 */
+  --ls-ui: .02em;
+  --ls-caps: .12em;    /* 章番号など英数の小見出し */
+
+  /* ---- 動き ---- */
+  --dur-1: 120ms;  /* ホバー、色の変化、ラベルの出入り */
+  --dur-2: 200ms;  /* 選択の移動、ポップオーバー */
+  --dur-3: 320ms;  /* 読み出しの数の入れ替わり、パネル */
+  --dur-cam: 1600ms; /* カメラの定位置の移動(JS 側) */
+  --dur-year: 600ms; /* 年の補間(JS 側) */
+  --ease-out: cubic-bezier(.2, 0, 0, 1);
+  --ease-inout: cubic-bezier(.65, 0, .35, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; --dur-cam: 0ms; --dur-year: 0ms; }
+}

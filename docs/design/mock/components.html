@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI部品の状態</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500&family=Noto+Serif+JP:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="mock.css">
+<style>
+  body { overflow: auto; height: auto; }
+  .sheet { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; }
+  .col { position: relative; padding: 32px 40px 48px; background: var(--bg); color: var(--fg-1); }
+  .col h3 { font-family: var(--font-sans); font-weight: 500; font-size: var(--fs-label); letter-spacing: var(--ls-caps); color: var(--fg-3); margin: 28px 0 10px; border-top: 1px solid var(--line-2); padding-top: 8px; }
+  .col h3:first-child { margin-top: 0; }
+  .states { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; align-items: end; }
+  .states .st { display: grid; gap: 6px; justify-items: start; }
+  .states .st small { font-size: 10.5px; color: var(--fg-3); letter-spacing: .04em; }
+  .static { position: static !important; }
+  /* 状態の見本 */
+  .is-hover { color: var(--fg-1) !important; }
+  .is-focus { outline: 1.5px solid var(--focus); outline-offset: 3px; border-radius: 1px; }
+  .is-off { color: var(--fg-off) !important; cursor: default; }
+  .is-off::after { display: none; }
+  /* ポップオーバー */
+  .pop { width: 520px; background: var(--veil-solid); border: 1px solid var(--line-2); padding: 14px 16px 16px; font-size: var(--fs-ui); }
+  .pop .grp { display: grid; grid-template-columns: 76px 1fr; gap: 4px 12px; padding: 6px 0; border-top: 1px solid var(--line-3); }
+  .pop .grp:first-child { border-top: 0; }
+  .pop .gname { font-size: var(--fs-label); color: var(--fg-3); padding-top: 3px; letter-spacing: .04em; }
+  .pop .opts { display: flex; flex-wrap: wrap; gap: 0 2px; }
+  .pop .opt { padding: 2px 5px; color: var(--fg-2); position: relative; }
+  .pop .opt.hover { color: var(--fg-1); text-decoration: underline; text-decoration-color: var(--line-1); text-underline-offset: 3px; }
+  .pop .opt.sel { color: var(--accent); }
+  .pop .opt.sel::before { content: ""; position: absolute; left: -1px; top: 50%; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%; background: var(--accent); }
+  .pop .opt.focus { outline: 1.5px solid var(--focus); outline-offset: 0; }
+  .pop .search { display: flex; justify-content: space-between; font-size: var(--fs-caption); color: var(--fg-3); border-bottom: 1px solid var(--line-1); padding: 0 0 6px; margin-bottom: 6px; }
+  /* ツールチップ */
+  .tip { display: inline-block; background: var(--veil-solid); border: 1px solid var(--line-2); padding: 8px 10px; font-size: var(--fs-caption); line-height: 1.5; min-width: 180px; }
+  .tip .route { color: var(--fg-1); font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .tip .route i { display: inline-block; width: 16px; height: 1.5px; background: var(--accent); }
+  .tip .v { font-family: var(--font-serif); font-size: 18px; font-variant-numeric: tabular-nums lining-nums; }
+  .tip .sub { color: var(--fg-3); }
+  /* 表 */
+  table.data { border-collapse: collapse; width: 100%; font-size: var(--fs-caption); font-variant-numeric: tabular-nums lining-nums; }
+  table.data th { font-weight: 400; color: var(--fg-3); text-align: right; padding: 4px 8px; border-bottom: 1px solid var(--line-1); white-space: nowrap; }
+  table.data th:first-child, table.data td:first-child { text-align: left; }
+  table.data th[aria-sort] { color: var(--fg-1); }
+  table.data td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--line-3); }
+  table.data tr.sel td:first-child { color: var(--accent); }
+  table.data tr.hover td { background: rgb(var(--fg-rgb) / .04); }
+  .labdemo { position: relative; height: 54px; background: linear-gradient(transparent 0 0); }
+  .labdemo .lab { position: absolute; top: 18px; }
+  .hatch { position: absolute; inset: 0; background: repeating-linear-gradient(60deg, var(--line-2) 0 1px, transparent 1px 5px), repeating-linear-gradient(-60deg, var(--line-2) 0 1px, transparent 1px 5px); opacity: .9; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <section class="col paper-l" id="L"></section>
+  <section class="col" id="D" data-theme-col="ink"></section>
+</div>
+<template id="T">
+  <h3>トグル(言語・テーマ) — 通常 / ホバー / フォーカス / 選択中 / 無効</h3>
+  <div class="states">
+    <div class="st"><span class="toggle"><button>EN</button></span><small>通常 fg-3</small></div>
+    <div class="st"><span class="toggle"><button class="is-hover">EN</button></span><small>ホバー fg-1</small></div>
+    <div class="st"><span class="toggle"><button class="is-focus">EN</button></span><small>フォーカス 輪郭</small></div>
+    <div class="st"><span class="toggle"><button aria-pressed="true">EN</button></span><small>選択中 fg-1+下線</small></div>
+    <div class="st"><span class="toggle"><button class="is-off">EN</button></span><small>無効 fg-off</small></div>
+  </div>
+
+  <h3>カメラの定位置</h3>
+  <div class="states camera static" style="display:grid">
+    <div class="st"><button><svg viewBox="0 0 28 16"><path d="M1 14L7 9H27L21 14Z"/><path d="M6 12C10 2 17 2 21 11"/></svg><span class="lbl">斜め</span></button><small>通常 fg-2</small></div>
+    <div class="st"><button class="is-hover"><svg viewBox="0 0 28 16"><path d="M1 14L7 9H27L21 14Z"/><path d="M6 12C10 2 17 2 21 11"/></svg><span class="lbl">斜め</span></button><small>ホバー fg-1</small></div>
+    <div class="st"><button class="is-focus"><svg viewBox="0 0 28 16"><path d="M1 14L7 9H27L21 14Z"/><path d="M6 12C10 2 17 2 21 11"/></svg><span class="lbl">斜め</span></button><small>フォーカス</small></div>
+    <div class="st"><button aria-pressed="true"><svg viewBox="0 0 28 16"><path d="M1 14L7 9H27L21 14Z"/><path d="M6 12C10 2 17 2 21 11"/></svg><span class="lbl">斜め</span></button><small>選択中</small></div>
+    <div class="st"><button class="is-off"><svg viewBox="0 0 28 16"><path d="M1 14L7 9H27L21 14Z"/><path d="M6 12C10 2 17 2 21 11"/></svg><span class="lbl">斜め</span></button><small>無効</small></div>
+  </div>
+
+  <h3>年 — 2014 選択中、2020 ホバー、キーボードのフォーカス</h3>
+  <div class="tl-slot"></div>
+
+  <h3>地域の選択(読み出しの見出しから開く)</h3>
+  <div class="states" style="grid-template-columns:repeat(3,auto);justify-content:start;gap:28px">
+    <div class="st"><button class="which" style="font-size:13px;color:var(--fg-2);border-bottom:1px solid var(--line-2)">全国 <svg class="chev" viewBox="0 0 8 8" style="width:8px;height:8px;stroke:currentColor;fill:none"><path d="M1 2.5L4 5.5L7 2.5"/></svg></button><small>未選択</small></div>
+    <div class="st"><button class="is-focus" style="font-size:13px;color:var(--fg-1);border-bottom:1px solid var(--fg-1)">全国 <svg viewBox="0 0 8 8" style="width:8px;height:8px;stroke:currentColor;fill:none"><path d="M1 2.5L4 5.5L7 2.5"/></svg></button><small>フォーカス</small></div>
+    <div class="st"><button style="font-family:var(--font-serif);font-weight:600;font-size:20px;letter-spacing:.08em;color:var(--accent);border-bottom:1px solid var(--accent)">東京圏 <svg viewBox="0 0 8 8" style="width:8px;height:8px;stroke:currentColor;fill:none"><path d="M1 2.5L4 5.5L7 2.5"/></svg></button><small>選択中(朱)</small></div>
+  </div>
+  <div class="pop" role="listbox" style="margin-top:12px">
+    <div class="search"><span>地域を選ぶ — 文字を打つと絞り込み</span><span>Esc 閉じる</span></div>
+    <div class="grp"><span class="gname">全国</span><div class="opts"><span class="opt">全国</span></div></div>
+    <div class="grp"><span class="gname">三大都市圏</span><div class="opts"><span class="opt sel">&nbsp;東京圏</span><span class="opt">名古屋圏</span><span class="opt">大阪圏</span></div></div>
+    <div class="grp"><span class="gname">北海道・東北</span><div class="opts"><span class="opt">北海道</span><span class="opt">青森</span><span class="opt">岩手</span><span class="opt hover">宮城</span><span class="opt">秋田</span><span class="opt">山形</span><span class="opt">福島</span></div></div>
+    <div class="grp"><span class="gname">関東</span><div class="opts"><span class="opt">茨城</span><span class="opt">栃木</span><span class="opt focus">群馬</span><span class="opt">埼玉</span><span class="opt">千葉</span><span class="opt">東京</span><span class="opt">神奈川</span></div></div>
+    <div class="grp"><span class="gname">中部</span><div class="opts"><span class="opt">新潟</span><span class="opt">富山</span><span class="opt">石川</span><span class="opt">福井</span><span class="opt">山梨</span><span class="opt">長野</span><span class="opt">岐阜</span><span class="opt">静岡</span><span class="opt">愛知</span></div></div>
+    <div class="grp"><span class="gname">近畿</span><div class="opts"><span class="opt">三重</span><span class="opt">滋賀</span><span class="opt">京都</span><span class="opt">大阪</span><span class="opt">兵庫</span><span class="opt">奈良</span><span class="opt">和歌山</span></div></div>
+    <div class="grp"><span class="gname">中国・四国</span><div class="opts"><span class="opt">鳥取</span><span class="opt">島根</span><span class="opt">岡山</span><span class="opt">広島</span><span class="opt">山口</span><span class="opt">徳島</span><span class="opt">香川</span><span class="opt">愛媛</span><span class="opt">高知</span></div></div>
+    <div class="grp"><span class="gname">九州・沖縄</span><div class="opts"><span class="opt">福岡</span><span class="opt">佐賀</span><span class="opt">長崎</span><span class="opt">熊本</span><span class="opt">大分</span><span class="opt">宮崎</span><span class="opt">鹿児島</span><span class="opt">沖縄</span></div></div>
+  </div>
+
+  <h3>ツールチップ — 弧のホバー / 都道府県のホバー</h3>
+  <div style="display:flex;gap:16px;align-items:flex-start">
+    <div class="tip"><div class="route"><i></i>大阪 → 東京圏</div><div class="v">12,345<span class="unit" style="font-family:var(--font-sans);font-size:12px;color:var(--fg-3)"> 人</span></div><div class="sub">2014年 · 逆向き 9,870人</div></div>
+    <div class="tip"><div class="route">宮城</div><div class="sub">転入 <span class="num" style="color:var(--fg-1)">28,410</span> · 転出 <span class="num" style="color:var(--fg-1)">27,996</span><br>差引 <span class="num" style="color:var(--fg-1)">+414</span> · クリックで選ぶ</div></div>
+  </div>
+
+  <h3>都道府県名のラベル — 索引 / 強調 / 選択中 / 相手先 / 弧の上(縁取り)</h3>
+  <div class="labdemo"><div class="hatch" style="left:62%"></div>
+    <span class="lab axis-h" style="left:0">茨城</span>
+    <span class="lab em" style="left:16%">東京</span>
+    <span class="lab sel group" style="left:31%">東京圏</span>
+    <span class="lab partner" style="left:50%">大阪</span>
+    <span class="lab partner" style="left:70%">愛知</span>
+    <span class="lab" style="left:84%">鹿児島</span>
+  </div>
+
+  <h3>数値の表(抜粋)</h3>
+  <table class="data">
+    <thead><tr><th>都道府県</th><th>転入</th><th>転出</th><th aria-sort="descending">差引 ↓</th></tr></thead>
+    <tbody>
+      <tr class="sel"><td>東京都</td><td>412,345</td><td>338,012</td><td>+74,333</td></tr>
+      <tr class="hover"><td>埼玉県</td><td>178,220</td><td>162,431</td><td>+15,789</td></tr>
+      <tr><td>神奈川県</td><td>190,005</td><td>176,520</td><td>+13,485</td></tr>
+      <tr><td>北海道</td><td>48,120</td><td>56,700</td><td>−8,580</td></tr>
+    </tbody>
+  </table>
+</template>
+<script>
+  const t = document.getElementById('T');
+  for (const id of ['L', 'D']) document.getElementById(id).appendChild(t.content.cloneNode(true));
+  // dark column: scope the ink theme by copying the variables
+  const D = document.getElementById('D');
+  const vars = { '--bg-rgb': '28 27 24', '--fg-rgb': '243 240 232', '--accent-rgb': '229 96 63', '--fg-1': 'rgb(243 240 232 / .92)', '--fg-2': 'rgb(243 240 232 / .70)', '--fg-3': 'rgb(243 240 232 / .58)', '--fg-off': 'rgb(243 240 232 / .34)', '--line-1': 'rgb(243 240 232 / .30)', '--line-2': 'rgb(243 240 232 / .15)', '--line-3': 'rgb(243 240 232 / .07)', '--focus': 'rgb(243 240 232 / .92)' };
+  for (const [k, v] of Object.entries(vars)) D.style.setProperty(k, v);
+  for (const k of ['--bg', '--accent', '--veil', '--veil-solid', '--halo']) D.style.setProperty(k, getComputedStyle(document.documentElement).getPropertyValue(k).includes('var') ? '' : '');
+  D.style.setProperty('--bg', 'rgb(28 27 24)'); D.style.setProperty('--accent', 'rgb(229 96 63)');
+  D.style.setProperty('--veil-solid', 'rgb(28 27 24 / .97)'); D.style.setProperty('--halo', 'rgb(28 27 24 / .92)');
+  // timeline sample
+  const YEARS = [...Array(14)].map((_, i) => 2012 + i);
+  const S = [2.247, 2.236, 2.2597, 2.281, 2.262, 2.270, 2.296, 2.301, 2.214, 2.172, 2.218, 2.231, 2.244, 2.236];
+  function tl(w) {
+    const h = 30, lo = Math.min(...S), hi = Math.max(...S), pad = (hi - lo) * .15, cw = w / 14;
+    const x = i => cw * (i + .5), y = v => h - 2 - (v - lo + pad) / (hi - lo + 2 * pad) * (h - 6);
+    let s = `<svg width="${w}" height="${h + 16}" viewBox="0 -16 ${w} ${h + 16}" style="overflow:visible">`;
+    s += `<line x1="${x(2)}" x2="${x(2)}" y1="${y(S[2]) + 4}" y2="${h}" stroke="var(--line-2)"/>`;
+    s += `<polyline points="${S.map((v, i) => x(i) + ',' + y(v)).join(' ')}" fill="none" stroke="var(--line-1)"/>`;
+    S.forEach((v, i) => { if (i !== 2) s += `<circle cx="${x(i)}" cy="${y(v)}" r="1.6" fill="var(--fg-3)"/>`; });
+    s += `<circle cx="${x(2)}" cy="${y(S[2])}" r="3" fill="var(--fg-1)"/>`;
+    s += `<circle cx="${x(8)}" cy="${y(S[8])}" r="3" fill="none" stroke="var(--fg-1)"/>`;
+    s += `<text x="${x(8)}" y="${y(S[8]) - 8}" text-anchor="middle" font-size="11" fill="var(--fg-1)" style="font-variant-numeric:tabular-nums">2,214,000</text>`;
+    s += '</svg>';
+    const yrs = YEARS.map((yv, i) => `<div class="yr num${i === 2 ? ' on' : ''}${i === 8 ? ' hov' : ''}">${yv}</div>`).join('');
+    return `<div class="timeline static is-focus" style="width:${w}px;outline-offset:6px"><div class="cap"><span>都道府県間の移動者数</span><span class="num">2014年 2,259,688人</span></div>${s}<div class="years">${yrs}</div></div>`;
+  }
+  document.querySelectorAll('.tl-slot').forEach(e => e.innerHTML = tl(560));
+</script>
+</body>
+</html>

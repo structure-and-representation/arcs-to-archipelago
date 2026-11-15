@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>弧が列島になる — mock</title>
+<!-- フォント: 接続を先に開き、CSS は描画を止めないように読む。題字だけは text= で数KBの部分集合を先に読む -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@600&text=%E5%BC%A7%E3%81%8C%E5%88%97%E5%B3%B6%E3%81%AB%E3%81%AA%E3%82%8B&display=block">
+<link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500&family=Noto+Serif+JP:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="mock.css">
+<script src="data.js"></script>
+</head>
+<body class="paper">
+<div class="stage" id="stage"></div>
+<div class="labels" id="labels"></div>
+<div id="ui"></div>
+<script>
+const q = new URLSearchParams(location.search);
+const DEV = q.get('dev') || 'desktop', THEME = q.get('theme') || 'light', STATE = q.get('state') || 'side', LANG = q.get('lang') || 'ja';
+const M = DEV === 'mobile';
+document.documentElement.lang = LANG;
+if (THEME === 'dark') document.documentElement.dataset.theme = 'ink';
+if (M) document.body.classList.add('m');
+const ja = LANG === 'ja';
+const T = (j, e) => ja ? j : e;
+const SEL = STATE === 'tokyo' ? [10, 11, 12, 13] : [];
+const fmt = n => n.toLocaleString('en-US');
+const YEARS = [...Array(14)].map((_, i) => 2012 + i);
+const CUR = 2014, HOV = q.get('hover') ? +q.get('hover') : null;
+// PLACEHOLDER series for the mock (not real values except 2014 which matches the prototype data)
+const TOTAL = [2.247, 2.236, 2.2597, 2.281, 2.262, 2.270, 2.296, 2.301, 2.214, 2.172, 2.218, 2.231, 2.244, 2.236].map(v => v * 1e6);
+const NET = [67, 97, 109.4, 119, 118, 120, 136, 146, 99, 80, 99, 115, 120, 118].map(v => v * 1e3);
+
+// ---------- 3D layer (prototype render) ----------
+const key = (M ? 'm-' : 'd-') + (STATE === 'tokyo' ? 'obl' : 'side') + '-' + (THEME === 'dark' ? 'dark' : 'light');
+const OFF = { 'd-side': [200, -12], 'd-obl': [178, 30], 'm-side': [-25, -40], 'm-obl': [-10, -40] }[key.slice(0, key.lastIndexOf('-'))];
+const stage = document.getElementById('stage');
+const img = new Image(); img.className = 'layer'; img.src = 'layers/' + key + '.png';
+let xf;
+if (M) { // landscape render rotated 90deg clockwise: north (Hokkaido) on top
+  img.style.transform = `translate(${390 + OFF[0]}px, ${OFF[1]}px) rotate(90deg)`;
+  xf = ([x, y]) => [390 - y + OFF[0], x + OFF[1]];
+} else {
+  img.style.transform = `translate(${OFF[0]}px, ${OFF[1]}px)`;
+  xf = ([x, y]) => [x + OFF[0], y + OFF[1]];
+}
+stage.appendChild(img);
+const P = MOCK.nodes[key].map(xf);
+P.forEach((p, i) => { const d = document.createElement('div'); d.className = 'node' + (SEL.includes(i) ? ' sel' : ''); d.style.left = p[0] + 'px'; d.style.top = p[1] + 'px'; stage.appendChild(d); });
+
+// ---------- icons ----------
+const ICON = {
+  side: '<svg viewBox="0 0 28 16"><path d="M1 8H27"/><path d="M4 8C9 1 19 1 24 8"/><path d="M4 8C9 15 19 15 24 8" stroke-dasharray="1.5 1.5"/></svg>',
+  oblique: '<svg viewBox="0 0 28 16"><path d="M1 14L7 9H27L21 14Z"/><path d="M6 12C10 2 17 2 21 11"/></svg>',
+  top: '<svg viewBox="0 0 28 16"><rect x="4.5" y="1.5" width="19" height="13"/><path d="M19 4L15 7L11 9.5L8 12" stroke-dasharray="1.2 1.6"/></svg>',
+  chev: '<svg class="chev" viewBox="0 0 8 8"><path d="M1 2.5L4 5.5L7 2.5"/></svg>'
+};
+
+// ---------- sparkline ----------
+function spark(w, h) {
+  const sel = SEL.length > 0, S = sel ? NET : TOTAL;
+  const lo = sel ? 0 : Math.min(...S), hi = Math.max(...S);
+  const pad = sel ? 0 : (hi - lo) * .15;
+  const y = v => h - 2 - (v - (lo - pad)) / ((hi + pad) - (lo - pad)) * (h - 6);
+  const cw = w / 14, x = i => cw * (i + .5);
+  const pts = S.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const ci = YEARS.indexOf(CUR);
+  let s = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">`;
+  if (sel) s += `<line x1="0" x2="${w}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line-2)"/>`;
+  s += `<line x1="${x(ci)}" x2="${x(ci)}" y1="${y(S[ci]) + 4}" y2="${h}" stroke="var(--line-2)"/>`;
+  s += `<polyline points="${pts}" fill="none" stroke="var(--line-1)" stroke-width="1"/>`;
+  S.forEach((v, i) => { if (i !== ci) s += `<circle cx="${x(i)}" cy="${y(v)}" r="1.6" fill="var(--fg-3)"/>`; });
+  s += `<circle cx="${x(ci)}" cy="${y(S[ci])}" r="3" fill="var(--fg-1)"/>`;
+  if (HOV) { const hi2 = YEARS.indexOf(HOV); s += `<circle cx="${x(hi2)}" cy="${y(S[hi2])}" r="3" fill="none" stroke="var(--fg-1)"/>`; }
+  return s + '</svg>';
+}
+function timeline() {
+  const sel = SEL.length > 0;
+  const w = M ? 358 : 658, h = M ? 22 : 30;
+  const cap = M ? '' : `<div class="cap"><span>${sel ? T('東京圏の転入超過', 'Tokyo area net in-migration') : T('都道府県間の移動者数', 'Movers between prefectures')}</span><span class="num">${sel ? '' : ''}</span></div>`;
+  const yrs = YEARS.map(y => `<div class="yr num${y === CUR ? ' on' : ''}${y === HOV ? ' hov' : ''}" ${y === CUR ? 'aria-current="true"' : ''}>${M ? String(y).slice(2) : y}</div>`).join('');
+  return `<div class="ui timeline" role="slider" aria-label="${T('年', 'Year')}" aria-valuemin="2012" aria-valuemax="2025" aria-valuenow="${CUR}" tabindex="0">${cap}${spark(w, h)}<div class="years">${yrs}</div></div>`;
+}
+function camera() {
+  const cur = STATE === 'tokyo' ? 'oblique' : 'side';
+  const L = { side: T('真横', 'Side'), oblique: T('斜め', 'Oblique'), top: T('真上', 'Top') };
+  return `<div class="ui camera" role="group" aria-label="${T('視点', 'View')}">` + ['side', 'oblique', 'top'].map(k =>
+    `<button aria-pressed="${k === cur}">${ICON[k]}<span class="lbl">${L[k]}</span></button>`).join('') + '</div>';
+}
+function legend() {
+  const sel = SEL.length > 0;
+  const dot = '<span class="dot"></span>';
+  const a = `<span class="item">${dot}${T('1粒 = 100人', '1 grain = 100 people')}</span>`;
+  const b = sel
+    ? `<span class="item"><svg width="16" height="10" viewBox="0 0 16 10"><path d="M0 5H16"/><path d="M2 5C5 0 11 0 14 5"/></svg>${T('地上 転入', 'Above: in')}</span><span class="item"><svg width="16" height="10" viewBox="0 0 16 10"><path d="M0 5H16"/><path d="M2 5C5 10 11 10 14 5" stroke-dasharray="1.5 1.5"/></svg>${T('地下 転出', 'Below: out')}</span>`
+    : `<span class="item"><svg width="16" height="10" viewBox="0 0 16 10"><path d="M0 5H16"/><path d="M2 5C5 0 11 0 14 5"/></svg>${T('上 北へ', 'Above: north')}</span><span class="item"><svg width="16" height="10" viewBox="0 0 16 10"><path d="M0 5H16"/><path d="M2 5C5 10 11 10 14 5" stroke-dasharray="1.5 1.5"/></svg>${T('下 南へ', 'Below: south')}</span>`;
+  if (M) { const side = STATE !== 'tokyo';
+    const dirs = side ? `<span>${T('右 北へ向かう移動', 'Right: moving north')}</span><span>${T('左 南へ向かう移動', 'Left: moving south')}</span>` : `<span>${T('地上 転入', 'Above: in')}</span><span>${T('地下 転出', 'Below: out')}</span>`;
+    return [`<div class="ui legend"><div class="row">${a}</div></div>`, `<div class="ui annot">${dirs}</div>`]; }
+  const note = M ? '' : `<div class="note">${T('出典 総務省統計局「住民基本台帳人口移動報告」日本人移動者。弧の線の濃さは量を表しません。量は粒の数で読みます。', 'Source: Statistics Bureau of Japan, Report on Internal Migration (Japanese nationals). Line darkness does not encode volume; count the grains.')}</div>`;
+  return `<div class="ui legend"><div class="row">${a}${b}</div>${note}</div>`;
+}
+function readout() {
+  if (M) {
+    if (SEL.length) return `<div class="r1"><button class="which sel">${T('東京圏', 'Tokyo area')}${ICON.chev}</button><span class="vals num">${T('転入', 'In')}<b>${ja ? '46.9万' : '469k'}</b>${T('転出', 'Out')}<b>${ja ? '35.9万' : '359k'}</b>${T('差引', 'Net')}<b class="lg">${ja ? '+10.9万' : '+109k'}</b></span></div>`;
+    return `<div class="r1"><button class="which">${T('全国', 'All Japan')}${ICON.chev}</button><span class="vals num">${CUR}${T('年 移動者', ' movers')}<b class="lg">2,259,688</b>${T('人', '')}</span></div>`;
+  }
+  if (SEL.length) return `<div class="ui readout">
+    <button class="which sel" aria-haspopup="listbox">${T('東京圏', 'Tokyo area')}${ICON.chev}</button>
+    <div class="cap">${T(CUR + '年 · 圏外との移動', 'Moves with outside the area, ' + CUR)}</div>
+    <dl class="num">
+      <dt><span>${T('転入', 'In')}</span></dt><dd>468,576<span class="unit">${T('人', '')}</span></dd>
+      <dt><span>${T('転出', 'Out')}</span></dt><dd>359,168<span class="unit">${T('人', '')}</span></dd>
+      <dt class="net"><span>${T('差引', 'Net')}</span></dt><dd class="net">+109,408<span class="unit">${T('人', '')}</span></dd>
+    </dl>
+    <button class="clear">${T('全国に戻る', 'Back to all Japan')}</button></div>`;
+  return `<div class="ui readout">
+    <button class="which" aria-haspopup="listbox">${T('全国', 'All Japan')}${ICON.chev}</button>
+    <div class="big num">2,259,688<small>${T('人', 'people')}</small></div>
+    <div class="cap">${T(CUR + '年 · 都道府県の境を越えた移動者', 'moved between prefectures in ' + CUR)}</div></div>`;
+}
+const CH = ['全国', '東京一極', '大阪圏', '名古屋圏', '自由探索'], CHE = ['Japan', 'Tokyo', 'Osaka', 'Nagoya', 'Explore'];
+const ci = STATE === 'tokyo' ? 1 : 0;
+function toc() {
+  if (M) return `<div class="ui progress">${CH.map((_, i) => `<i class="${i === ci ? 'on' : ''}"></i>`).join('')}<span>0${ci + 1} ${T(CH[ci], CHE[ci])}</span></div>`;
+  return `<nav class="ui toc" aria-label="${T('章', 'Chapters')}"><ol>${CH.map((c, i) => `<li ${i === ci ? 'aria-current="step"' : ''}><span class="n">0${i + 1}</span><span>${T(c, CHE[i])}</span></li>`).join('')}</ol></nav>`;
+}
+function chapter() {
+  const C = STATE === 'tokyo' ? {
+    k: T('02 — 東京一極', '02 — Tokyo'),
+    h: T('東京圏へ、四方から', 'Into Tokyo, from every direction'),
+    p: T('埼玉・千葉・東京・神奈川を一つの地域として選ぶと、東京圏に入る流れは地面の上に、出ていく流れは地面の下に描かれます。この年、東京圏への転入は転出を約11万人上回りました。',
+         'Take Saitama, Chiba, Tokyo and Kanagawa as one region. Moves into the Tokyo area rise above the ground; moves out hang below it. This year, arrivals outnumbered departures by about 110,000.')
+  } : {
+    k: T('01 — 全国', '01 — Japan'),
+    h: T('年に二百万人あまりが、県境を越える', 'Two million moves across prefectural lines'),
+    p: T('北海道から沖縄まで、47の都道府県を北から南へ一列に並べました。二つの県を結ぶ弧の一本一本が、その間の引っ越しです。弧に沿って流れる点は、一粒が100人。' + (M ? '右側は北へ、左側は南へ' : '線より上は北へ、下は南へ') + '向かう人の流れです。',
+         'The 47 prefectures are lined up from Hokkaido in the north to Okinawa in the south. Each arc joins two prefectures; each grain flowing along it is 100 people. ' + (M ? 'Right of the line, people moving north; left of it, people moving south.' : 'Above the line, people moving north; below it, people moving south.'))
+  };
+  const top = M ? (STATE === 'tokyo' ? 452 : 446) : (STATE === 'tokyo' ? 330 : 310);
+  return `<section class="ui chapter" style="top:${top}px"><p class="kicker">${C.k}</p><h2>${C.h}</h2><p>${C.p}</p></section>`;
+}
+function header() {
+  const tools = M
+    ? `<div class="tools"><button class="tbtn">${T('表', 'Table')}</button><button class="tbtn">${T('EN', '日本語')}</button><button class="tbtn">${THEME === 'dark' ? T('紙', 'Light') : T('墨', 'Dark')}</button></div>`
+    : `<div class="tools"><button class="link">${T('数値の表', 'Data table')}</button>
+       <span class="toggle" role="group" aria-label="${T('言語', 'Language')}"><button aria-pressed="${ja}">日本語</button><span class="sep">/</span><button aria-pressed="${!ja}">EN</button></span>
+       <span class="toggle" role="group" aria-label="${T('表示', 'Theme')}"><button aria-pressed="${THEME !== 'dark'}">${T('紙', 'Paper')}</button><span class="sep">/</span><button aria-pressed="${THEME === 'dark'}">${T('墨', 'Ink')}</button></span></div>`;
+  return `<header class="ui hdr"><div class="title"><h1>${T('弧が列島になる', 'Arcs Become an Archipelago')}</h1><p>${T('都道府県間の人口移動 2012–2025', 'Migration between Japan’s prefectures, 2012–2025')}</p></div>${tools}</header>`;
+}
+const ui = document.getElementById('ui');
+ui.innerHTML = header() + toc() + chapter() + (M ? `<div class="ui dock">${readout()}${timeline()}<div class="r3">${camera()}${legend()[0]}</div></div>${legend()[1]}` : readout() + timeline() + camera() + legend());
+
+// ---------- labels ----------
+const labels = document.getElementById('labels');
+const NAME = i => ja ? MOCK.ja[i] : MOCK.en[i];
+function addLab(i, cls, x, y, text) { const d = document.createElement('div'); d.className = 'lab ' + cls; d.textContent = text || NAME(i); d.style.left = x + 'px'; d.style.top = y + 'px'; labels.appendChild(d); return d; }
+function placeLabels(){
+labels.innerHTML='';
+const rectsOverlap = (a, b, pad = 3) => !(a.right + pad < b.left || b.right + pad < a.left || a.bottom + pad < b.top || b.bottom + pad < a.top);
+if (STATE === 'side') {
+  if (!M) { // 縦書きの索引: レンズの下
+    const lineY = P[0][1];
+    P.forEach((p, i) => addLab(i, 'axis-v' + (SEL.includes(i) ? ' sel' : ''), p[0], lineY + 132));
+  } else { // 縦画面: レンズの右に横書き
+    const lineX = P[0][0];
+    P.forEach((p, i) => { if (innerHeight < 700 && i % 2 && !SEL.includes(i)) return; /* 高さ700px未満は1つおき(北海道から数えて偶数番目を残す) */ const d = addLab(i, 'axis-h', lineX + 98, p[1]); d.style.transform = 'translateY(-50%)'; });
+  }
+} else { // 斜め俯瞰: 優先度つき貪欲配置
+  const partners = [26, 22, 7, 0, 21, 39, 27, 3, 8, 9];
+  const pop = [12, 13, 10, 26, 11, 22, 39, 27, 25, 21, 0, 3, 7, 33, 8, 42, 32, 45, 6, 23, 9, 19, 20, 41, 28, 24, 14, 46];
+  const order = [['g', 'sel group'], ...partners.slice(0, 6).map(i => [i, 'partner']), [46, ''], [45, '']];
+  const cen = SEL.reduce((a, i) => [a[0] + P[i][0] / SEL.length, a[1] + P[i][1] / SEL.length], [0, 0]);
+  const excl = [...document.querySelectorAll('.ui')].map(e => e.getBoundingClientRect());
+  const placed = [];
+  const cand = [[7, -0.5], [-7, -0.5], [0, -11], [0, 10], [-12, -14], [12, -14]]; // E, W, N, S (dx px, dy as fraction / px)
+  for (const [i, cls] of order) {
+    const [x, y] = i === 'g' ? cen : P[i];
+    for (const [dx, dy] of (i === 'g' ? [[-16, -20], [16, -20], ...cand] : cand)) {
+      const d = addLab(i, cls, 0, 0, i === 'g' ? T('東京圏', 'Tokyo area') : null); const r0 = d.getBoundingClientRect();
+      let L = dx > 0 ? x + dx : dx < 0 ? x + dx - r0.width : x - r0.width / 2;
+      let Tp = dy === -0.5 ? y - r0.height / 2 : y + dy - (dy < 0 ? r0.height / 2 : 0);
+      d.style.left = L + 'px'; d.style.top = Tp + 'px';
+      const r = d.getBoundingClientRect();
+      const hitsNode = P.some((p, j) => (i === 'g' || j !== i) && p[0] > r.left - 2 && p[0] < r.right + 2 && p[1] > r.top - 2 && p[1] < r.bottom + 2 && SEL.includes(j));
+      if (placed.some(o => rectsOverlap(o, r)) || excl.some(o => rectsOverlap(o, r, 6)) || hitsNode || r.left < 8 || r.right > innerWidth - 8) { d.remove(); continue; }
+      placed.push(r); break;
+    }
+  }
+}
+}
+window.placeLabels = placeLabels;
+placeLabels();
+document.fonts.ready.then(placeLabels);
+window.MOCK_READY = true;
+</script>
+</body>
+</html>
