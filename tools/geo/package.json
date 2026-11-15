@@ -1,0 +1,16 @@
+{
+  "name": "arcs-to-archipelago-geo-tools",
+  "private": true,
+  "type": "module",
+  "description": "都道府県の境界データと代表点データの生成・検証ツール",
+  "scripts": {
+    "build": "node build_geo.mjs",
+    "verify": "node verify_geo.mjs",
+    "preview": "node render_preview.mjs"
+  },
+  "dependencies": {
+    "mapshaper": "0.7.101",
+    "proj4": "2.19.10",
+    "topojson-client": "3.1.0"
+  }
+}
