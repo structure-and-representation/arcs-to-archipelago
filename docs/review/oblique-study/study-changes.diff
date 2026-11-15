@@ -1,0 +1,73 @@
+--- /dev/fd/63	2026-11-15 12:11:21.543444416 +0000
++++ /tmp/claude-0/-home-user/eb10e208-1ede-56b5-bfaa-91a18a149f17/scratchpad/oblique-study/src/src/scene/camera.js	2026-11-15 12:03:39.949480814 +0000
+@@ -235,7 +235,9 @@
+  */
+ export function viewFor(preset, aspect, layout, opts = {}) {
+   const name = isCameraName(preset) ? preset : 'side';
+-  const p = CAMERA_PRESETS[name];
++  // 検討用: globalThis.__studyPresets[name] で定位置の値を上書きする
++  const ov = opts.override ?? globalThis.__studyPresets?.[name];
++  const p = ov ? { ...CAMERA_PRESETS[name], ...ov } : CAMERA_PRESETS[name];
+   // size を省略したときは、高さ 900px の画面として扱う(幅は aspect から決まる)
+   const size = opts.size ?? [aspect * 900, 900];
+   const [W, H] = size;
+@@ -243,10 +245,10 @@
+   const selectedNow = name !== 'side' && selectedIndices(opts.selection).length > 0;
+   const region = presetRegion(name, opts.region ?? { x0: 0, y0: 0, x1: W, y1: H }, portrait, !!opts.region, selectedNow);
+ 
+-  const azimuth = p.azimuth ?? topAzimuth(layout.northAngle);
+-  const roll = name !== 'top' && portrait ? Math.PI / 2 : 0;
++  const azimuth = p.azFromNorth != null ? topAzimuth(layout.northAngle) + p.azFromNorth : p.azimuth ?? topAzimuth(layout.northAngle);
++  const roll = p.portraitRoll != null && portrait ? p.portraitRoll : name !== 'top' && portrait ? Math.PI / 2 : 0;
+   const sel = name === 'side' ? [] : selectedIndices(opts.selection);
+-  const tilt = sel.length && name === 'oblique' ? SELECTION_OBLIQUE : null;
++  const tilt = sel.length && name === 'oblique' ? (p.sel === null ? null : p.sel ?? SELECTION_OBLIQUE) : null;
+   const elevation = tilt ? tilt.elevation : p.elevation;
+   const lean = tilt ? tilt.lean : p.lean;
+   const { right, up } = screenAxes(azimuth, elevation, roll);
+@@ -266,7 +268,7 @@
+   // (正投影のまま拡大するので、量の比は崩れない)。そのうえで、選択地域を領域の内側に置く
+   if (sel.length) {
+     // 真上は全体を見渡す視点なので、すべての相手先を収める。斜め俯瞰は主要な相手先(opts.partners)だけを収める
+-    const wanted = name === 'top' ? Array.from({ length: 47 }, (_, i) => i) : opts.partners ?? [];
++    const wanted = name === 'top' || p.fitAll ? Array.from({ length: 47 }, (_, i) => i) : opts.partners ?? [];
+     const partners = wanted.filter((i) => Number.isInteger(i) && i >= 0 && i < 47 && !sel.includes(i));
+     const P = cloud.nodes;
+     const pts = [];
+@@ -286,7 +288,7 @@
+     const fw = Math.max(fe.rMax - fe.rMin, 1e-6), fh = Math.max(fe.uMax - fe.uMin, 1e-6);
+     const focusFit = Math.min((rw0 * (1 - 2 * FIT_MARGIN)) / fw, (rh0 * (1 - 2 * FIT_MARGIN)) / fh);
+     // 全体を収める拡大率より少し引いてもよい(真上では、倒した弧が全体の枠より外へ広がるため)
+-    scale = clamp(focusFit, fit * SELECTION_ZOOM_MIN, fit * SELECTION_ZOOM);
++    scale = p.fitAll ? Math.min(focusFit, fit * SELECTION_ZOOM) : clamp(focusFit, fit * SELECTION_ZOOM_MIN, fit * SELECTION_ZOOM);
+     // 収める対象の中心を領域の中心に置く
+     const fc = [(fe.rMin + fe.rMax) / 2, (fe.uMin + fe.uMax) / 2];
+     target = [target[0] - (fc[0] - rc) * scale, target[1] + (fc[1] - uc) * scale];
+--- /dev/fd/63	2026-11-15 12:11:21.547141336 +0000
++++ /tmp/claude-0/-home-user/eb10e208-1ede-56b5-bfaa-91a18a149f17/scratchpad/oblique-study/src/src/scene/cameraRig.js	2026-11-15 11:30:29.449579408 +0000
+@@ -27,6 +27,7 @@
+   const user = { dAz: 0, dEl: 0, zoom: 1 };
+ 
+   const baseView = () => {
++    if (globalThis.__forceView) return globalThis.__forceView;
+     const { width, height } = renderer.getState();
+     const s = store.get();
+     return viewFor(s.camera, width / height, renderer.layout, viewOptions(width, height, s.selection, partners?.(s.selection)));
+--- /dev/fd/63	2026-11-15 12:11:21.550543373 +0000
++++ /tmp/claude-0/-home-user/eb10e208-1ede-56b5-bfaa-91a18a149f17/scratchpad/oblique-study/src/src/main.js	2026-11-15 11:30:29.449843122 +0000
+@@ -17,6 +17,7 @@
+ import { mainPartners } from './data/stats.js';
+ import { createRenderer } from './scene/renderer.js';
+ import { createCameraRig } from './scene/cameraRig.js';
++import * as __cameraMod from './scene/camera.js';
+ import { createFallback } from './scene/fallback2d.js';
+ import { createPicker } from './scene/picking.js';
+ import { createYearTween, parseDuration, YEAR_SECONDS } from './scene/yearTween.js';
+@@ -214,6 +215,7 @@
+   raf = requestAnimationFrame(frame);
+ 
+   // 撮影・デバッグ用の取っ手
++  window.__study = { camera: __cameraMod, partners };
+   window.__app = { store, renderer, data, picker, rig, years,
+     /** 次のフレームを描いてから描画ループを止める(撮影用。止めた後も最後の画は残る)。 */
+     pause() {
