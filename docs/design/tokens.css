@@ -32,7 +32,7 @@
   --veil: rgb(var(--bg-rgb) / .88);        /* 図の上に載る文の下敷き */
   --veil-solid: rgb(var(--bg-rgb) / .97);  /* ポップオーバー、表、ツールチップ */
   --halo: rgb(var(--bg-rgb) / .92);        /* ラベルの縁取り */
-  --grain: .075;                           /* 紙の繊維と地のノイズ(fg の不透明度。base.css の body::before) */
+  --grain: .065;                           /* 紙の繊維と地のノイズ(fg の不透明度。base.css の body::before) */
   --mottle: .04;                           /* 紙の漉きむらと雲肌(body::after) */
 
   /* three.js に渡す値(CSS から getComputedStyle で読む) */
@@ -64,8 +64,8 @@
   --line-1: rgb(var(--fg-rgb) / .30);
   --line-2: rgb(var(--fg-rgb) / .15);
   --line-3: rgb(var(--fg-rgb) / .07);
-  --grain: .06;
-  --mottle: .045;
+  --grain: .05;
+  --mottle: .03;  /* 暗い地ではむらが目立つので、紙より弱める */
   --gl-fg: #F3F0E8;
   --gl-accent: #E5603F;
   --gl-arc-all: .06;        /* 明るい線は暗い地で太って見えるので落とす(本州の芯が白く飽和しない値) */

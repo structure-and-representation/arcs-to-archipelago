@@ -28,22 +28,15 @@ for (let i = 0; i < args.length; i++) {
 }
 if (!opt.before) throw new Error('--before <dist> を指定してください');
 
-// 比べる場面。clip は CSS px(撮影は DPR 2 で、質感が潰れない大きさで見る)
+// 比べる場面。全体は DPR 1、細部(clip、CSS px)は DPR 2 で、質感が潰れない大きさで見る
 const SCENES = [
-  // 紙の地と文字(章の本文と地の繊維・むら)
-  { name: 'paper', query: 'ch=0&cam=oblique', size: [1440, 900], clip: [0, 330, 720, 330] },
-  // 陸地のむらと、にじんだ海岸線(九州〜中国)
-  { name: 'land', query: 'sel=tokyo&cam=top', size: [1440, 900], clip: [520, 380, 520, 380] },
-  // 弧の入りと抜き、かすれ(真横)
-  { name: 'arcs-side', query: 'ch=0&cam=side', size: [1440, 900], clip: [420, 250, 560, 330] },
-  // 地上の実線と地下の破線(選択時の斜め)
-  { name: 'arcs-oblique', query: 'sel=tokyo&cam=oblique', size: [1440, 900], clip: [430, 330, 560, 320] },
-  // 粒子(全国の斜め、本州の芯)
-  { name: 'particles', query: 'ch=0&cam=oblique', size: [1440, 900], clip: [940, 400, 300, 200] },
-  // 朱(選択地域の点、ラベル、読み出し)
-  { name: 'accent', query: 'sel=osaka&cam=top', size: [1440, 900], clip: [880, 90, 520, 300] },
-  // 文字と罫線(読み出しと年の切り替え)
-  { name: 'rules', query: 'sel=tokyo&cam=oblique', size: [1440, 900], clip: [1150, 90, 270, 250] },
+  { name: 'c1-side', query: 'ch=0&cam=side', size: [1440, 900] },
+  { name: 'tokyo-oblique', query: 'sel=tokyo&cam=oblique', size: [1440, 900] },
+  { name: 'osaka-top', query: 'sel=osaka&cam=top', size: [1440, 900] },
+  // 細部(DPR 2 の切り抜き): 紙の地と本文、陸地のにじみ、朱の印
+  { name: 'detail-paper', query: 'ch=0&cam=oblique', size: [1440, 900], clip: [0, 330, 560, 330], dpr: 2 },
+  { name: 'detail-land', query: 'sel=tokyo&cam=top', size: [1440, 900], clip: [520, 380, 420, 300], dpr: 2 },
+  { name: 'detail-accent', query: 'sel=osaka&cam=top', size: [1440, 900], clip: [1100, 90, 300, 120], dpr: 2 },
 ];
 const THEMES = ['paper', 'ink'];
 
@@ -57,7 +50,7 @@ const browser = await chromium.launch({
 
 async function shoot(which, scene, theme) {
   const [w, h] = scene.size;
-  const context = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2 });
+  const context = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: scene.dpr ?? 1 });
   const page = await context.newPage();
   page.on('console', (m) => { if (m.type() === 'error') console.error(`[${which} ${scene.name} ${theme}] ${m.text().slice(0, 400)}`); });
   page.on('pageerror', (e) => console.error(`[${which} ${scene.name} ${theme}] ${e.message}`));
@@ -68,6 +61,7 @@ async function shoot(which, scene, theme) {
     await page.evaluate(() => document.fonts?.ready);
     await page.waitForTimeout(500);
     await page.evaluate(() => window.__app?.pause?.());
+    if (!scene.clip) return await page.screenshot();
     const [x, y, cw, ch] = scene.clip;
     return await page.screenshot({ clip: { x, y, width: cw, height: ch } });
   } finally {
