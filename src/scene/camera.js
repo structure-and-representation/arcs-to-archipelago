@@ -51,6 +51,10 @@ export const SELECTION_COMFORT = 0.18;
 export const DESKTOP_FIGURE_TOP = 250;
 /** デスクトップで地域を選んでいるとき、右の読み出しの列(幅 300 + 右の余白 40 + 間 24)を図の領域から外す幅。 */
 export const DESKTOP_READOUT_COLUMN = 324;
+/** 読み出しの列を外すと図が細くなりすぎる幅(CSS px)。これより狭いデスクトップでは、列を外さず、図を読み出しの下へ下げる。 */
+export const DESKTOP_WIDE = 1280;
+/** 地域を選んでいるときの読み出しの下端(CSS px。「全国に戻る」の下)。幅の狭いデスクトップは、斜め俯瞰と真上の図をここより下に置く。 */
+export const DESKTOP_READOUT_BOTTOM = 340;
 export const PORTRAIT_FIGURE_TOP = 118;
 /**
  * 縦画面では、上の帯の下(y 72)からドックの上(高さ − 180)までを、図(上)と本文のカード(下)で分け合う。
@@ -224,6 +228,34 @@ function extent(points, right, up) {
   return { rMin, rMax, uMin, uMax };
 }
 
+/** extent の結果 a、b を合わせた範囲。 */
+function mergeExtent(a, b) {
+  return { rMin: Math.min(a.rMin, b.rMin), rMax: Math.max(a.rMax, b.rMax), uMin: Math.min(a.uMin, b.uMin), uMax: Math.max(a.uMax, b.uMax) };
+}
+
+/** 陸地の面が現れ始める morph と、現れきる morph(scene/ground.js の APPEAR と同じ)。 */
+const LAND_FROM = 0.6;
+const LAND_TO = 1.0;
+
+/**
+ * 陸地の外形(layout.landHull、地理配置のワールド座標)の点群 [x, 0, z, ...]。縦画面で、陸地の面が領域の外へ切れないよう、
+ * 図の範囲に加える。面が現れる前(morph が小さいとき)は、点を都道府県の重心へ寄せて範囲に効かせない
+ * (遷移の途中で範囲が跳ばないよう、面の現れ方と同じ速さで外へ広げる)。
+ */
+function landCloud(layout, nodes, morph) {
+  const hull = layout.landHull;
+  if (!hull?.length) return null;
+  const t = Math.min(1, Math.max(0, (morph - LAND_FROM) / (LAND_TO - LAND_FROM)));
+  const w = t * t * (3 - 2 * t);
+  if (w <= 0) return null;
+  let cx = 0, cz = 0;
+  for (const [x, z] of nodes) { cx += x; cz += z; }
+  cx /= nodes.length; cz /= nodes.length;
+  const out = new Float64Array(hull.length * 3);
+  hull.forEach(([x, z], i) => { out[i * 3] = cx + (x - cx) * w; out[i * 3 + 2] = cz + (z - cz) * w; });
+  return out;
+}
+
 /** 選択している都道府県の添字。 */
 function selectedIndices(selection) {
   if (!selection) return [];
@@ -245,19 +277,22 @@ function slide(lo, hi, cLo, cHi) {
  * 定位置ごとに、図を収める領域を整える(docs/design/spec.md 4 節)。
  *  縦画面の真横: 右に都道府県名の索引の余白を空ける。
  *  斜め俯瞰と真上: デスクトップでは読み出しの下端より下、縦画面では図の向きの注記(2 行)より下に収める。
- *  デスクトップで地域を選んでいるとき(斜め俯瞰と真上): 読み出しが縦に伸びるので、右の読み出しの列を外し、
- *  上端は上の帯の下(y 96)のままにする。図・相手先・弧が読み出しの文字の下を通らないようにするため。
+ *  デスクトップで地域を選んでいるとき(斜め俯瞰と真上): 読み出しが縦に伸びるので、幅 1280px 以上では右の読み出しの列を外し、
+ *  上端は上の帯の下(y 96)のままにする。幅 1280px 未満は列を外すと図が細くなるので、列は外さず、上端を読み出しの下端
+ *  (DESKTOP_READOUT_BOTTOM)まで下げる。どちらも、図・相手先・弧が読み出しの文字の下を通らないようにするため。
  * fromLayout は region が画面の構成(figureRegion)から来たか(省略して画面いっぱいのときは上端を変えない)。
  */
 export function presetRegion(preset, region, portrait, fromLayout = true, selected = false) {
   let r = region;
   // 縦画面の真横は回さずに横長の並びを描き、並びの下に縦書きの索引を出すので、下を空ける
   if (portrait && preset === 'side' && fromLayout) r = { ...r, y1: Math.max(r.y0 + 80, r.y1 - PORTRAIT_INDEX_GUTTER) };
-  if (preset !== 'side' && fromLayout && selected && !portrait && r.x1 - DESKTOP_READOUT_COLUMN - r.x0 >= 300) {
+  const wide = r.x1 + 40 >= DESKTOP_WIDE; // 右の余白 40px を足すと画面の幅
+  if (preset !== 'side' && fromLayout && selected && !portrait && wide && r.x1 - DESKTOP_READOUT_COLUMN - r.x0 >= 300) {
     return { ...r, x1: r.x1 - DESKTOP_READOUT_COLUMN };
   }
   if (preset !== 'side' && fromLayout) {
-    const top = portrait ? PORTRAIT_FIGURE_TOP : DESKTOP_FIGURE_TOP;
+    const narrowSelected = selected && !portrait && !wide;
+    const top = portrait ? PORTRAIT_FIGURE_TOP : narrowSelected ? DESKTOP_READOUT_BOTTOM : DESKTOP_FIGURE_TOP;
     if (r.y1 - top >= (portrait ? 120 : 200)) r = { ...r, y0: Math.max(r.y0, top) };
   }
   return r;
@@ -270,11 +305,13 @@ export function presetRegion(preset, region, portrait, fromLayout = true, select
  *  選択あり: 47 都道府県と、選択地域とすべての相手先の間の地上・地下の弧を収める(相手先を画面の外へ出さない)。
  *    全体を収める拡大率の SELECTION_ZOOM_MIN〜SELECTION_ZOOM 倍の範囲で、そのうえで選択地域を領域の内側に寄せる。
  */
-function frameFigure(layout, v, region, size, sel) {
+function frameFigure(layout, v, region, size, sel, land = false) {
   const [, H] = size;
   const { right, up } = screenAxes(v.azimuth, v.elevation, v.roll);
   const cloud = figureCloud(layout, v.morph, v.lean);
-  const ext = extent(cloud.points, right, up);
+  const hull = land ? landCloud(layout, cloud.nodes, v.morph) : null;
+  let ext = extent(cloud.points, right, up);
+  if (hull) ext = mergeExtent(ext, extent(hull, right, up));
   const rc = (ext.rMin + ext.rMax) / 2, uc = (ext.uMin + ext.uMax) / 2;
   const rw = Math.max(ext.rMax - ext.rMin, 1e-6), uh = Math.max(ext.uMax - ext.uMin, 1e-6);
   const rw0 = region.x1 - region.x0, rh0 = region.y1 - region.y0;
@@ -299,7 +336,8 @@ function frameFigure(layout, v, region, size, sel) {
         }
       }
     }
-    const fe = extent(pts, right, up);
+    let fe = extent(pts, right, up);
+    if (hull) fe = mergeExtent(fe, extent(hull, right, up));
     const fw = Math.max(fe.rMax - fe.rMin, 1e-6), fh = Math.max(fe.uMax - fe.uMin, 1e-6);
     const focusFit = Math.min((rw0 * (1 - 2 * FIT_MARGIN)) / fw, (rh0 * (1 - 2 * FIT_MARGIN)) / fh);
     scale = clamp(focusFit, fit * SELECTION_ZOOM_MIN, fit * SELECTION_ZOOM);
@@ -350,8 +388,8 @@ export function viewFor(preset, aspect, layout, opts = {}) {
   const elevation = tilt ? tilt.elevation : p.elevation;
   const lean = tilt ? tilt.lean : p.lean;
   const v = { azimuth, elevation, roll, morph: p.morph, lean };
-  const f = frameFigure(layout, v, region, size, sel);
-  return { ...v, zoom: f.zoom, center: f.center, anchor: f.anchor, target: f.target, size, fit: { region, sel } };
+  const f = frameFigure(layout, v, region, size, sel, portrait);
+  return { ...v, zoom: f.zoom, center: f.center, anchor: f.anchor, target: f.target, size, fit: { region, sel, land: portrait } };
 }
 
 /**
@@ -459,7 +497,7 @@ const frameCache = new WeakMap();
 function frameOf(layout, v) {
   let f = frameCache.get(v);
   if (!f) {
-    f = frameFigure(layout, v, v.fit.region, v.size, v.fit.sel);
+    f = frameFigure(layout, v, v.fit.region, v.size, v.fit.sel, v.fit.land);
     frameCache.set(v, f);
   }
   return f;
@@ -488,7 +526,8 @@ export function tween(a, b, s, layout = null, ease = null) {
     const size = b.size;
     const region = lerpRect(a.fit.region, b.fit.region, c.rest);
     const sel = b.fit.sel;
-    const f = frameFigure(layout, out, region, size, sel);
+    const land = b.fit.land;
+    const f = frameFigure(layout, out, region, size, sel, land);
     // 端の視点が、収めた図からどれだけ拡大・移動しているか(定位置そのものなら 1 倍・0px)
     const fa = frameOf(layout, a), fb = frameOf(layout, b);
     const pa = projectPoint(a, fa.anchor, a.size), pb = projectPoint(b, fb.anchor, b.size);
@@ -498,7 +537,7 @@ export function tween(a, b, s, layout = null, ease = null) {
     out.anchor = f.anchor;
     out.target = [f.target[0] + lerp(da[0], db[0], c.rest), f.target[1] + lerp(da[1], db[1], c.rest)];
     out.size = size;
-    out.fit = { region, sel };
+    out.fit = { region, sel, land };
     const { right, up } = screenAxes(azimuth, elevation, roll);
     out.center = centerFor(out.anchor, out.target, size, out.zoom, right, up);
   } else if (a.anchor && b.anchor && a.target && b.target && b.size) {

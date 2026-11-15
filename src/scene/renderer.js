@@ -7,7 +7,7 @@ import { nodePos } from '../geometry/layout.js';
 import { arcList } from '../geometry/flows.js';
 import { createArcsLayer } from './arcs.js';
 import { createParticlesLayer } from './particles.js';
-import { createGroundLayer } from './ground.js';
+import { createGroundLayer, landHull } from './ground.js';
 
 const MAX_DPR = 2;
 
@@ -67,6 +67,7 @@ export function createRenderer(canvas, data) {
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -5000, 5000);
 
   const shared = createShared(data);
+  shared.layout.landHull = landHull(data.topology, shared.layout.toWorld); // カメラが陸地の面まで収めるための凸包
   const { uniforms, layout } = shared;
   const line = layout.line;
 

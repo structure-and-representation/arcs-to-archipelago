@@ -174,7 +174,7 @@ table.data tbody tr:hover > * { background: rgb(var(--fg-rgb) / .04); }
 /* 選択中の行: 都道府県名(圏の名前)を朱にする。相手先の行の上に、罫を強めて分ける */
 table.data tbody.table-summary th,
 table.data tbody.table-summary td { border-bottom-color: var(--line-1); }
-table.data tr.sel th.name { color: var(--accent); font-weight: 500; }
+table.data tr.is-current th.name { color: var(--accent); font-weight: 500; }
 
 .pref-btn {
   display: block;

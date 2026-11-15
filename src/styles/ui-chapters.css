@@ -19,7 +19,8 @@
 .toc a {
   position: relative;
   display: grid;
-  grid-template-columns: 22px 1fr;
+  grid-template-columns: 22px auto;
+  width: fit-content; /* フォーカスの輪郭を、列の幅いっぱいではなく文字の幅に合わせる */
   color: var(--fg-3);
   text-decoration: none;
   pointer-events: auto;
@@ -38,7 +39,7 @@
    デスクトップ: カードは画面に固定し、章の section はスクロールの長さだけを作る。章が変わるときは、前のカードが先に消え
    (--dur-1)、次のカードが続けて現れる(--dur-1 の遅れで --dur-3)ので、2 枚が同時に見える瞬間がない。
    カードの下端の位置(画面の下端から)は、左下の凡例(高さ約 100px + 上のぼかし 48px)の上。 */
-#chapters { --card-bottom: 244px; }
+:root { --card-bottom: 244px; } /* 章の本文と、スクロールの手がかり(ui-hints.css)が読む */
 .chapter {
   --scene-h: 70vh;
   position: relative;
@@ -137,7 +138,7 @@
 
 /* ---- 高さの低い画面(1024×768 など): 本文を小さくして、目次の下から凡例の上までに収める ---- */
 @media (min-width: 1024px) and (max-height: 860px) {
-  #chapters { --card-bottom: 196px; }
+  :root { --card-bottom: 196px; }
   .chapter-card .kicker { margin-bottom: 8px; }
   .chapter-card h2 { font-size: 20px; margin-bottom: 12px; }
   :root:lang(en) .chapter-card h2 { font-size: 21px; }
@@ -187,10 +188,12 @@
     overflow: hidden;
     /* カードは指を受けない(ページのスクロールに任せる) */
     pointer-events: none;
-    /* 上端と下端をぼかす(本文が流れるとき、行が途中で切れて見えないように) */
-    -webkit-mask-image: linear-gradient(180deg, transparent, #000 10px, #000 calc(100% - 20px), transparent);
-            mask-image: linear-gradient(180deg, transparent, #000 10px, #000 calc(100% - 20px), transparent);
-    padding-top: 10px;
+    /* 上端と下端をぼかす(本文が流れるとき、行が途中で切れて見えないように)。上端のぼかしは、本文が上へ流れた量(--flow)に
+       合わせて 1px 〜 40px に広げる(流れていないときは、章の先頭の行をぼかさない) */
+    --fade-top: min(40px, max(1px, calc(var(--flow, 0px) * -1)));
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--fade-top), #000 calc(100% - 20px), transparent);
+            mask-image: linear-gradient(180deg, transparent, #000 var(--fade-top), #000 calc(100% - 20px), transparent);
+    padding-top: 12px;
   }
   .chapter-card > * { transform: translateY(var(--flow, 0px)); }
   .chapter-card::before { display: none; }

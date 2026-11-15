@@ -141,7 +141,7 @@ export function mount(host, store, ctx) {
     // 選択地域の行(相手先すべての合計)。名前は朱
     summaryBody.replaceChildren();
     if (model.summary) {
-      const tr = el(doc, 'tr', { class: 'sel', 'aria-current': 'true' });
+      const tr = el(doc, 'tr', { class: 'is-current', 'aria-current': 'true' });
       tr.append(cell('th', model.summary.name, 'name'));
       numberCells(tr, model.summary);
       summaryBody.append(tr);
