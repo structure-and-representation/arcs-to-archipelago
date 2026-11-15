@@ -251,6 +251,7 @@ export function createRenderer(canvas, data) {
       nodeMat.dispose();
       shared.dispose();
       gl.dispose();
+      gl.forceContextLoss(); // WebGL の文脈をすぐに解放する(撮影で続けてページを開くときに溜めない)
     },
   };
   api.resize();

@@ -228,7 +228,18 @@ async function main() {
   raf = requestAnimationFrame(frame);
 
   // 撮影・デバッグ用の取っ手
-  window.__app = { store, renderer, data, picker, rig, years, dispose() {
+  window.__app = { store, renderer, data, picker, rig, years,
+    /** 次のフレームを描いてから描画ループを止める(撮影用。止めた後も最後の画は残る)。 */
+    pause() {
+      return new Promise((done) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          running = false;
+          cancelAnimationFrame(raf);
+          done();
+        }));
+      });
+    },
+    dispose() {
     running = false;
     cancelAnimationFrame(raf);
     ro.disconnect();
