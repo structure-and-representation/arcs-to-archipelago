@@ -3,6 +3,7 @@ import { STEP, CX } from './constants.js';
 
 const HOKKAIDO = 0;
 const KAGOSHIMA = 45;
+const LINE_LENGTH = 46 * STEP; // 一直線の配置の長さ(北海道〜沖縄県)
 
 /** 一直線の配置。都道府県 i を (i * STEP - CX, 0) に置く。原作と同じ並び。 */
 export function lineLayout() {
@@ -13,8 +14,8 @@ export function lineLayout() {
  * 地理配置。
  * 地図座標(km、x 東、y 北)を、回転と拡大縮小でワールド座標 [x, z] へ移す。
  *  - 北海道 → 鹿児島の向きを +x 軸に重ねる(回転のみ。鏡像にしない)。
- *  - 北海道〜鹿児島の x 方向の広がりを 46 * STEP に合わせ、北海道を x = -CX に置く。
- *    沖縄は同じ変換で実位置に置く(あてはめには使わない)。
+ *  - 47 点全体の x 方向の広がりを 46 * STEP(一直線の長さ)に合わせ、x の最小値が -CX、最大値が CX になるようにする。
+ *    変形の前後でカメラの拡大率を変えずに済む。沖縄は同じ変換で実位置に置く。
  *  - z は 47 点の範囲の中央が 0 になるようにする。
  *
  * 戻り値:
@@ -38,8 +39,9 @@ export function geoLayout(prefectures) {
   const s = Math.sin(-ang);
   const rotate = (x, z) => [x * c - z * s, x * s + z * c];
   const rot = mid.map(([x, z]) => rotate(x, z));
-  const scale = (46 * STEP) / (rot[KAGOSHIMA][0] - rot[HOKKAIDO][0]);
-  const x0 = rot[HOKKAIDO][0];
+  const xsRot = rot.map((p) => p[0]);
+  const x0 = Math.min(...xsRot);
+  const scale = LINE_LENGTH / (Math.max(...xsRot) - x0);
   const zs = rot.map((p) => p[1]);
   const zc = (Math.min(...zs) + Math.max(...zs)) / 2;
 

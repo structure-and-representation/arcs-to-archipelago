@@ -21,9 +21,18 @@ describe('geoLayout', () => {
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
 
-  it('北海道〜鹿児島の x 方向の広がりが 46 * STEP で、北海道は一直線の先頭と同じ x', () => {
-    expect(geo.pos[IDX.kagoshima][0] - geo.pos[IDX.sapporo][0]).toBeCloseTo(46 * STEP, 6);
-    expect(geo.pos[IDX.sapporo][0]).toBeCloseTo(-CX, 6);
+  it('47 点全体の x 方向の広がりが 46 * STEP で、最小が -CX、最大が CX(一直線の両端と同じ幅)', () => {
+    const { minX, maxX } = geo.bounds;
+    expect(maxX - minX).toBeCloseTo(46 * STEP, 6);
+    expect(minX).toBeCloseTo(-CX, 6);
+    expect(maxX).toBeCloseTo(CX, 6);
+    expect(geo.pos.map((p) => p[0]).reduce((a, b) => Math.min(a, b))).toBeCloseTo(-CX, 6);
+  });
+
+  it('北海道から鹿児島へ向かう向きが +x 軸(z の差は 0)', () => {
+    const d = sub(geo.pos[IDX.kagoshima], geo.pos[IDX.sapporo]);
+    expect(d[0]).toBeGreaterThan(0);
+    expect(d[1]).toBeCloseTo(0, 6);
   });
 
   it('z の範囲は 0 を中心にしている', () => {
