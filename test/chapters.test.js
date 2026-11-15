@@ -107,3 +107,46 @@ describe('sceneToPatch', () => {
     expect(p.selection).not.toBe(CHAPTERS[1].steps[0].selection);
   });
 });
+
+describe('initialScene(URL の引数 → はじめの章と場面)', async () => {
+  const { initialScene, EXPLORE } = await import('../src/ui/chapters.js');
+  const { parseParams } = await import('../src/params.js');
+  const scene = (q) => initialScene(parseParams(q).patch);
+  const tokyo = { type: 'metro', id: 'tokyo' };
+
+  it('引数がなければ開幕(0 章の最初の場面: 2014 年、真横)', () => {
+    expect(scene('')).toEqual({ chapter: 0, step: 0, patch: { chapter: 0, year: 2014, selection: null, camera: 'side', morph: 0 } });
+  });
+
+  it('ch だけなら、その章の最初の場面の年・選択・カメラ', () => {
+    expect(scene('?ch=1')).toMatchObject({ chapter: 1, step: 0, patch: { year: 2019, selection: tokyo, camera: 'oblique', morph: 1 } });
+    expect(scene('?ch=3').patch).toMatchObject({ year: 2012, selection: { type: 'metro', id: 'nagoya' } });
+  });
+
+  it('ch と一緒に sel / cam / year があれば、そちらを優先する', () => {
+    const s = scene('?ch=1&year=2014&cam=top');
+    expect(s.chapter).toBe(1);
+    expect(s.patch).toMatchObject({ year: 2014, selection: tokyo, camera: 'top' });
+    expect(scene('?ch=2&sel=13').patch.selection).toEqual({ type: 'pref', code: 13 });
+  });
+
+  it('ch がなければ、URL の値に合う場面の章を選ぶ(本文と画面が矛盾しない)', () => {
+    expect(scene('?sel=tokyo')).toMatchObject({ chapter: 1, step: 0 });
+    expect(scene('?sel=tokyo&year=2021&cam=oblique')).toMatchObject({ chapter: 1, step: 1, patch: { year: 2021 } });
+    expect(scene('?sel=osaka&year=2023')).toMatchObject({ chapter: 2, step: 1 });
+    expect(scene('?year=2014')).toMatchObject({ chapter: 0, step: 0 });
+    expect(scene('?cam=oblique&year=2025')).toMatchObject({ chapter: 0, step: 2 });
+  });
+
+  it('合う場面がなければ自由探索の章にし、URL にない値は自由探索の場面の値にする', () => {
+    const s = scene('?sel=13&cam=oblique');
+    expect(s.chapter).toBe(EXPLORE);
+    expect(s.patch).toMatchObject({ chapter: EXPLORE, selection: { type: 'pref', code: 13 }, camera: 'oblique', year: 2025 });
+    expect(scene('?cam=top').chapter).toBe(EXPLORE);
+  });
+
+  it('morph は URL になければカメラの定位置の値、あればその値', () => {
+    expect(scene('?cam=top').patch.morph).toBe(1);
+    expect(scene('?cam=side&morph=0.5').patch.morph).toBe(0.5);
+  });
+});

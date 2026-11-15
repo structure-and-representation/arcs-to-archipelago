@@ -11,7 +11,7 @@ import './styles/ui-tooltip.css';
 import './styles/ui-table.css';
 import { loadData } from './data/loader.js';
 import { createStore } from './state.js';
-import { applyParams, syncUrl } from './params.js';
+import { parseParams, syncUrl } from './params.js';
 import { applyStatic, setLang, t } from './i18n.js';
 import { selectionMask } from './geometry/flows.js';
 import { mainPartners } from './data/stats.js';
@@ -48,7 +48,10 @@ async function main() {
     lang: navigator.language?.startsWith('en') ? 'en' : 'ja',
     reducedMotion: motionQuery.matches,
   });
-  const still = applyParams(store, search);
+  // URL の引数と、はじめの章・場面(ui/chapters.js の initialScene)。カメラの配線を作る前に書く
+  const { patch: urlPatch, still } = parseParams(search);
+  const scene = chapters.initialScene(urlPatch);
+  store.set({ ...urlPatch, ...scene.patch, chapter: scene.chapter });
   const cleanups = []; // dispose で外す登録(イベント、購読)
   const listen = (target, type, fn, opts) => {
     target.addEventListener?.(type, fn, opts);
@@ -129,7 +132,7 @@ async function main() {
   cleanups.push(syncUrl(store, { still }));
 
   // UI 部品
-  const ctx = { data, renderer, picker, onFrame };
+  const ctx = { data, renderer, picker, onFrame, initialScene: scene };
   const mounts = [
     [labels, 'labels'],
     [timeline, 'timeline'],
