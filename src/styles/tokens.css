@@ -144,7 +144,7 @@
   --z-pop: 60;         /* ポップオーバー、ツールチップ、表のダイアログ */
   --z-message: 70;
 }
-@media (max-aspect-ratio: 1/1) {
+@media (max-width: 1023.98px) {
   :root {
     --gutter: 16px;
     --header-h: 52px;

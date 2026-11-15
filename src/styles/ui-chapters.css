@@ -158,7 +158,7 @@
 .footnote p::before { inset: -40px -56px -40px -40px; }
 
 /* ---- 縦画面: 左右 16px のカード。上下 40px の下敷き、ドックの下へ潜る ---- */
-@media (max-aspect-ratio: 1/1) {
+@media (max-width: 1023.98px) {
   .toc { display: none; }
 
   .progress {

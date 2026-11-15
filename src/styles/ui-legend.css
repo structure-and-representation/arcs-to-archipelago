@@ -51,7 +51,7 @@
 }
 .legend-note a:hover { color: var(--fg-1); }
 
-@media (max-aspect-ratio: 1/1) {
+@media (max-width: 1023.98px) {
   #app #legend { display: contents; }
   #legend::before { display: none; }
 

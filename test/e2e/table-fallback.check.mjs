@@ -159,7 +159,7 @@ for (const [size, tag] of [['1440x900', '1440x900'], ['390x844', '390x844']]) {
 
 // ---- 2. 数値の表(WebGL あり) ----
 async function openTable(page) {
-  await page.click('#table > summary');
+  await page.click('#controls .ctl-table');
   await page.waitForSelector('dialog.table-dialog[open]');
   await page.waitForTimeout(200);
 }
@@ -258,7 +258,7 @@ for (const theme of ['paper', 'ink']) {
   ok(after.sel?.type === 'pref' && after.sel.code === 27 && !after.open, `行を押すと大阪府を選んで閉じる ${JSON.stringify(after)}`);
   ok(after.focus === 'SUMMARY', '閉じたら、開いたボタンへフォーカスが戻る');
   // Esc で閉じて、フォーカスが戻る
-  await page.focus('#table > summary');
+  await page.focus('#controls .ctl-table');
   await page.keyboard.press('Enter');
   await page.waitForSelector('dialog.table-dialog[open]');
   await page.keyboard.press('Tab');
@@ -280,7 +280,7 @@ for (const theme of ['paper', 'ink']) {
   await page.keyboard.press('Escape');
   ok(await page.evaluate(() => document.activeElement.className === 'fallback-open'), '閉じると案内のボタンへフォーカスが戻る');
   await openTable(page);
-  ok((await page.evaluate(() => document.querySelectorAll('tbody.table-rows tr').length)) === 47, '概要の summary からも開く');
+  ok((await page.evaluate(() => document.querySelectorAll('tbody.table-rows tr').length)) === 47, '上の帯の「数値の表」から開く');
   ok(problems.length === 0, `コンソールにエラーがない ${problems.join(' | ')}`);
   await shot(page, 'fallback-table-open-1440x900.png');
   await page.close();

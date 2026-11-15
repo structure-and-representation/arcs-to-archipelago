@@ -1,12 +1,6 @@
 /* カメラ・言語・テーマ・数値の表(ui/controls.js)。デザイン仕様 5.1、5.7 節。 */
-:root { --dock-h: 154px; } /* 縦画面のドックの高さ。読み出し、年、カメラがこの中に積まれる */
-
+/* #controls は画面全体を覆う透明な入れ物(位置と重なり順は base.css)。ドックの地と高さ(--dock-h)は base.css と tokens.css */
 #controls {
-  position: fixed;
-  z-index: 4;
-  inset: 0;
-  display: block;
-  pointer-events: none; /* 子のボタンだけを押せるようにする(図の操作を妨げない) */
   font-family: var(--font-sans);
   font-size: var(--fs-caption);
   line-height: var(--lh-ui);
@@ -111,28 +105,6 @@
 
 /* ---- 縦画面(幅 1024px 未満) ---- */
 @media (max-width: 1023.98px) {
-  /* ドックの地。読み出し(selector)と年(timeline)はこの上に、それぞれの要素が置かれる */
-  #controls::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: var(--dock-h);
-    background: var(--veil-solid);
-    pointer-events: none;
-  }
-  #controls::after {
-    content: "";
-    position: absolute;
-    left: 16px;
-    right: 16px;
-    bottom: calc(var(--dock-h) - 1px);
-    height: 1px;
-    background: var(--line-2);
-    pointer-events: none;
-  }
-
   /* 上の帯(高さ 52px): 「表」「EN」「墨」。言語とテーマは、選ばれていないほうだけを出す(押すと切り替わる) */
   .ctl-tools { right: 16px; height: 52px; gap: 6px; }
   .ctl-long { display: none; }
@@ -153,7 +125,7 @@
   .ctl-sep { display: none; }
 
   /* ドックの3段目の左: カメラ */
-  .ctl-camera { left: 16px; right: auto; bottom: 10px; gap: 0; }
+  .ctl-camera { left: 16px; right: auto; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); gap: 0; }
   .ctl-cam { min-width: 48px; min-height: 44px; padding: 4px 6px 8px; gap: 3px; }
   .ctl-cam svg { width: 22px; height: 12px; }
   .ctl-lbl { font-size: 11px; }

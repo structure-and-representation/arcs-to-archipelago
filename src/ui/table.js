@@ -4,7 +4,7 @@
 //
 // `<dialog>` を showModal() で開く。開き方:
 //   - [data-open-table] を持つ要素(上の帯の「数値の表」、代替表示の案内のボタン)を押す
-//   - el が <details>(骨格の仮の置き場)のときは、その <summary> を押す
+//   - 上の帯の「数値の表」(ui/controls.js)が el へ送る CustomEvent('table:open', { detail: { opener } })
 //   - 戻り値の open(opener) を呼ぶ
 // 選択なしのときは 47 都道府県の転入・転出・差引、選択ありのときは選択地域から見た相手先ごとの
 // 転入(相手先 → 選択地域)・転出(選択地域 → 相手先)・差引を出す。
@@ -101,9 +101,7 @@ export function mount(host, store, ctx) {
   heading.id = `table-heading-${++instances}`;
   dlg.setAttribute('aria-labelledby', heading.id);
 
-  // el が <details>(骨格の仮の置き場)のときは、閉じたままの details の中に置くと表示されないので body に置く
-  const dialogParent = host.tagName === 'DETAILS' ? doc.body : host;
-  dialogParent.append(dlg);
+  host.append(dlg);
 
   // --- 描画 ---
   const cell = (tag, text, cls) => el(doc, tag, cls ? { class: cls, text } : { text });
@@ -223,15 +221,12 @@ export function mount(host, store, ctx) {
   };
   doc.addEventListener('click', onDocClick);
 
-  let summary = null;
-  const onSummary = (e) => {
+  // 上の帯の「数値の表」から(ui/controls.js が送る)
+  const onOpenEvent = (e) => {
     e.preventDefault();
-    open(summary);
+    open(e.detail?.opener);
   };
-  if (host.tagName === 'DETAILS') {
-    summary = host.querySelector('summary');
-    summary?.addEventListener('click', onSummary);
-  }
+  host.addEventListener('table:open', onOpenEvent);
 
   // --- 状態への追従 ---
   const off = store.subscribe((_s, changed) => {
@@ -246,7 +241,7 @@ export function mount(host, store, ctx) {
     dispose() {
       off();
       doc.removeEventListener('click', onDocClick);
-      summary?.removeEventListener('click', onSummary);
+      host.removeEventListener('table:open', onOpenEvent);
       if (dlg.open) dlg.close();
       dlg.remove();
     },

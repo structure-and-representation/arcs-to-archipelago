@@ -123,19 +123,14 @@ body::after {
   white-space: nowrap;
 }
 :root:lang(en) .masthead-title h1 { letter-spacing: .01em; }
-/* 操作の部品。上の帯の右側の領域(高さは上の帯と同じ。中の配置は ui-controls.css)。
-   カメラの 3 つのボタンなど、別の場所に置く部品は、中で position: fixed を使う
-   (この要素は transform などを持たないので、固定位置は画面が基準。縦画面のドックの 3 段目の左は bottom: calc(14px + env(safe-area-inset-bottom)) あたり) */
+/* 操作の部品。画面全体を覆う透明な入れ物で、中の部品(上の帯の右の操作、右下・ドックの 3 段目のカメラ)を
+   ui-controls.css が画面を基準に置く。入れ物は押せず、中のボタンだけが押せる(図の操作を妨げない) */
 #app #controls {
   position: fixed;
   z-index: var(--z-controls);
-  top: 0;
-  right: var(--gutter);
-  left: auto;
-  bottom: auto;
-  height: var(--header-h);
-  display: flex;
-  align-items: center;
+  inset: 0;
+  display: block;
+  pointer-events: none;
 }
 
 /* 下のドックの外(デスクトップ)では、年の切り替えと読み出しは自分の領域へ置かれる */
@@ -176,7 +171,7 @@ body::after {
 #message[hidden] { display: none; }
 
 /* ---- 縦画面(幅 ≦ 高さ): 上の帯、図、下のドック ---- */
-@media (max-aspect-ratio: 1/1) {
+@media (max-width: 1023.98px) {
   /* 章の位置の表示(上 50px)まで下敷きを伸ばす */
   #masthead::before { inset: 0 0 -24px; background: linear-gradient(to bottom, var(--veil) calc(100% - 22px), transparent); }
   .masthead-title h1 { font-size: 15px; }
