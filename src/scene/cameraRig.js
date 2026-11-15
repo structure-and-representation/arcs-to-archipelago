@@ -13,7 +13,6 @@ import {
 const KEY_ANGLE = 0.08; // 矢印キー 1 回の回転(ラジアン)
 const KEY_ZOOM = 1.15;
 const DRAG_THRESHOLD = 4; // この距離(CSS px)を超えて動いたらドラッグ。クリックによる選択と区別する
-const EXPLORE_CHAPTER = 4;
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const near = (a, b) => Math.abs(a - b) < 1e-9;
@@ -178,10 +177,10 @@ export function createCameraRig({ store, renderer, immediate = false, duration =
       e.preventDefault();
     }, true);
 
-    // ホイール: Ctrl / ⌘ を押しているとき(トラックパッドのピンチもこの形)と、自由探索の章では拡大縮小。
-    // それ以外はページのスクロールに任せる。
+    // ホイール: Ctrl / ⌘ を押しているとき(トラックパッドのピンチもこの形)だけ拡大縮小する。
+    // それ以外はページのスクロールに任せる(自由探索の章でも、ページを前の章へ戻せるように)。
     on('wheel', (e) => {
-      if (!(e.ctrlKey || e.metaKey || store.get().chapter === EXPLORE_CHAPTER)) return;
+      if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
       // マウスのホイール 1 ノッチ(約 100)でも、1 回の倍率が大きくなりすぎないよう上限を付ける

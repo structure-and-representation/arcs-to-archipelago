@@ -52,7 +52,7 @@ console.log(`[${mode}] 1. スクロールで場面ごとに state が切り替�
 {
   const page = await open('lang=ja&still=1');
   const s0 = await state(page);
-  ok(s0.chapter === 0 && s0.year === 2025 && s0.selection === null && s0.camera === 'side', `はじめは 0章0場面 ${JSON.stringify(s0)}`);
+  ok(s0.chapter === 0 && s0.year === COPY[0].steps[0].year && s0.selection === null && s0.camera === COPY[0].steps[0].camera, `はじめは 0章0場面 ${JSON.stringify(s0)}`);
   const g = await geom(page);
   const vh = viewport.height;
   for (let c = 0; c < COPY.length; c++) {

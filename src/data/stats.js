@@ -152,9 +152,9 @@ export function tableRows(matrix, selection) {
 
 /**
  * 選択地域の主要な相手先(カメラの構図に収める都道府県)。全年の合計で、選択地域との転入と転出の合計が多い順に、
- * 合計の share(既定 75%)に届くまで、多くても max 個。年を変えても構図が動かないよう、年によらない。
+ * 合計の share(既定 85%)に届くまで、多くても max 個。年を変えても構図が動かないよう、年によらない。
  */
-export function mainPartners(data, selection, { share = 0.75, max = 10 } = {}) {
+export function mainPartners(data, selection, { share = 0.85, max = 14 } = {}) {
   const mask = selectionMask(selection);
   if (!mask.some(Boolean)) return [];
   const vol = new Array(N).fill(0);

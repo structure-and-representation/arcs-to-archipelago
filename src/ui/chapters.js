@@ -54,7 +54,8 @@ export const EXPLORE = CHAPTERS.findIndex((c) => c.explore);
 
 /**
  * URL の引数(params.js の parseParams の patch)から、はじめの章と場面と、state へ書く patch を決める純関数。
- *  - ch があるとき: その章の最初の場面の年・選択・カメラ。URL に year / sel / cam / morph があれば、そちらを優先する。
+ *  - ch があるとき: その章の最初の場面(URL の year / sel / cam に合う場面があれば、その場面)の年・選択・カメラ。
+ *    URL に year / sel / cam / morph があれば、そちらを優先する。
  *  - ch がなく、year / sel / cam のどれかがあるとき: それらがすべて一致する最初の場面の章(本文と画面が矛盾しない)。
  *    一致する場面がなければ自由探索の章の最後の場面にし、URL にない値はその場面の値にする。
  *  - どれもないとき: 0 章の最初の場面(開幕)。
@@ -68,6 +69,16 @@ export function initialScene(urlPatch = {}) {
   let step = 0;
   if (has('chapter')) {
     chapter = Math.min(Math.max(0, urlPatch.chapter), CHAPTERS.length - 1);
+    // 章の中で URL の年・選択・カメラに合う場面があれば、その場面から始める(再読み込みや共有の URL で場面を戻さない)
+    if (has('year') || has('selection') || has('camera')) {
+      const k = CHAPTERS[chapter].steps.findIndex(
+        (s) =>
+          (!has('year') || s.year === urlPatch.year) &&
+          (!has('selection') || sameSelection(s.selection, urlPatch.selection)) &&
+          (!has('camera') || s.camera === urlPatch.camera),
+      );
+      if (k >= 0) step = k;
+    }
   } else if (has('year') || has('selection') || has('camera')) {
     let found = null;
     CHAPTERS.forEach((c, i) =>
@@ -266,9 +277,16 @@ export function mount(root, store, ctx = {}) {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   const g = geometry[start.chapter];
   if (g && (start.chapter > 0 || start.step > 0)) {
-    // 場面の範囲の内側(基準の線が、その場面の中に来る位置)。章の最初の場面は先頭の少し内側(縦画面で、章の先頭のカードが見える位置)、
-    // ほかは場面の中ほど(境の近くで、再計測のわずかなずれで隣の場面に入らないように)
-    const y = g.top + (g.height / g.steps) * (start.step + (start.step === 0 ? 0.05 : 0.5)) - window.innerHeight * anchorRatio();
+    const stepH = g.height / g.steps;
+    let y;
+    if (isPortrait()) {
+      // 縦画面: 章の先頭のカードが見える位置(基準の線が、章の最初の場面の先頭の少し内側)。ほかの場面は中ほど
+      y = g.top + stepH * (start.step + (start.step === 0 ? 0.05 : 0.5)) - window.innerHeight * anchorRatio();
+    } else {
+      // デスクトップ: 場面の頭を画面の上端に合わせる。場面の高さは画面の高さの 70% 以上なので、基準の線(ANCHOR)は場面の中に入り、
+      // フォントの読み込みなどで高さが少し変わっても場面を外れない
+      y = g.top + stepH * start.step + Math.max(0, window.innerHeight * ANCHOR - stepH * 0.8);
+    }
     window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
   } else if (window.scrollY > 0) {
     window.scrollTo({ top: 0, behavior: 'auto' });

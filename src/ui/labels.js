@@ -12,7 +12,7 @@ import { selectionMask } from '../geometry/flows.js';
 import { topPartners } from '../data/stats.js';
 import { CHAPTERS } from '../content/chapters.js';
 import { collectFixedRects, rectsOverlap } from './avoid.js';
-import { DESKTOP_BREAKPOINT } from '../scene/camera.js';
+import { isPortrait } from '../scene/camera.js';
 
 // ---------------------------------------------------------------------------------------------
 // 定数(デザイン仕様 5.9 節)
@@ -449,7 +449,7 @@ export function mount(el, store, ctx) {
   function frame() {
     const s = store.get();
     const now = performance.now();
-    const widthPortrait = win.innerWidth < DESKTOP_BREAKPOINT; // カメラ(scene/camera.js)と同じ判定
+    const widthPortrait = isPortrait(win.innerWidth); // CSS とカメラ(scene/camera.js)と同じ判定
     if (widthPortrait !== portrait) {
       portrait = widthPortrait;
       el.classList.toggle('portrait', portrait);
