@@ -15,9 +15,29 @@ export const PREF_EN = [
   'Saga', 'Nagasaki', 'Kumamoto', 'Oita', 'Miyazaki', 'Kagoshima', 'Okinawa',
 ];
 
+// 作品名と説明(確定稿 docs/copy/strings.md の meta.*)。<title> と <meta name="description"> は app.title / app.description から作る。
+const META = {
+  ja: {
+    title: '弧が列島になる',
+    subtitle: '都道府県間の人口移動 2012–2025',
+    intro: '一本の線に並べた47都道府県のあいだに、14年分の引っ越しを弧で描く。弧を地図の上に立てると、日本列島が現れる。',
+    ogDescription: '都道府県間の人口移動 2012–2025年を、arc diagram から日本列島の地図へ。総務省「住民基本台帳人口移動報告」より。',
+  },
+  en: {
+    title: 'Arcs Become an Archipelago',
+    subtitle: 'Migration between Japan\u2019s prefectures, 2012–2025',
+    intro: 'Forty-seven prefectures on a single line, linked by arcs for 14 years of moves. Stand the arcs on a map, and Japan appears.',
+    ogDescription: 'Migration between Japan\u2019s prefectures, 2012–2025, from an arc diagram to a map. Data: Statistics Bureau of Japan.',
+  },
+};
+
 export default {
   ja: {
-    'app.title': '弧が列島になる — 都道府県間の人口移動',
+    'meta.title': META.ja.title,
+    'meta.subtitle': META.ja.subtitle,
+    'meta.intro': META.ja.intro,
+    'meta.ogDescription': META.ja.ogDescription,
+    'app.title': `${META.ja.title} — ${META.ja.subtitle}`,
     'app.stage': '都道府県間の人口移動を弧で表した図。1粒が100人です。',
     'app.noWebgl': 'この環境では WebGL2 が使えないため、図を表示できません。',
     'app.loadError': 'データを読み込めませんでした。',
@@ -27,10 +47,15 @@ export default {
     'flow.out': '転出',
     'source.label': '出典',
     'source.body': '総務省統計局「住民基本台帳人口移動報告」(日本人移動者)',
-    'app.description': '総務省統計局「住民基本台帳人口移動報告」(日本人移動者、2012〜2025年)をもとに、都道府県間の人口移動を、日本列島の上に立ち上がる弧として見せる作品です。',
+    'app.description': META.ja.intro,
+    'footer.note': '「住民基本台帳人口移動報告」(総務省統計局)を加工して作成。対象は日本人移動者で、都道府県間の移動だけを数えています(同じ都道府県の中での移動は含みません)。1粒は100人を表します。三大都市圏は、東京圏が埼玉県・千葉県・東京都・神奈川県、名古屋圏が岐阜県・愛知県・三重県、大阪圏が京都府・大阪府・兵庫県・奈良県です。圏の転入・転出は圏外との移動だけを数え、圏内の都府県どうしの移動は含みません。弧の高さは、都道府県庁所在地のあいだの距離に比例します。',
   },
   en: {
-    'app.title': 'Arcs to Archipelago — Migration between Japanese prefectures',
+    'meta.title': META.en.title,
+    'meta.subtitle': META.en.subtitle,
+    'meta.intro': META.en.intro,
+    'meta.ogDescription': META.en.ogDescription,
+    'app.title': `${META.en.title} — ${META.en.subtitle}`,
     'app.stage': 'Arc diagram of migration between prefectures. One particle is 100 people.',
     'app.noWebgl': 'WebGL2 is not available in this environment, so the figure cannot be shown.',
     'app.loadError': 'Failed to load the data.',
@@ -40,6 +65,7 @@ export default {
     'flow.out': 'Out-migration',
     'source.label': 'Source',
     'source.body': 'Statistics Bureau of Japan, Report on Internal Migration in Japan (Japanese nationals)',
-    'app.description': 'Migration between Japan’s 47 prefectures (Japanese nationals, 2012–2025, Statistics Bureau of Japan) drawn as arcs that rise over the archipelago.',
+    'app.description': META.en.intro,
+    'footer.note': 'Created by processing data from the Report on Internal Migration in Japan Derived from the Basic Resident Registration (Statistics Bureau, Ministry of Internal Affairs and Communications). Japanese nationals only. Only moves between prefectures are counted; moves within a prefecture are not. Each grain represents 100 people. Tokyo area: Saitama, Chiba, Tokyo and Kanagawa. Nagoya area: Gifu, Aichi and Mie. Osaka area: Kyoto, Osaka, Hyogo and Nara. Area totals count only moves to and from outside the area. Arc height is proportional to the distance between prefectural capitals.',
   },
 };

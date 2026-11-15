@@ -3,6 +3,7 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/ui-labels.css';
 import './styles/ui-chapters.css';
+import './styles/ui-legend.css';
 import './styles/ui-timeline.css';
 import './styles/ui-selector.css';
 import './styles/ui-controls.css';
@@ -24,6 +25,7 @@ import * as tooltip from './ui/tooltip.js';
 import * as table from './ui/table.js';
 import * as chapters from './ui/chapters.js';
 import * as controls from './ui/controls.js';
+import * as legend from './ui/legend.js';
 
 const $ = (id) => document.getElementById(id);
 const root = document.documentElement;
@@ -115,6 +117,7 @@ async function main() {
     [table, 'table'],
     [chapters, 'chapters'],
     [controls, 'controls'],
+    [legend, 'legend'],
   ].map(([mod, id]) => mod.mount($(id), store, ctx));
 
   // 画面の大きさ

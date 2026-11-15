@@ -8,10 +8,11 @@ import tooltip from './i18n/tooltip.js';
 import table from './i18n/table.js';
 import controls from './i18n/controls.js';
 import chapters from './i18n/chapters.js';
+import legend from './i18n/legend.js';
 
 export { PREF_EN, PREF_JA };
 
-const parts = [common, timeline, selector, tooltip, table, controls, chapters];
+const parts = [common, timeline, selector, tooltip, table, controls, chapters, legend];
 export const DICT = { ja: Object.assign({}, ...parts.map((p) => p.ja)), en: Object.assign({}, ...parts.map((p) => p.en)) };
 
 let lang = 'ja';
