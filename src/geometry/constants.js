@@ -14,12 +14,15 @@ export const METRO_CODES = {
 };
 
 // カメラの定位置(設計 §6)。azimuth / elevation はラジアン。
-// top の azimuth は北が画面の上になるように camera.js が決めるので null。
-// oblique の方位 -0.35・仰角 0.6 は、列島が横に伸びて北海道が左下、沖縄が右上に見える構図(モックと同じ)。
-// lean 0.7 は設計の範囲(0.5〜0.9)の中央寄りで、弧が地面から立ち上がって見えつつ、弧どうしの重なりが過度にならない値。
+// azimuth が null の定位置は、北が画面の上になる方位を camera.js が決める(真上と斜め俯瞰)。
+// oblique は案C4「北が上・選択時は低め」(docs/review/oblique-study/): 真上と同じ方位から仰角 52° で見下ろし、
+// 弧は倒さずに立てる(lean 0。地上の弧は画面の上へ、地下の弧は画面の下へふくらむ)。
+// 地域を選んでいるときの仰角(38°)は scene/camera.js の SELECTION_OBLIQUE。
+// top の lean 0.7 は設計の範囲(0.5〜0.9)の中央寄りで、真上から弧の形が見えつつ、弧どうしの重なりが過度にならない値。
+const DEG = Math.PI / 180;
 export const CAMERA_PRESETS = {
   side: { azimuth: 0, elevation: 0, morph: 0, lean: 0 },
-  oblique: { azimuth: -0.35, elevation: 0.6, morph: 1, lean: 0.7 },
+  oblique: { azimuth: null, elevation: 52 * DEG, morph: 1, lean: 0 },
   top: { azimuth: null, elevation: Math.PI / 2, morph: 1, lean: 0.7 },
 };
 

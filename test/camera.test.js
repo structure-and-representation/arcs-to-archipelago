@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  clampOrbit, cubicBezier, dragToAngles, easeCamera, figureRegion, isPortrait, MORPH_DELAY, projectPoint, reorient,
+  AZIMUTH_FROM, clampOrbit, cubicBezier, dragToAngles, easeCamera, ELEVATION_LEAD, figureRegion, isPortrait, MORPH_DELAY, MORPH_END, projectPoint, reorient,
   screenAxes, SELECTION_OBLIQUE, SELECTION_ZOOM, presetRegion, topAzimuth, tween, USER_LIMITS, viewFor, viewOptions,
 } from '../src/scene/camera.js';
 import { createCameraRig } from '../src/scene/cameraRig.js';
@@ -8,6 +8,7 @@ import { createStore } from '../src/state.js';
 import { geoLayout, lineLayout, nodePos } from '../src/geometry/layout.js';
 import { selectionMask } from '../src/geometry/flows.js';
 import { CAMERA_PRESETS, CX } from '../src/geometry/constants.js';
+import { arcPoint } from '../src/geometry/arc.js';
 import { prefectures } from './helpers.js';
 
 const geo = geoLayout(prefectures());
@@ -27,13 +28,15 @@ const opts = (w, h, selection = null) => viewOptions(w, h, selection);
 const view = (preset, w, h, selection = null) => viewFor(preset, w / h, layout, opts(w, h, selection));
 
 describe('viewFor: 定位置', () => {
-  it('定位置の値は設計 §6 どおり(side: 0/0、oblique: -0.35/0.6、top: 真上)', () => {
+  it('定位置の値は設計 §6 どおり(side: 0/0、oblique: 北が上・仰角 52°・lean 0、top: 真上)', () => {
     expect(CAMERA_PRESETS.side).toMatchObject({ azimuth: 0, elevation: 0, morph: 0, lean: 0 });
-    expect(CAMERA_PRESETS.oblique).toMatchObject({ azimuth: -0.35, elevation: 0.6, morph: 1 });
-    expect(CAMERA_PRESETS.oblique.lean).toBeGreaterThanOrEqual(0.5);
-    expect(CAMERA_PRESETS.oblique.lean).toBeLessThanOrEqual(0.9);
+    expect(CAMERA_PRESETS.oblique).toMatchObject({ azimuth: null, morph: 1, lean: 0 });
+    expect(CAMERA_PRESETS.oblique.elevation).toBeCloseTo((52 * Math.PI) / 180, 12);
     expect(viewFor('side', 1.6, layout)).toMatchObject({ elevation: 0, azimuth: 0, morph: 0, lean: 0, roll: 0 });
-    expect(viewFor('oblique', 1.6, layout)).toMatchObject({ elevation: 0.6, azimuth: -0.35, morph: 1, lean: CAMERA_PRESETS.oblique.lean });
+    const ob = viewFor('oblique', 1.6, layout);
+    expect(ob).toMatchObject({ morph: 1, lean: 0, roll: 0 });
+    expect(ob.elevation).toBeCloseTo((52 * Math.PI) / 180, 12);
+    expect(ob.azimuth).toBeCloseTo(topAzimuth(geo.northAngle), 12); // 方位は真上と同じ(北が画面の上)
     const top = viewFor('top', 1.6, layout);
     expect(top.morph).toBe(1);
     expect(top.elevation).toBeCloseTo(Math.PI / 2, 9);
@@ -53,23 +56,25 @@ describe('viewFor: 定位置', () => {
     }
   });
 
-  it('縦長では、真横も斜め俯瞰も 90° 回して、北海道(x が小さい側)が上になる', () => {
-    for (const preset of ['side', 'oblique']) {
-      const wide = view(preset, 1440, 900);
-      const tall = view(preset, 390, 844);
-      expect(wide.roll).toBe(0);
-      expect(tall.roll).toBeCloseTo(Math.PI / 2, 9);
-      const { up } = screenAxes(tall.azimuth, tall.elevation, tall.roll);
-      // 斜め俯瞰は方位が -0.35 なので、真上方向(画面の上)は -x 側へ向く
-      expect(dot(up, [-1, 0, 0])).toBeGreaterThan(preset === 'side' ? 1 - 1e-9 : 0.9);
-      const { right } = screenAxes(wide.azimuth, wide.elevation, wide.roll);
-      expect(dot(right, [1, 0, 0])).toBeGreaterThan(0.9);
+  it('縦長では、真横だけを 90° 回して北海道(x が小さい側)を上にする。斜め俯瞰は回さない(北が上のまま)', () => {
+    const wide = view('side', 1440, 900);
+    const tall = view('side', 390, 844);
+    expect(wide.roll).toBe(0);
+    expect(tall.roll).toBeCloseTo(Math.PI / 2, 9);
+    const { up } = screenAxes(tall.azimuth, tall.elevation, tall.roll);
+    expect(dot(up, [-1, 0, 0])).toBeGreaterThan(1 - 1e-9);
+    const { right } = screenAxes(wide.azimuth, wide.elevation, wide.roll);
+    expect(dot(right, [1, 0, 0])).toBeGreaterThan(0.9);
+    for (const [w, h] of SIZES) {
+      const v = view('oblique', w, h);
+      expect(v.roll).toBe(0);
+      // 北海道が右上、鹿児島・沖縄が左下に映る(見慣れた日本列島の形)
+      const pts = nodesOnScreen(v, [w, h]);
+      expect(pts[0][1]).toBeLessThan(pts[12][1]);
+      expect(pts[0][1]).toBeLessThan(pts[46][1]);
+      expect(pts[0][0]).toBeGreaterThan(pts[45][0]);
+      expect(pts[0][0]).toBeGreaterThan(pts[46][0]);
     }
-    // 画面の上に北海道、下に沖縄が映る
-    const v = view('oblique', 390, 844);
-    const pts = nodesOnScreen(v, [390, 844]);
-    expect(pts[0][1]).toBeLessThan(pts[46][1]);
-    expect(pts[0][1]).toBeLessThan(pts[12][1]);
   });
 
   it('縦長の定位置でも、北が画面の上になるのは真上だけで、そこでは北海道が最も上に映る', () => {
@@ -160,8 +165,9 @@ describe('viewFor: 地域を選んでいるとき', () => {
           const v = view(preset, w, h, sel);
           const pts = nodesOnScreen(v, [w, h]);
           const mask = selectionMask(sel);
-          // 真上は全体を収めるので、選択地域は領域の中にあればよい(内側へ寄せる移動は、全体がはみ出さない範囲に限る)
-          const box = preset === 'top' ? presetRegion('top', r, w < 1024, true, true) : comfort;
+          // 斜め俯瞰も真上も全体を収めるので、選択地域は領域の中にあればよい(内側へ寄せる移動は、全体がはみ出さない範囲に限る)
+          const box = presetRegion(preset, r, w < 1024, true, true);
+          void comfort;
           pts.forEach((pt, i) => {
             if (mask[i]) expect(inside(pt, box, 1), `${name} ${preset} ${w}x${h} ${pt}`).toBe(true);
           });
@@ -170,24 +176,34 @@ describe('viewFor: 地域を選んでいるとき', () => {
     }
   });
 
-  it('拡大率は、同じ領域に全体を収めた拡大率の 1〜2.5 倍。相手先がなければ 2.5 倍、遠い相手先があれば小さくなる', () => {
+  it('地域を選んでいるときは、47 都道府県と、選択地域とすべての相手先の間の地上・地下の弧を領域に収める', () => {
     expect(SELECTION_ZOOM).toBe(2.5);
-    const others = (sel) => Array.from({ length: 47 }, (_, i) => i).filter((i) => !selectionMask(sel)[i]);
     for (const [w, h] of SIZES) {
-      for (const [, sel] of selections) {
+      for (const [name, sel] of selections) {
         for (const preset of ['oblique', 'top']) {
-          const none = viewFor(preset, w / h, layout, viewOptions(w, h, sel, []));
-          const all = viewFor(preset, w / h, layout, viewOptions(w, h, sel, others(sel)));
-          expect(none.zoom / all.zoom).toBeLessThanOrEqual(2.5 + 1e-9);
-          if (preset === 'oblique') expect(none.zoom / all.zoom).toBeGreaterThan(1);
-          else expect(none.zoom).toBeCloseTo(all.zoom, 9); // 真上はいつも全体を収める
-          expect([none.azimuth, none.roll]).toEqual([view(preset, w, h).azimuth, view(preset, w, h).roll]);
+          const v = view(preset, w, h, sel);
+          // 主要な相手先の指定(viewOptions の partners)には依らない
+          expect(viewFor(preset, w / h, layout, viewOptions(w, h, sel, [0])).zoom).toBeCloseTo(v.zoom, 12);
+          expect([v.azimuth, v.roll]).toEqual([view(preset, w, h).azimuth, view(preset, w, h).roll]);
+          const r = presetRegion(preset, figureRegion(w, h), w < 1024, true, true);
+          const mask = selectionMask(sel);
+          const P = Array.from({ length: 47 }, (_, i) => nodePos(layout.line, layout.geo, i, v.morph));
+          const tmp = [0, 0, 0];
+          for (let i = 0; i < 47; i++) {
+            expect(inside(projectPoint(v, [P[i][0], 0, P[i][1]], [w, h]), r, 1), `${name} ${preset} ${w}x${h} ${i}`).toBe(true);
+            if (mask[i]) continue;
+            for (let m = 0; m < 47; m++) {
+              if (!mask[m]) continue;
+              for (const t of [0.25, 0.5, 0.75]) {
+                arcPoint(P[i], P[m], 1, v.lean, t, tmp);
+                expect(inside(projectPoint(v, tmp, [w, h]), r, 1), `${name} ${preset} in ${i}`).toBe(true);
+                arcPoint(P[m], P[i], -1, v.lean, t, tmp);
+                expect(inside(projectPoint(v, tmp, [w, h]), r, 1), `${name} ${preset} out ${i}`).toBe(true);
+              }
+            }
+          }
         }
       }
-      // 北海道と沖縄県を相手先に含めると、拡大率は小さくなる
-      const far = viewFor('oblique', w / h, layout, viewOptions(w, h, { type: 'metro', id: 'tokyo' }, [0, 46]));
-      const near = viewFor('oblique', w / h, layout, viewOptions(w, h, { type: 'metro', id: 'tokyo' }, []));
-      expect(far.zoom).toBeLessThan(near.zoom);
     }
   });
 
@@ -195,7 +211,7 @@ describe('viewFor: 地域を選んでいるとき', () => {
     const r = figureRegion(1440, 900);
     expect(presetRegion('oblique', r, false, true, true)).toEqual({ ...r, x1: 1400 - 324 });
     expect(presetRegion('top', r, false, true, true)).toEqual({ ...r, x1: 1400 - 324 });
-    expect(presetRegion('oblique', r, false, true, false).y0).toBe(320);
+    expect(presetRegion('oblique', r, false, true, false).y0).toBe(250);
     expect(presetRegion('side', r, false, true, true)).toEqual(r);
   });
 
@@ -207,7 +223,9 @@ describe('viewFor: 地域を選んでいるとき', () => {
     for (const i of partners) expect(inside(pts[i], r, 60), `${i} ${pts[i]}`).toBe(true);
   });
 
-  it('選択時の斜め俯瞰は、弧の倒しを小さく、仰角を少し上げる(地上と地下を分けて見せる)', () => {
+  it('選択時の斜め俯瞰は、弧を立てたまま仰角を 38° へ下げる(地上と地下の厚みを見せる)', () => {
+    expect(SELECTION_OBLIQUE.elevation).toBeCloseTo((38 * Math.PI) / 180, 12);
+    expect(SELECTION_OBLIQUE.lean).toBe(0);
     const b = view('oblique', 1440, 900, { type: 'metro', id: 'osaka' });
     expect(b.lean).toBe(SELECTION_OBLIQUE.lean);
     expect(b.elevation).toBe(SELECTION_OBLIQUE.elevation);
@@ -275,12 +293,13 @@ describe('easeCamera と tween', () => {
     }
   });
 
-  it('真横から立ち上がるとき、回転の最初の 15% の間は morph が 0 のまま、その後 1 まで動く', () => {
+  it('真横から立ち上がるとき、回転の最初の 15% の間は morph が 0 のまま、その後 90% までに 1 まで動く', () => {
     expect(MORPH_DELAY).toBe(0.15);
     expect(tween(a, b, 0.1).morph).toBe(0);
     expect(tween(a, b, 0.15).morph).toBe(0);
     expect(tween(a, b, 0.3).morph).toBeGreaterThan(0);
-    expect(tween(a, b, 0.575).morph).toBeCloseTo(0.5, 9);
+    expect(tween(a, b, (MORPH_DELAY + MORPH_END) / 2).morph).toBeCloseTo(0.5, 9);
+    expect(tween(a, b, MORPH_END).morph).toBe(1);
     expect(tween(a, b, 1).morph).toBe(1);
     // 回転は最初から始まっている
     expect(tween(a, b, 0.1).elevation).toBeGreaterThan(0);
@@ -290,6 +309,43 @@ describe('easeCamera と tween', () => {
     expect(tween(b, a, 0.5).morph).toBeGreaterThan(0);
     // 斜め俯瞰 ↔ 真上は、morph が 1 のまま
     expect(tween(b, c, 0.5).morph).toBe(1);
+  });
+
+  it('真横から地図へは、仰角を先に上げてから方位を回す(戻るときは、その裏返し)', () => {
+    // 仰角は ELEVATION_LEAD で上がりきる。方位は AZIMUTH_FROM までは動かない
+    expect(tween(a, b, AZIMUTH_FROM).azimuth).toBeCloseTo(a.azimuth, 12);
+    expect(tween(a, b, ELEVATION_LEAD).elevation).toBeCloseTo(b.elevation, 12);
+    expect(tween(a, b, 0.3).elevation / b.elevation).toBeGreaterThan(0.3 / ELEVATION_LEAD - 0.2);
+    expect(tween(b, a, 1 - ELEVATION_LEAD).elevation).toBeCloseTo(b.elevation, 12);
+    expect(tween(b, a, 1 - AZIMUTH_FROM).azimuth).toBeCloseTo(a.azimuth, 12);
+    // 斜め俯瞰 ↔ 真上は、方位を変えず(同じ方位)、仰角と lean だけを同じ進みで動かす
+    const m = tween(b, c, 0.5);
+    expect(m.azimuth).toBeCloseTo(b.azimuth, 12);
+    expect(m.elevation).toBeCloseTo((b.elevation + c.elevation) / 2, 12);
+    expect(m.lean).toBeCloseTo((b.lean + c.lean) / 2, 12);
+  });
+
+  it('layout を渡すと、遷移の途中でも図(都道府県と弧の点)が領域に収まる', () => {
+    for (const [w, h] of SIZES) {
+      for (const [p, q] of [['side', 'oblique'], ['oblique', 'side'], ['side', 'top'], ['oblique', 'top']]) {
+        const A = view(p, w, h), B = view(q, w, h);
+        for (let k = 0; k <= 10; k++) {
+          const v = tween(A, B, k / 10, layout);
+          const r = { x0: Math.min(A.fit.region.x0, B.fit.region.x0), y0: Math.min(A.fit.region.y0, B.fit.region.y0), x1: Math.max(A.fit.region.x1, B.fit.region.x1), y1: Math.max(A.fit.region.y1, B.fit.region.y1) };
+          const P = Array.from({ length: 47 }, (_, i) => nodePos(layout.line, layout.geo, i, v.morph));
+          const tmp = [0, 0, 0];
+          for (const [o, d] of [[0, 46], [46, 0], [0, 12], [12, 46], [26, 0]]) {
+            for (const t of [0, 0.5, 1]) {
+              arcPoint(P[o], P[d], o > d ? 1 : -1, v.lean, t, tmp);
+              expect(inside(projectPoint(v, tmp, [w, h]), r, 1), `${p}->${q} ${w}x${h} s=${k / 10}`).toBe(true);
+            }
+          }
+        }
+        // 端では、定位置そのものになる
+        expect(tween(A, B, 1, layout).zoom).toBeCloseTo(B.zoom, 12);
+        expect(tween(A, B, 0, layout).zoom).toBeCloseTo(A.zoom, 12);
+      }
+    }
   });
 
   it('途中から向かい直しても(morph が 0 でない視点から)跳ばない', () => {
@@ -325,7 +381,8 @@ describe('利用者の回転と拡大', () => {
   it('ドラッグで、近い側の点がドラッグの向きへ動く(縦画面の roll も考慮する)', () => {
     for (const [w, h] of SIZES) {
       const base = view('oblique', w, h);
-      const P = [60, 0, 80];
+      // カメラの側(手前)の地面の点
+      const P = [Math.sin(base.azimuth) * 100, 0, Math.cos(base.azimuth) * 100];
       const p0 = projectPoint(base, P, [w, h]);
       for (const [dx, dy] of [[40, 0], [-40, 0], [0, 40], [0, -40]]) {
         const { dAzimuth, dElevation } = dragToAngles(dx, dy, base.roll);
@@ -415,15 +472,16 @@ describe('createCameraRig', () => {
     expect(Math.abs(after.morph - mid.morph)).toBeLessThan(0.01);
   });
 
-  it('地域を選ぶと、構図が寄る(東京圏で 2.5 倍)。定位置を選び直すと、利用者の操作は消える', () => {
+  it('地域を選ぶと、選択時の構図になる。定位置を選び直すと、利用者の操作は消える', () => {
     const { store, rig } = setup({ camera: 'oblique', reducedMotion: true });
     const z0 = rig.getView().zoom;
     store.set({ selection: { type: 'metro', id: 'tokyo' } });
     expect(rig.getView().zoom).toBeCloseTo(view('oblique', 1440, 900, { type: 'metro', id: 'tokyo' }).zoom, 9);
-    expect(rig.getView().zoom).toBeGreaterThan(z0);
+    expect(rig.getView().elevation).toBeCloseTo(SELECTION_OBLIQUE.elevation, 9);
+    void z0;
     rig.orbit(0.3, 0.1);
     rig.zoomBy(1.5);
-    expect(rig.getView().azimuth).toBeCloseTo(-0.35 + 0.3, 9);
+    expect(rig.getView().azimuth).toBeCloseTo(topAzimuth(geo.northAngle) + 0.3, 9);
     store.set({ camera: 'top' });
     const top = view('top', 1440, 900, { type: 'metro', id: 'tokyo' });
     expect(rig.getView().azimuth).toBeCloseTo(top.azimuth, 9);
@@ -479,13 +537,13 @@ describe('createCameraRig', () => {
     const { rig } = setup({ camera: 'oblique', reducedMotion: true });
     rig.orbit(100, 100);
     expect(rig.getView().elevation).toBeLessThanOrEqual(Math.PI / 2 + 1e-9);
-    expect(rig.getView().azimuth - -0.35).toBeCloseTo(USER_LIMITS.azimuth, 9);
+    expect(rig.getView().azimuth - topAzimuth(geo.northAngle)).toBeCloseTo(USER_LIMITS.azimuth, 9);
     rig.orbit(-100, -100);
     expect(rig.getView().elevation).toBeGreaterThanOrEqual(0);
     rig.zoomBy(1000);
     expect(rig.getView().zoom / view('oblique', 1440, 900).zoom).toBeCloseTo(USER_LIMITS.zoomMax, 9);
     rig.reset();
-    expect(rig.getView().azimuth).toBeCloseTo(-0.35, 9);
-    expect(rig.getView().elevation).toBeCloseTo(0.6, 9);
+    expect(rig.getView().azimuth).toBeCloseTo(topAzimuth(geo.northAngle), 9);
+    expect(rig.getView().elevation).toBeCloseTo(CAMERA_PRESETS.oblique.elevation, 9);
   });
 });

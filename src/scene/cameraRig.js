@@ -207,7 +207,7 @@ export function createCameraRig({ store, renderer, immediate = false, duration =
     update(dt) {
       if (progress >= 1) return;
       progress = Math.min(1, progress + dt / duration);
-      current = tween(from, to, easeCamera(progress));
+      current = tween(from, to, easeCamera(progress), renderer.layout);
       push();
     },
     resize() {

@@ -119,10 +119,10 @@ Y は上向きの単位ベクトル、R は弦に垂直な水平の単位ベク�
 | 名前 | 方位 | 仰角 | morph | lean |
 |---|---|---|---|---|
 | `side`(真横) | 0 | 0 | 0 | 0 |
-| `oblique`(斜め俯瞰) | −0.35 | 0.6 | 1 | 0.5〜0.9 |
+| `oblique`(斜め俯瞰) | 真上と同じ(北が上) | 52°(地域を選んでいるときは 38°) | 1 | 0 |
 | `top`(真上) | — | π/2 | 1 | 0.5〜0.9 |
 
-真上では北が画面の上になるようにカメラを回します。縦画面の構成(幅 1024px 未満)では、真横と斜め俯瞰でカメラを90度回し、北海道を上にします。定位置の間は滑らかに補間し、動きを減らす設定では即座に切り替えます。実装の値(lean 0.7、地域を選んだときの斜め俯瞰の値、図の領域)は §10 にあります。
+真上と斜め俯瞰では北が画面の上になるようにカメラを回します(北海道が右上、九州が左下の、見慣れた日本列島の形)。斜め俯瞰は弧を倒さずに立てるので(lean 0)、地上の弧は画面の上へ、地下の弧は画面の下へふくらみます。斜め俯瞰の値は、`docs/review/oblique-study/` の比較で選んだ案C4「北が上・選択時は低め」です。縦画面の構成(幅 1024px 未満)では、真横だけカメラを90度回し、北海道を上にします(斜め俯瞰と真上は回さなくても縦長の画面に収まる)。定位置の間は滑らかに補間し、動きを減らす設定では即座に切り替えます。実装の値(真上の lean 0.7、図の領域、遷移の段取り)は §10 にあります。
 
 ## 7. モジュールの約束
 
@@ -226,7 +226,7 @@ src/
 - **`scene/shared.js`**: 全層が共有する uniform(`uNodes`、`uMorph`、`uLean`、`uK`、`uRes`(描画バッファの実ピクセル)、`uPixelRatio`、`uTime`、`uInk`、`uPaper`、`uAccent`。各 `{ value }`)を `createShared(data)` が作ります。GLSL 断片は `GLSL_NODES`(`uNodes`、`uMorph`、`nodePos(i)`)と `geometry/arc.js` の `GLSL_ARC`(弧の式。`nodePos` が必要)で、`GLSL_COMMON` が両方をつなげたものです。
 - **描く順序**: `RENDER_ORDER`(地下の弧 0、地下の粒子 1、地面 2、地上の弧 3、地上の粒子 4、都道府県の点 5)を、各層が自分の Mesh / Points(葉のオブジェクト)の `renderOrder` に付けます。Group に付けると three.js が層をまたいだ並べ替えをしなくなるので付けません。
 - 色と描画の値は `styles/tokens.css` から `shared.js` が読みます(統合で改めた取り決めは §10)。
-- **`scene/camera.js`** は純関数です。`viewFor(preset, aspect, layout) → { azimuth, elevation, zoom, center, roll, morph, lean }`(`aspect` は幅 / 高さ、`layout` は `renderer.layout`。真上の azimuth と収める範囲に使う)と、`tween(a, b, s)`(角度は短い側へ、zoom は対数で補間)。縦長の真横は `roll = π/2` で北海道が上、真上は北が画面の上になる azimuth を使います。store と renderer をつなぐ `scene/cameraRig.js` が、`state.camera` の変化で視点と `state.morph` を補間します(動きを減らす設定では即時)。
+- **`scene/camera.js`** は純関数です。`viewFor(preset, aspect, layout) → { azimuth, elevation, zoom, center, roll, morph, lean }`(`aspect` は幅 / 高さ、`layout` は `renderer.layout`。真上の azimuth と収める範囲に使う)と、`tween(a, b, s, layout)`(角度は短い側へ、zoom は対数で補間。遷移の段取りは §10)。縦長の真横は `roll = π/2` で北海道が上、真上と斜め俯瞰は北が画面の上になる azimuth を使います。store と renderer をつなぐ `scene/cameraRig.js` が、`state.camera` の変化で視点と `state.morph` を補間します(動きを減らす設定では即時)。
 - `scene/picking.js`: `createPicker(data)` は `rebuild({ matrix, mask, selection, morph, lean, screen })`、`pickNode(x, y)`、`pickArc(x, y)` を持ちます。`pickNode` は半径 14 CSS px、`pickArc` は弧の当たり判定です。弧は `arcList()` の添字で扱います。
 - UI 部品は `mount(el, store, ctx)`、`ctx = { data, renderer, picker, onFrame(fn(timeSec)) → off }`。要素の id は `labels`、`timeline`、`selector`、`tooltip`、`table`、`chapters`、`controls`(キャンバスは `stage`)。
 
@@ -284,10 +284,11 @@ src/
 ### 図の領域とカメラの契約
 
 - `scene/camera.js` の `figureRegion(width, height)` が、固定の UI に覆われない図の領域(CSS px)を返し、`viewFor` は図をその領域に収めます(`renderer` 側では `setViewOffset` を使わず、注視点 `center` と `zoom` で領域の中心へずらす)。
-  - デスクトップ: x 424〜(幅 − 40)、y 96〜(高さ − 100)。斜め俯瞰と真上は、上端を読み出しの下端(y 320)まで下げます(`presetRegion`)。
+  - デスクトップ: x 424〜(幅 − 40)、y 96〜(高さ − 136)。地域を選んでいないときの斜め俯瞰と真上は、上端を y 250 まで下げます(`presetRegion`。読み出しは y 185 で終わり、北海道の陸地の面が右上へ張り出す分を空ける)。
   - 縦画面: x 16〜(幅 − 16)、y 72〜(高さ − 166)。真横は右に索引の余白 80px、斜め俯瞰と真上は上端を図の向きの注記の下(y 118)まで下げます。
-- 地域を選んだとき(真横以外)は、選択地域と **主要な相手先**(`mainPartners`: 全年の合計で、選択地域との移動の 75% に届くまで、最大 10 県)と、その間の地上・地下の弧が収まる拡大率にします(選択なしの 1〜2.5 倍)。そのうえで選択地域を領域の内側(四辺から 18%)に置きます。相手先は `createCameraRig({ partners })` で渡します。
-- 地域を選んだときの斜め俯瞰は、`SELECTION_OBLIQUE = { elevation: 0.72, lean: 0.25 }` にします。弧の倒しが大きいと地上(転入)と地下(転出)の弧が水平に倒れて重なり、厚みの差が読めなくなるためです。
+- 地域を選んだとき(真横以外)は、右の読み出しの列を図の領域から外し(上端は上の帯の下 y 96)、**47 都道府県すべてと、選択地域とすべての相手先の間の地上・地下の弧** が収まる拡大率にします(同じ領域に全体を収めた拡大率の 0.75〜2.5 倍)。相手先を画面の外へ出さないためです。そのうえで、図がはみ出さない範囲で選択地域を領域の内側(四辺から 18%)へ寄せます。`createCameraRig({ partners })` の相手先は、いまの構図では使いません(互換のため受け取る)。
+- 地域を選んだときの斜め俯瞰は、`SELECTION_OBLIQUE = { elevation: 38°, lean: 0 }` にします。選択なしの 52° より低く見て、立てた弧の上下(転入と転出)の厚みの差を見せるためです。
+- **遷移**: `tween(a, b, s, layout)` は、途中の向きと形(morph、lean)で図を領域に収め直します(端の視点に利用者の拡大・回転があれば、その比を補間する)。真横(morph 0)と地図(morph 1)の間は、仰角を進み 0〜0.55 で上げきり、方位(縦画面では roll も)を 0.2〜1 で回し、morph を 0.15〜0.9 で動かします(逆向きは時間で裏返す)。真横の並び(北海道が左)と北が上の地図(北海道が右上)は向きが反対なので、低い仰角のまま方位を回すと途中で並びがカメラの方を向いて縮みます。仰角を先に上げると、方位の回転は画面の中の回転に近くなり、北海道は左から上を通って右上へ回ります。斜め俯瞰と真上の間は、方位を変えずに仰角と lean だけを動かします(起こし)。
 
 ### 文言のキー体系
 
