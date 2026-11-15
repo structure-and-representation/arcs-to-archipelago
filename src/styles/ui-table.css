@@ -1,0 +1,9 @@
+/* 数値の表(ui/table.js) */
+#table {
+  position: fixed;
+  z-index: 2;
+  right: var(--gutter);
+  bottom: calc(var(--gutter) + 48px);
+  max-width: calc(100vw - 2 * var(--gutter));
+}
+#table .table-body { max-height: 40vh; overflow: auto; background: var(--bg-85); }

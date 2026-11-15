@@ -17,8 +17,6 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="./src/styles/tokens.css">
-  <link rel="stylesheet" href="./src/styles/layout.css">
   <script type="module" src="./src/main.js"></script>
 </head>
 <body>
@@ -28,29 +26,8 @@
     <!-- 都道府県名のラベル(ui/labels.js が毎フレーム射影した位置へ動かす) -->
     <div id="labels" aria-hidden="true"></div>
 
-    <!-- 章の本文(ui/chapters.js)。スクロールで 0〜4 章を進める -->
-    <main id="chapters">
-      <section class="chapter" data-chapter="0">
-        <h2 data-i18n="ch.0.title">全国</h2>
-        <p data-i18n="ch.0.body"></p>
-      </section>
-      <section class="chapter" data-chapter="1">
-        <h2 data-i18n="ch.1.title">東京一極</h2>
-        <p data-i18n="ch.1.body"></p>
-      </section>
-      <section class="chapter" data-chapter="2">
-        <h2 data-i18n="ch.2.title">大阪圏</h2>
-        <p data-i18n="ch.2.body"></p>
-      </section>
-      <section class="chapter" data-chapter="3">
-        <h2 data-i18n="ch.3.title">名古屋圏</h2>
-        <p data-i18n="ch.3.body"></p>
-      </section>
-      <section class="chapter" data-chapter="4">
-        <h2 data-i18n="ch.4.title">自由探索</h2>
-        <p data-i18n="ch.4.body"></p>
-      </section>
-    </main>
+    <!-- 章の本文(ui/chapters.js が content/chapters.js から作る)。スクロールで 0〜4 章を進める -->
+    <main id="chapters"></main>
 
     <!-- 年の切り替え(ui/timeline.js) -->
     <nav id="timeline" aria-label="年" data-i18n-attr="aria-label:year.label"></nav>

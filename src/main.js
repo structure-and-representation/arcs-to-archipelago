@@ -1,11 +1,21 @@
 // 配線だけを行う: データを読み込み、store を作り、URL の引数を反映し、描画器と各 UI 部品をつなぐ。
+import './styles/tokens.css';
+import './styles/base.css';
+import './styles/ui-labels.css';
+import './styles/ui-chapters.css';
+import './styles/ui-timeline.css';
+import './styles/ui-selector.css';
+import './styles/ui-controls.css';
+import './styles/ui-tooltip.css';
+import './styles/ui-table.css';
 import { loadData } from './data/loader.js';
 import { createStore } from './state.js';
 import { applyParams, syncUrl } from './params.js';
 import { applyStatic, setLang, t } from './i18n.js';
 import { selectionMask } from './geometry/flows.js';
 import { createRenderer } from './scene/renderer.js';
-import { createCameraRig } from './scene/camera.js';
+import { createCameraRig } from './scene/cameraRig.js';
+import { createFallback } from './scene/fallback2d.js';
 import { createPicker } from './scene/picking.js';
 import * as labels from './ui/labels.js';
 import * as timeline from './ui/timeline.js';
@@ -63,11 +73,10 @@ async function main() {
   try {
     renderer = createRenderer(canvas, data);
   } catch (err) {
-    // TODO: WebGL2 が使えない環境では、Canvas 2D で真横の図と静止した点描を描く(設計 §8)
-    console.error(err);
-    showMessage(t('app.noWebgl'));
-    root.dataset.error = 'webgl';
-    return;
+    // WebGL2 が使えない環境では、Canvas 2D の代替表示(scene/fallback2d.js)に切り替える
+    console.warn(err);
+    renderer = createFallback(canvas, data);
+    root.dataset.fallback = '2d';
   }
 
   const picker = createPicker(data);

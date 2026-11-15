@@ -1,38 +1,31 @@
-// 弧の描画。担当: 弧の描画の実装者がこのファイルの中身を書く。
+// 弧の描画。担当: 弧の描画の実装者が、このファイルの中身だけを書く。
+// 弧は 1 本ぶん(48 区間)のリボンの InstancedBufferGeometry で、頂点シェーダで画面上の法線方向へ押し出す(設計 §5)。
+// 地下(side = -1)と地上(side = +1)の 2 つの Mesh を、RENDER_ORDER.arcsBelow / arcsAbove で描く。
 //
-// 約束:
-//   createArcs(ctx) → {
-//     below, above,                 // THREE.Object3D。below は地下の弧、above は地上の弧
-//     setSelection(mask),           // Uint8Array(47)。選択中の都道府県が 1。sideOf(o, d, ...) と整合させる
-//     setYear(a, b, mix),           // 年 a と b の人数を mix で補間(a, b は西暦)
-//     setHover(arc | null),         // { o, d } | null。ホバー中の弧だけ朱にする
-//     setTheme(theme),              // 'paper' | 'ink'
-//     setQuality({ segments }),     // 弧の区間数(負荷が高いときに下げる)
-//     update(timeSec),
-//     dispose()
-//   }
-// ctx(scene/renderer.js が作る共有物):
-//   ctx.data      loadData() の結果(matrix(year)、prefectures …)
-//   ctx.layout    { line, geo, toWorld, northAngle, kmPerUnit, bounds }
-//   ctx.uniforms  { uNodes, uMorph, uLean, uK, uRes(描画バッファの実ピクセル), uPixelRatio, uTime, uInk, uPaper, uAccent }
-//                 各 { value } で、全素材が共有する。GLSL_ARC(geometry/arc.js)と併用する
-//   ctx.getState() 描画側の現在値 { mask, yearA, yearB, mix, hover, theme, reducedMotion }
+// 層の約束(arcs / particles / ground で共通):
+//   createXxxLayer(ctx) → { object3D, update(frame), setYear(a, b, mix), setSelection(mask),
+//                           setTheme(theme), setHover(arc | null), dispose() }
+//   ctx = { shared, data, arcList }
+//     shared    scene/shared.js の createShared の結果(uniforms、layout、GLSL_COMMON、RENDER_ORDER)
+//     data      loadData() の結果(matrix(year)、prefectures、topology …)
+//     arcList   geometry/flows.js の arcList()(弧の固定の順序。弧・粒子・当たり判定・表で共有)
+//   frame = { time(秒)、dt(秒)、reducedMotion }。毎フレーム update(frame) が呼ばれる。
+//   setYear(a, b, mix): a、b は西暦。setSelection(mask): Uint8Array(47)。setHover: { o, d } | null。
+//   層に関係のないメソッドは何もしない実装でよい。
+//   描く順序: object3D の中の Mesh / Points(葉のオブジェクト)に shared.js の RENDER_ORDER を renderOrder として付ける。
+//   (Group に付けると、層をまたいだ並べ替えがされない)
 import * as THREE from 'three';
 
-export function createArcs(ctx) {
-  const below = new THREE.Group();
-  const above = new THREE.Group();
-  below.name = 'arcs-below';
-  above.name = 'arcs-above';
+export function createArcsLayer(ctx) {
+  const object3D = new THREE.Group();
+  object3D.name = 'arcs';
   return {
-    below,
-    above,
-    setSelection() {},
-    setYear() {},
-    setHover() {},
-    setTheme() {},
-    setQuality() {},
+    object3D,
     update() {},
+    setYear() {},
+    setSelection() {},
+    setTheme() {},
+    setHover() {},
     dispose() {},
   };
 }

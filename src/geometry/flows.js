@@ -43,3 +43,43 @@ export function sideOf(o, d, selection) {
 export function particleCount(v) {
   return v > 0 ? Math.ceil(v / 100) : 0;
 }
+
+/**
+ * 弧の一覧。47 × 46 = 2,162 組の (o, d) を、o の昇順、その中で d の昇順に固定した順序で持つ。
+ * 弧・粒子・当たり判定・表がこの順序(添字 k)を共有する。同じ都道府県どうし(o === d)は含まない。
+ *   length      2162
+ *   o, d        Uint8Array(2162)。k 番目の組
+ *   pair(k)     → [o, d]
+ *   indexOf(o, d) → k。o === d や範囲外は -1
+ *   cell(k)     → o * 47 + d(matrix(year) の添字)
+ */
+export const ARC_COUNT = 47 * 46;
+
+let cachedArcList = null;
+
+export function arcList() {
+  if (cachedArcList) return cachedArcList;
+  const o = new Uint8Array(ARC_COUNT);
+  const d = new Uint8Array(ARC_COUNT);
+  let k = 0;
+  for (let i = 0; i < 47; i++) {
+    for (let j = 0; j < 47; j++) {
+      if (i === j) continue;
+      o[k] = i;
+      d[k] = j;
+      k++;
+    }
+  }
+  cachedArcList = Object.freeze({
+    length: ARC_COUNT,
+    o,
+    d,
+    pair: (k) => [o[k], d[k]],
+    indexOf: (i, j) =>
+      Number.isInteger(i) && Number.isInteger(j) && i >= 0 && i < 47 && j >= 0 && j < 47 && i !== j
+        ? i * 46 + (j < i ? j : j - 1)
+        : -1,
+    cell: (k) => o[k] * 47 + d[k],
+  });
+  return cachedArcList;
+}

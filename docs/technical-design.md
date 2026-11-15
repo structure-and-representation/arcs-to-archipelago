@@ -130,7 +130,9 @@ src/
   main.js                 配線だけを行う
   state.js                createStore(initial) → { get(), set(patch), subscribe(fn) }
   params.js               URL の引数と state の相互変換
-  i18n.js                 t(key) と文言の辞書(ja / en)
+  i18n.js                 t(key) と文言の辞書(ja / en)。辞書は i18n/ に部品ごとに分かれる
+  i18n/                   common.js、timeline.js、selector.js、tooltip.js、table.js、controls.js、chapters.js
+  content/chapters.js     章の中身(各章の見出し・本文のキー、選択、カメラ)
   data/loader.js          loadData() → { years, totals, matrix(year) → Int32Array(2209), prefectures, topology }
   geometry/constants.js   W, H, N, STEP, K, CX
   geometry/layout.js      lineLayout() → [x, z][47]
@@ -141,19 +143,25 @@ src/
                           GLSL_ARC(同じ式の GLSL 断片)
   geometry/flows.js       sideOf(o, d, selection) → +1 | −1 | 0(0 は描かない)
                           particleCount(v) → 枠の数
+                          arcList() → 弧の固定の順序(2,162 組)
+  scene/shared.js         全層が共有する uniform と GLSL 断片、描く順序(RENDER_ORDER)
   scene/renderer.js       createRenderer(canvas, data) → {
                             setView({ azimuth, elevation, zoom, center, roll }), setMorph(m), setLean(l),
                             setSelection(Uint8Array(47)), setYear(a, b, mix), setTheme('paper' | 'ink'),
                             setReducedMotion(bool), setHover(arc | null), resize(), render(timeSec),
                             project(i) → [x, y](CSS px), dispose() }
-  scene/arcs.js           弧の描画
-  scene/particles.js      粒子の描画
-  scene/ground.js         地面と境界線の描画
-  scene/camera.js         定位置と補間
+  scene/arcs.js           createArcsLayer(ctx) 弧の層
+  scene/particles.js      createParticlesLayer(ctx) 粒子の層
+  scene/ground.js         createGroundLayer(ctx) 地面と境界線の層
+  scene/camera.js         viewFor(preset, aspect, layout)、tween(a, b, s)(純関数)
+  scene/cameraRig.js      state.camera の変化を renderer へつなぐ配線
+  scene/fallback2d.js     createFallback(canvas, data) WebGL2 が使えない環境の Canvas 2D 代替(renderer と同じメソッド)
   scene/picking.js        createPicker(data) → { rebuild(state), pickNode(x, y) → i | null, pickArc(x, y) → { o, d } | null }
   ui/labels.js、ui/timeline.js、ui/selector.js、ui/tooltip.js、ui/table.js、ui/chapters.js、ui/controls.js
                           それぞれ mount(el, store, ctx) → { dispose() }
   styles/tokens.css       --paper、--ink、--vermilion とダークテーマ
+  styles/base.css         全体の土台
+  styles/ui-<部品名>.css  UI 部品ごとの見た目(labels、chapters、timeline、selector、controls、tooltip、table)
 ```
 
 ### state
@@ -195,9 +203,9 @@ src/
 ### 幾何
 
 - `geometry/constants.js` は `W, H, N, STEP, K, CX` に加えて、`METRO_CODES`(圏の構成、JIS コード)、`CAMERA_PRESETS`(§6 の表)、`YEAR_MIN/MAX` を持ちます。
-- `arcPoint(A, B, side, lean, t, out)` の A、B は補間後の位置 `[x, z]`。`arcTangent` は単位ベクトルで、端点では t を `[1e-4, 1 − 1e-4]` に丸めます。GLSL 側は `nodePos(i)` と `arcPoint(si, ti, side, t, out R)`(R は弦に垂直な水平の単位ベクトル)。
+- `arcPoint(A, B, side, lean, t, out)` の A、B は補間後の位置 `[x, z]`。`arcTangent` は単位ベクトルで、端点では t を `[1e-4, 1 − 1e-4]` に丸めます。GLSL 側の `GLSL_ARC` は弧の式だけで(`uLean`、`uK`、`arcPoint(si, ti, side, t, out R)`。R は弦に垂直な水平の単位ベクトル)、`nodePos(i)` は `scene/shared.js` の `GLSL_NODES` にあります。
 - `geoLayout(prefectures)` は `{ pos, toWorld, northAngle, kmPerUnit, bounds }` を返します。`bounds = { minX, maxX, minZ, maxZ }`。
-- `geometry/flows.js` は `sideOf(o, d, selection)`(o、d は添字 0〜46)、`particleCount(v)`(`ceil(v / 100)`)に加えて、`selectionMask(selection) → Uint8Array(47)` を持ちます。圏のメンバーは `METRO_CODES` で決め、`prefectures.json` の `metro` とは独立に同じ分け方です。
+- `geometry/flows.js` は `sideOf(o, d, selection)`(o、d は添字 0〜46)、`particleCount(v)`(`ceil(v / 100)`)に加えて、`selectionMask(selection) → Uint8Array(47)` と `arcList()` を持ちます。`arcList()` は 47 × 46 = 2,162 組の (o, d) を o の昇順、その中で d の昇順に固定した順序で持ち(同じ都道府県どうしは含まない)、`length`、`o` / `d`(Uint8Array)、`pair(k) → [o, d]`、`indexOf(o, d) → k`(不正は −1)、`cell(k) → o * 47 + d` を引けます。弧・粒子・当たり判定・表がこの順序を共有します。圏のメンバーは `METRO_CODES` で決め、`prefectures.json` の `metro` とは独立に同じ分け方です。
 
 ### state と URL
 
@@ -207,15 +215,23 @@ src/
 
 ### 描画
 
-- `renderer.setView({ azimuth, elevation, zoom, center, roll })`: `azimuth` は Y 軸まわり(0 でカメラは +z 側、x が右)、`zoom` はワールド 1 単位が何 CSS px か、`center` は `[x, y, z]`、`roll` は画面の像を時計まわりに回す角度。仰角 90° でも上向きが定まるよう、上向きは `(−sin(el)·sin(az), cos(el), −sin(el)·cos(az))` です。
-- `renderer.setYear(a, b, mix)` の a、b は西暦です。`renderer.render(timeSec)` は呼ぶたびに各部品の `update(timeSec)` を呼びます。
-- `createRenderer` が返すオブジェクトは、設計のメソッドに加えて `layout`(`{ line, geo, toWorld, northAngle, kmPerUnit, bounds }`)、`getState()`、`screenMatrix()`(ワールド → CSS px のアフィン 2×4)を持ちます。
-- 各部品(`scene/arcs.js`、`particles.js`、`ground.js`)は `createX(ctx)` で作られます。`ctx = { data, layout, uniforms, getState }`。`uniforms` は全素材が共有する `{ uNodes, uMorph, uLean, uK, uRes, uPixelRatio, uTime, uInk, uPaper, uAccent }`(各 `{ value }`)です。弧と粒子は `{ below, above, … }`、地面は `{ object, … }` を返し、renderer が `renderOrder`(地下の弧 0、地下の粒子 1、地面 2、地上の弧 3、地上の粒子 4、都道府県の点 5)を付けます。
-- 色は `styles/tokens.css` の `--bg`、`--fg`、`--accent`(ダークテーマで入れ替わる別名)を renderer が読みます。
-- `scene/camera.js` は `viewForPreset(name, { width, height, layout })` と `createCameraRig({ store, renderer, immediate })` を持ちます。`state.camera` が変わると視点と `state.morph` を補間します(動きを減らす設定では即時)。縦長の真横は `roll = π/2` で北海道が上、真上は北が画面の上になる azimuth を使います。
-- `scene/picking.js`: `createPicker(data)` は `rebuild({ matrix, mask, selection, morph, lean, screen })`、`pickNode(x, y)`、`pickArc(x, y)` を持ちます。`pickNode` は実装済み(半径 14 CSS px)、`pickArc` は未実装です。
+- `renderer.setView({ azimuth, elevation, zoom, center, roll })`: `azimuth` は Y 軸まわり(0 でカメラは +z 側、x が右)、`zoom` は **ワールド 1 単位が画面の高さの何分の一か**(CSS px = zoom × 画面の高さ。画面の大きさに依らないので、カメラの視点を縦横比だけから作れる)、`center` は `[x, y, z]`、`roll` は画面の像を時計まわりに回す角度。仰角 90° でも上向きが定まるよう、上向きは `(−sin(el)·sin(az), cos(el), −sin(el)·cos(az))` です。
+- `renderer.setYear(a, b, mix)` の a、b は西暦です。`renderer.render(timeSec)` は呼ぶたびに各層の `update(frame)` を呼びます。
+- `createRenderer` が返すオブジェクトは、設計のメソッドに加えて `layout`(`{ line, geo, toWorld, northAngle, kmPerUnit, bounds }`)、`getState()`、`screenMatrix()`(ワールド → CSS px のアフィン 2×4)を持ちます。`scene/fallback2d.js` の `createFallback` も同じメソッドを持ちます(WebGL2 を作れなかったときに `main.js` が切り替え、`<html data-fallback="2d">` が付きます)。
+- **層**: renderer が自分で描くのは 47 都道府県の点だけです。弧・粒子・地面は層で、`createArcsLayer(ctx)`、`createParticlesLayer(ctx)`、`createGroundLayer(ctx)` が `{ object3D, update(frame), setYear(a, b, mix), setSelection(mask), setTheme(theme), setHover(arc | null), dispose() }` を返します(関係のないメソッドは何もしない)。`ctx = { shared, data, arcList }`、`frame = { time, dt, reducedMotion }`。後続の担当は自分の層のファイルだけを書き換えます。
+- **`scene/shared.js`**: 全層が共有する uniform(`uNodes`、`uMorph`、`uLean`、`uK`、`uRes`(描画バッファの実ピクセル)、`uPixelRatio`、`uTime`、`uInk`、`uPaper`、`uAccent`。各 `{ value }`)を `createShared(data)` が作ります。GLSL 断片は `GLSL_NODES`(`uNodes`、`uMorph`、`nodePos(i)`)と `geometry/arc.js` の `GLSL_ARC`(弧の式。`nodePos` が必要)で、`GLSL_COMMON` が両方をつなげたものです。
+- **描く順序**: `RENDER_ORDER`(地下の弧 0、地下の粒子 1、地面 2、地上の弧 3、地上の粒子 4、都道府県の点 5)を、各層が自分の Mesh / Points(葉のオブジェクト)の `renderOrder` に付けます。Group に付けると three.js が層をまたいだ並べ替えをしなくなるので付けません。
+- 色は `styles/tokens.css` の `--bg`、`--fg`、`--accent`(ダークテーマで入れ替わる別名)を `shared.setTheme` が読みます。
+- **`scene/camera.js`** は純関数です。`viewFor(preset, aspect, layout) → { azimuth, elevation, zoom, center, roll, morph, lean }`(`aspect` は幅 / 高さ、`layout` は `renderer.layout`。真上の azimuth と収める範囲に使う)と、`tween(a, b, s)`(角度は短い側へ、zoom は対数で補間)。縦長の真横は `roll = π/2` で北海道が上、真上は北が画面の上になる azimuth を使います。store と renderer をつなぐ `scene/cameraRig.js` が、`state.camera` の変化で視点と `state.morph` を補間します(動きを減らす設定では即時)。
+- `scene/picking.js`: `createPicker(data)` は `rebuild({ matrix, mask, selection, morph, lean, screen })`、`pickNode(x, y)`、`pickArc(x, y)` を持ちます。`pickNode` は実装済み(半径 14 CSS px)、`pickArc` は未実装です。弧は `arcList()` の添字で扱います。
 - UI 部品は `mount(el, store, ctx)`、`ctx = { data, renderer, picker, onFrame(fn(timeSec)) → off }`。要素の id は `labels`、`timeline`、`selector`、`tooltip`、`table`、`chapters`、`controls`(キャンバスは `stage`)。
+
+### 文言・CSS・章
+
+- 文言の辞書は `src/i18n/<部品>.js` に `{ ja, en }` で置き、`src/i18n.js` がまとめて `t(key)` を提供します。キーは `<部品>.<名前>`(`common.js` は `app.`、`unit.`、`flow.`、`source.`)で、部品どうしで重ならないことをテストで確かめています。担当は自分の辞書だけを編集します。
+- CSS は `main.js` が `tokens.css`、`base.css`、`ui-<部品名>.css` を読み込みます。UI 部品の配置と見た目は、その部品のファイルに書きます。
+- 章は、仕組み(`ui/chapters.js`)と中身(`content/chapters.js` の `CHAPTERS`: 見出し・本文のキー、選択、カメラ)に分かれます。いまの選択とカメラは仮の値です。
 
 ### 未実装(後続)
 
-弧・粒子・地面・弧の当たり判定・各 UI 部品の中身、WebGL2 が使えない環境の Canvas 2D 代替表示(`main.js` に TODO)。
+弧・粒子・地面の層、`pickArc`、各 UI 部品、章のスクロール連動、Canvas 2D の代替表示(`scene/fallback2d.js` は位置の射影だけ)の中身。

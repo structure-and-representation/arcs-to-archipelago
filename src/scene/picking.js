@@ -9,6 +9,7 @@
 //     pickNode(x, y),  // CSS px(キャンバス左上基準)→ 都道府県の添字 | null
 //     pickArc(x, y)    // → { o, d } | null。描いている弧だけが対象(sideOf(o, d, selection) !== 0 で人数 > 0)
 //   }
+// 弧は geometry/flows.js の arcList()(固定の順序。弧・粒子・表と共有)の添字 k で扱う。
 // 弧の多角線はキャッシュして rebuild のときだけ作り直す(試作 reference/proto/pick.mjs の計測を参照)。
 import { lineLayout, geoLayout, nodePos } from '../geometry/layout.js';
 

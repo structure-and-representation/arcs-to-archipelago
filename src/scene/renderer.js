@@ -1,37 +1,18 @@
 // three.js の描画器。透明なキャンバスに正投影カメラで描く。
-// 最小実装: 47 都道府県を点として描き、一直線 ↔ 地理配置の補間(morph)ができる。
-// 弧・粒子・地面は scene/arcs.js、particles.js、ground.js が受け持つ。
+// 自分で描くのは 47 都道府県の点だけ(一直線 ↔ 地理配置の補間つき)。
+// 弧・粒子・地面は層(scene/arcs.js、particles.js、ground.js)が受け持ち、ここは層を登録して呼び出す。
 import * as THREE from 'three';
-import { K } from '../geometry/constants.js';
-import { GLSL_ARC } from '../geometry/arc.js';
-import { lineLayout, geoLayout, nodePos } from '../geometry/layout.js';
-import { createArcs } from './arcs.js';
-import { createParticles } from './particles.js';
-import { createGround } from './ground.js';
+import { GLSL_NODES, RENDER_ORDER, createShared } from './shared.js';
+import { nodePos } from '../geometry/layout.js';
+import { arcList } from '../geometry/flows.js';
+import { createArcsLayer } from './arcs.js';
+import { createParticlesLayer } from './particles.js';
+import { createGroundLayer } from './ground.js';
 
 const MAX_DPR = 2;
-// 描く順序(小さいほど先): 地下の弧と粒子、地面、地上の弧と粒子
-const ORDER = { arcsBelow: 0, particlesBelow: 1, ground: 2, arcsAbove: 3, particlesAbove: 4, nodes: 5 };
-
-// 色は styles/tokens.css の --bg / --fg / --accent から読む(読めなければ既定値)
-const FALLBACK = {
-  paper: { bg: '#f6f3ec', fg: '#1b1a17', accent: '#c9331f' },
-  ink: { bg: '#1b1a17', fg: '#f6f3ec', accent: '#e5533b' },
-};
-function readColors(theme) {
-  const out = { ...FALLBACK[theme] };
-  if (typeof document !== 'undefined') {
-    const cs = getComputedStyle(document.documentElement);
-    for (const [key, v] of [['bg', '--bg'], ['fg', '--fg'], ['accent', '--accent']]) {
-      const s = cs.getPropertyValue(v).trim();
-      if (/^#[0-9a-f]{6}$/i.test(s)) out[key] = s;
-    }
-  }
-  return out;
-}
 
 const NODE_VERT = /* glsl */ `
-${GLSL_ARC}
+${GLSL_NODES}
 in float aI;
 in float aSel;
 uniform float uPointSize;
@@ -61,13 +42,15 @@ void main(){
 /**
  * createRenderer(canvas, data) → {
  *   setView({ azimuth, elevation, zoom, center, roll }),
- *     azimuth: Y 軸まわり(+z から)、elevation: 仰角、zoom: ワールド 1 単位が何 CSS px か、
+ *     azimuth: Y 軸まわり(0 でカメラは +z 側にあり、x が右)、elevation: 仰角(π/2 で真上)、
+ *     zoom: ワールド 1 単位が画面の高さの何分の一か(画面の大きさに依らない。CSS px = zoom * 画面の高さ)、
  *     center: [x, y, z] 注視点、roll: 画面の像を時計まわりに回す角度(ラジアン)
  *   setMorph(m), setLean(l), setSelection(Uint8Array(47)), setYear(a, b, mix), setTheme('paper' | 'ink'),
  *   setReducedMotion(bool), setHover(arc | null), resize(), render(timeSec),
  *   project(i) → [x, y](CSS px), dispose()
  *   ほかに: layout(配置の情報)、getState()、screenMatrix()(world → CSS px のアフィン 2x4)
  * }
+ * scene/fallback2d.js の createFallback も、同じメソッドを持つ。
  */
 export function createRenderer(canvas, data) {
   const gl = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
@@ -75,28 +58,9 @@ export function createRenderer(canvas, data) {
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -5000, 5000);
 
-  const line = lineLayout();
-  const geo = geoLayout(data.prefectures);
-  const layout = { line, geo: geo.pos, toWorld: geo.toWorld, northAngle: geo.northAngle, kmPerUnit: geo.kmPerUnit, bounds: geo.bounds };
-
-  const nodeArr = new Float32Array(47 * 4);
-  for (let i = 0; i < 47; i++) nodeArr.set([line[i][0], line[i][1], layout.geo[i][0], layout.geo[i][1]], i * 4);
-  const nodeTex = new THREE.DataTexture(nodeArr, 47, 1, THREE.RGBAFormat, THREE.FloatType);
-  nodeTex.minFilter = nodeTex.magFilter = THREE.NearestFilter;
-  nodeTex.needsUpdate = true;
-
-  const uniforms = {
-    uNodes: { value: nodeTex },
-    uMorph: { value: 0 },
-    uLean: { value: 0 },
-    uK: { value: K },
-    uRes: { value: new THREE.Vector2(1, 1) },
-    uPixelRatio: { value: 1 },
-    uTime: { value: 0 },
-    uInk: { value: new THREE.Color() },
-    uPaper: { value: new THREE.Color() },
-    uAccent: { value: new THREE.Color() },
-  };
+  const shared = createShared(data);
+  const { uniforms, layout } = shared;
+  const line = layout.line;
 
   const st = {
     mask: new Uint8Array(47),
@@ -108,11 +72,11 @@ export function createRenderer(canvas, data) {
     reducedMotion: false,
     morph: 0,
     lean: 0,
-    view: { azimuth: 0, elevation: 0, zoom: 1, center: [0, 0, 0], roll: 0 },
+    view: { azimuth: 0, elevation: 0, zoom: 0.003, center: [0, 0, 0], roll: 0 },
     width: 1,
     height: 1,
+    time: 0,
   };
-  const ctx = { data, layout, uniforms, getState: () => st };
 
   // 都道府県の点
   const nodeGeom = new THREE.BufferGeometry();
@@ -131,21 +95,14 @@ export function createRenderer(canvas, data) {
   });
   const nodes = new THREE.Points(nodeGeom, nodeMat);
   nodes.frustumCulled = false;
-  nodes.renderOrder = ORDER.nodes;
+  nodes.renderOrder = RENDER_ORDER.nodes;
   scene.add(nodes);
 
-  // 弧・粒子・地面。中身は各モジュールの担当が実装する
-  const arcs = createArcs(ctx);
-  const particles = createParticles(ctx);
-  const ground = createGround(ctx);
-  arcs.below.renderOrder = ORDER.arcsBelow;
-  particles.below.renderOrder = ORDER.particlesBelow;
-  ground.object.renderOrder = ORDER.ground;
-  arcs.above.renderOrder = ORDER.arcsAbove;
-  particles.above.renderOrder = ORDER.particlesAbove;
-  scene.add(arcs.below, particles.below, ground.object, arcs.above, particles.above);
-  const parts = [arcs, particles, ground];
-  const each = (name, ...args) => parts.forEach((p) => p[name]?.(...args));
+  // 層(弧・粒子・地面)。中身は各層の担当が実装する
+  const ctx = { shared, data, arcList: arcList() };
+  const layers = [createArcsLayer(ctx), createParticlesLayer(ctx), createGroundLayer(ctx)];
+  for (const layer of layers) scene.add(layer.object3D);
+  const each = (name, ...args) => layers.forEach((l) => l[name]?.(...args));
 
   const vFwd = new THREE.Vector3();
   const vUp = new THREE.Vector3();
@@ -161,11 +118,11 @@ export function createRenderer(canvas, data) {
     vUp.set(-se * sa, ce, -se * ca);
     if (roll) {
       vFwd.set(-ce * sa, -se, -ce * ca); // カメラの向き
-      // 像が時計まわりに roll 回るよう、上向きを視線まわり(視線の逆向きの軸)に反時計回りへ回す
+      // 像が時計まわりに roll 回るよう、上向きを視線の逆向きの軸まわりに反時計回りへ回す
       vUp.applyAxisAngle(vTmp.copy(vFwd).negate(), roll);
     }
     camera.up.copy(vUp);
-    camera.zoom = zoom;
+    camera.zoom = zoom * st.height;
     camera.lookAt(center[0], center[1], center[2]);
     camera.updateProjectionMatrix();
     camera.updateMatrixWorld(true);
@@ -179,13 +136,7 @@ export function createRenderer(canvas, data) {
     camera.updateProjectionMatrix();
   }
 
-  function applyTheme() {
-    const c = readColors(st.theme);
-    uniforms.uPaper.value.set(c.bg);
-    uniforms.uInk.value.set(c.fg);
-    uniforms.uAccent.value.set(c.accent);
-  }
-  applyTheme();
+  shared.setTheme(st.theme);
   applyView();
 
   const api = {
@@ -203,12 +154,12 @@ export function createRenderer(canvas, data) {
       applyView();
     },
     setMorph(m) {
-      st.morph = Math.min(1, Math.max(0, m));
-      uniforms.uMorph.value = st.morph;
+      shared.setMorph(m);
+      st.morph = uniforms.uMorph.value;
     },
     setLean(l) {
       st.lean = l;
-      uniforms.uLean.value = l;
+      shared.setLean(l);
     },
     setSelection(mask) {
       st.mask = mask;
@@ -224,12 +175,11 @@ export function createRenderer(canvas, data) {
     },
     setTheme(theme) {
       st.theme = theme;
-      applyTheme();
+      shared.setTheme(theme);
       each('setTheme', theme);
     },
     setReducedMotion(on) {
       st.reducedMotion = !!on;
-      each('setReducedMotion', !!on);
     },
     setHover(arc) {
       st.hover = arc;
@@ -244,15 +194,18 @@ export function createRenderer(canvas, data) {
       gl.setSize(w, h, false);
       st.width = w;
       st.height = h;
-      uniforms.uPixelRatio.value = dpr;
-      gl.getDrawingBufferSize(uniforms.uRes.value);
+      const buf = gl.getDrawingBufferSize(new THREE.Vector2());
+      shared.setSize(buf.x, buf.y, dpr);
       nodeMat.uniforms.uPointSize.value = 5 * dpr;
       applyFrustum();
       applyView();
     },
     render(timeSec) {
-      uniforms.uTime.value = timeSec;
-      each('update', timeSec);
+      const dt = Math.max(0, timeSec - st.time);
+      st.time = timeSec;
+      shared.setTime(timeSec);
+      const frame = { time: timeSec, dt, reducedMotion: st.reducedMotion };
+      each('update', frame);
       gl.render(scene, camera);
     },
     /** 都道府県 i の画面位置(キャンバス左上からの CSS px)。現在の morph を反映する。 */
@@ -284,7 +237,7 @@ export function createRenderer(canvas, data) {
       each('dispose');
       nodeGeom.dispose();
       nodeMat.dispose();
-      nodeTex.dispose();
+      shared.dispose();
       gl.dispose();
     },
   };

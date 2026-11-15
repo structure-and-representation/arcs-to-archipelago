@@ -79,15 +79,14 @@ export function arcTangent(A, B, side, lean, t, out = [0, 0, 0]) {
 }
 
 /**
- * 同じ式の GLSL 断片(GLSL ES 3.00)。
- * uniform: uNodes(47x1 RGBA32F: lineX, lineZ, geoX, geoZ)、uMorph、uLean、uK。
- * 関数: nodePos(i)、arcPoint(srcIndex, dstIndex, side, t, out R)
+ * 同じ式の GLSL 断片(GLSL ES 3.00)。弧の式だけで、都道府県の位置を読む断片
+ * (`scene/shared.js` の GLSL_NODES: uNodes、uMorph、nodePos(i))と一緒に使う。
+ * uniform: uLean、uK。
+ * 関数: arcPoint(srcIndex, dstIndex, side, t, out R)
  *   R は弦に垂直な水平の単位ベクトル(リボンやチューブの押し出しに使う)。
  */
 export const GLSL_ARC = /* glsl */ `
-uniform sampler2D uNodes;
-uniform float uMorph, uLean, uK;
-vec2 nodePos(float i){ vec4 v = texelFetch(uNodes, ivec2(int(i + 0.5), 0), 0); return mix(v.xy, v.zw, uMorph); }
+uniform float uLean, uK;
 vec3 bsp(vec3 p0, vec3 p1, vec3 p2, vec3 p3, float f){
   float f2 = f * f, f3 = f2 * f; float a = 1.0 - f;
   return (a * a * a * p0 + (3.0 * f3 - 6.0 * f2 + 4.0) * p1 + (-3.0 * f3 + 3.0 * f2 + 3.0 * f + 1.0) * p2 + f3 * p3) / 6.0;
