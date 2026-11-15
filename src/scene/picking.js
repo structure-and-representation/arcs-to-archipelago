@@ -269,7 +269,10 @@ export function createInteraction({ store, picker, touchNodeRadius = 22, touchAr
     },
     click(x, y) {
       const t = pick(x, y, false);
-      if (t?.type === 'pref') store.set({ selection: { type: 'pref', code: t.code } });
+      if (t?.type !== 'pref') return;
+      // 選択中の都道府県を押すと選択を解除する(デザイン仕様 5.4)
+      const cur = store.get().selection;
+      store.set({ selection: cur?.type === 'pref' && cur.code === t.code ? null : { type: 'pref', code: t.code } });
     },
     tap(x, y) {
       pointer = null;

@@ -174,24 +174,7 @@ async function main() {
       screen,
     });
   };
-  const localPoint = (e) => {
-    const r = canvas.getBoundingClientRect();
-    return [e.clientX - r.left, e.clientY - r.top];
-  };
-  listen(canvas, 'pointermove', (e) => {
-    rebuildPicker();
-    const [x, y] = localPoint(e);
-    const i = picker.pickNode(x, y);
-    const arc = i == null ? picker.pickArc(x, y) : null;
-    store.set({ hover: i != null ? { type: 'pref', code: i + 1 } : arc ? { type: 'arc', o: arc.o, d: arc.d } : null });
-  });
-  listen(canvas, 'pointerleave', () => store.set({ hover: null }));
-  listen(canvas, 'click', (e) => {
-    rebuildPicker();
-    const [x, y] = localPoint(e);
-    const i = picker.pickNode(x, y);
-    if (i != null) store.set({ selection: { type: 'pref', code: i + 1 } });
-  });
+  // 図の上のホバーと選択の入力は ui/tooltip.js(scene/picking.js の createInteraction)が受ける
 
   // 描画ループ。1 フレームの中で例外が出ても、次のフレームの予約は失わない(先に予約する)。
   // 描画器と UI 部品の毎フレームの処理は、それぞれ例外を受け止める(同じ例外は 1 回だけ記録する)。

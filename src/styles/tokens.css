@@ -148,7 +148,7 @@
   :root {
     --gutter: 16px;
     --header-h: 52px;
-    --dock-h: 160px;         /* 下のドック(読み出し、年、カメラ)。safe area は別に足す */
+    --dock-h: 164px;         /* 下のドック(読み出し、年、カメラ)。safe area は別に足す */
   }
 }
 
