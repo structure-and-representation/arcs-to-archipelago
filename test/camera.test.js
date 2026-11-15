@@ -86,8 +86,8 @@ describe('viewFor: 定位置', () => {
     expect(isPortrait(1024)).toBe(false);
     expect(isPortrait(1100, 1400)).toBe(false); // 縦横比では判定しない
     expect(figureRegion(1100, 1400).x0).toBe(424);
-    expect(figureRegion(1440, 900)).toEqual({ x0: 424, y0: 96, x1: 1400, y1: 800 });
-    expect(figureRegion(390, 844)).toEqual({ x0: 16, y0: 72, x1: 374, y1: 678 });
+    expect(figureRegion(1440, 900)).toEqual({ x0: 424, y0: 96, x1: 1400, y1: 764 });
+    expect(figureRegion(390, 844)).toEqual({ x0: 16, y0: 72, x1: 374, y1: 664 });
     expect(figureRegion(1920, 1080).x1).toBe(1880);
   });
 
@@ -113,7 +113,7 @@ describe('viewFor: 定位置', () => {
     const width = Math.max(...xs) - Math.min(...xs);
     expect(width / 976).toBeGreaterThan(0.9);
     expect(width / 976).toBeLessThan(0.96);
-    expect(d.every((p) => Math.abs(p[1] - 448) < 1e-6)).toBe(true);
+    expect(d.every((p) => Math.abs(p[1] - 430) < 1e-6)).toBe(true);
     const m = nodesOnScreen(view('side', 390, 844), [390, 844]);
     const ys = m.map((p) => p[1]);
     expect((Math.max(...ys) - Math.min(...ys)) / 606).toBeGreaterThan(0.9);
@@ -160,38 +160,49 @@ describe('viewFor: 地域を選んでいるとき', () => {
           const v = view(preset, w, h, sel);
           const pts = nodesOnScreen(v, [w, h]);
           const mask = selectionMask(sel);
+          // 真上は全体を収めるので、選択地域は領域の中にあればよい(内側へ寄せる移動は、全体がはみ出さない範囲に限る)
+          const box = preset === 'top' ? presetRegion('top', r, w < 1024, true, true) : comfort;
           pts.forEach((pt, i) => {
-            if (mask[i]) expect(inside(pt, comfort, 1), `${name} ${preset} ${w}x${h} ${pt}`).toBe(true);
+            if (mask[i]) expect(inside(pt, box, 1), `${name} ${preset} ${w}x${h} ${pt}`).toBe(true);
           });
         }
       }
     }
   });
 
-  it('拡大率は、選択なしの 1〜2.5 倍。相手先がなければ 2.5 倍、遠い相手先があれば小さくなる', () => {
+  it('拡大率は、同じ領域に全体を収めた拡大率の 1〜2.5 倍。相手先がなければ 2.5 倍、遠い相手先があれば小さくなる', () => {
     expect(SELECTION_ZOOM).toBe(2.5);
+    const others = (sel) => Array.from({ length: 47 }, (_, i) => i).filter((i) => !selectionMask(sel)[i]);
     for (const [w, h] of SIZES) {
       for (const [, sel] of selections) {
         for (const preset of ['oblique', 'top']) {
-          const a = view(preset, w, h);
-          const b = viewFor(preset, w / h, layout, opts(w, h, sel));
-          const z = b.zoom / viewFor(preset, w / h, layout, { ...opts(w, h), selection: null }).zoom;
-          expect(z).toBeGreaterThanOrEqual(1 - 1e-9);
-          expect(z).toBeLessThanOrEqual(2.5 + 1e-9);
-          expect([b.azimuth, b.roll]).toEqual([a.azimuth, a.roll]);
+          const none = viewFor(preset, w / h, layout, viewOptions(w, h, sel, []));
+          const all = viewFor(preset, w / h, layout, viewOptions(w, h, sel, others(sel)));
+          expect(none.zoom / all.zoom).toBeLessThanOrEqual(2.5 + 1e-9);
+          if (preset === 'oblique') expect(none.zoom / all.zoom).toBeGreaterThan(1);
+          else expect(none.zoom).toBeCloseTo(all.zoom, 9); // 真上はいつも全体を収める
+          expect([none.azimuth, none.roll]).toEqual([view(preset, w, h).azimuth, view(preset, w, h).roll]);
         }
       }
-      // 北海道と沖縄県を相手先に含めると、ほぼ全体が収まる倍率になる
+      // 北海道と沖縄県を相手先に含めると、拡大率は小さくなる
       const far = viewFor('oblique', w / h, layout, viewOptions(w, h, { type: 'metro', id: 'tokyo' }, [0, 46]));
       const near = viewFor('oblique', w / h, layout, viewOptions(w, h, { type: 'metro', id: 'tokyo' }, []));
       expect(far.zoom).toBeLessThan(near.zoom);
     }
   });
 
+  it('デスクトップで地域を選ぶと、右の読み出しの列を図の領域から外す', () => {
+    const r = figureRegion(1440, 900);
+    expect(presetRegion('oblique', r, false, true, true)).toEqual({ ...r, x1: 1400 - 324 });
+    expect(presetRegion('top', r, false, true, true)).toEqual({ ...r, x1: 1400 - 324 });
+    expect(presetRegion('oblique', r, false, true, false).y0).toBe(320);
+    expect(presetRegion('side', r, false, true, true)).toEqual(r);
+  });
+
   it('相手先の点は、選択地域を領域の内側に置いても領域から大きくはみ出さない(デスクトップ)', () => {
     const partners = [26, 22, 7, 0, 21, 39, 27, 3]; // 東京圏の主要な相手先(大阪、愛知、茨城、北海道、静岡、福岡、兵庫、宮城)
     const v = viewFor('oblique', 1440 / 900, layout, viewOptions(1440, 900, { type: 'metro', id: 'tokyo' }, partners));
-    const r = presetRegion('oblique', figureRegion(1440, 900), false);
+    const r = presetRegion('oblique', figureRegion(1440, 900), false, true, true);
     const pts = nodesOnScreen(v, [1440, 900]);
     for (const i of partners) expect(inside(pts[i], r, 60), `${i} ${pts[i]}`).toBe(true);
   });
@@ -408,7 +419,8 @@ describe('createCameraRig', () => {
     const { store, rig } = setup({ camera: 'oblique', reducedMotion: true });
     const z0 = rig.getView().zoom;
     store.set({ selection: { type: 'metro', id: 'tokyo' } });
-    expect(rig.getView().zoom / z0).toBeCloseTo(2.5, 9);
+    expect(rig.getView().zoom).toBeCloseTo(view('oblique', 1440, 900, { type: 'metro', id: 'tokyo' }).zoom, 9);
+    expect(rig.getView().zoom).toBeGreaterThan(z0);
     rig.orbit(0.3, 0.1);
     rig.zoomBy(1.5);
     expect(rig.getView().azimuth).toBeCloseTo(-0.35 + 0.3, 9);

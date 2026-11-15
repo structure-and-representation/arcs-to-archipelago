@@ -189,8 +189,9 @@ export function createArcsLayer(ctx) {
   hoverMesh.visible = false;
 
   // ---- 状態 ----
-  // 検証用: 比較の画像を撮るときだけ、外から線幅と不透明度を固定できる(tools/verify/arcs-parity.mjs)
-  const debug = globalThis.__ARCS_DEBUG;
+  // 検証用: 比較の画像を撮るときだけ、外から線幅と不透明度を固定できる(tools/verify/arcs-parity.mjs)。
+  // 開発サーバ(と Vitest)でだけ有効で、ビルドした出荷物からは取り除かれる
+  const debug = import.meta.env?.DEV ? globalThis.__ARCS_DEBUG : undefined;
   const debugStyle = debug && Number.isFinite(debug.width) && Number.isFinite(debug.alpha) ? debug : null;
 
   const targetSide = new Int8Array(count); // いまの選択での side(-1 / 0 / +1)
@@ -259,6 +260,21 @@ export function createArcsLayer(ctx) {
     hoverMesh.visible = true;
   }
 
+  // 弧ごとの側と濃さを shared.arcState に写す(粒子の層が同じ値で描く)
+  const arcState = shared.arcState;
+  function publish() {
+    if (!arcState) return;
+    const out = arcState.data;
+    for (let k = 0; k < count; k++) {
+      const c = (arcO[k] * 47 + arcD[k]) * 2;
+      out[c] = dyn[k * 2];
+      out[c + 1] = dyn[k * 2 + 1];
+    }
+    arcState.transitioning = progress < 1;
+    arcState.selMix = selCur;
+    arcState.commit();
+  }
+
   function snap() {
     for (let k = 0; k < count; k++) {
       dyn[k * 2] = toSide[k];
@@ -267,6 +283,7 @@ export function createArcsLayer(ctx) {
     selCur = selTo;
     progress = 1;
     dynAttr.needsUpdate = true;
+    publish();
   }
 
   function setSelection(mask) {
@@ -293,6 +310,7 @@ export function createArcsLayer(ctx) {
     selFrom = selCur;
     selTo = any ? 1 : 0;
     progress = 0;
+    if (arcState) arcState.transitioning = true;
     if (firstSelection) {
       // 最初の選択は、アニメーションせずに置く
       firstSelection = false;
@@ -322,6 +340,7 @@ export function createArcsLayer(ctx) {
         }
         selCur = selFrom + (selTo - selFrom) * s;
         dynAttr.needsUpdate = true;
+        publish();
         if (progress >= 1) snap();
       }
     }

@@ -73,6 +73,8 @@
     pointer-events: none;
   }
   .legend-key .legend-item { gap: 5px; }
+  /* ドックの 3 段目の右は「1粒 = 100人」だけ(デザイン仕様 5.8。弧の高さの意味は章の本文と表で読める) */
+  .legend-key .legend-height { display: none; }
 
   .legend-dir {
     position: fixed;

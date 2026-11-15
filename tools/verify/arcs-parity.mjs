@@ -1,189 +1,168 @@
 #!/usr/bin/env node
-// 真横の定位置で描いた弧が、原作(D3 v3 の arc diagram、1px の線)と ±1px で一致することを画像で比べる。
+// 真横の定位置で描いた弧が、原作の arc diagram の曲線と ±1px で一致することを、疎な弧で測って確かめる。
+// (npm test の対象外。Playwright と開発サーバを使う)
 //
-//   node tools/verify/arcs-parity.mjs [--build] [--size 1440x900] [--year 2014] [--out shots/parity]
+//   node tools/verify/arcs-parity.mjs [--size 1440x900] [--year 2014] [--out <dir>]
 //
-// 手順:
-//   1. アプリを ?morph=0&cam=side&year=N で開き、弧の線幅 1px・不透明度 1 に固定して(globalThis.__ARCS_DEBUG)、
-//      キャンバスだけを撮る(DPR 1)。都道府県の点は比較から除く。
-//   2. 同じ画面の座標へ、原作の式(d3.svg.line().interpolate('basis') に [A, M, B])で作った path を
-//      非表示の SVG として 1px の黒い線で描き、撮る。
-//   3. 線の画素(被覆率 ≥ しきい値)について、一方の画素から ±1px(3×3 の近傍)以内にもう一方の線の画素があるかを数える。
-// 終了コード: 0 = 両方向とも 100% が ±1px 以内、1 = そうでない。
+// 方法(docs/review/integration-review.md の A1 の独立の検証と同じ):
+//   1. 開発サーバ(vite)でアプリを開き、1 つの地域だけを選んで(沖縄県、鹿児島県、東京都。各 92 本)真横で撮る。
+//      弧の線幅 1px・不透明度 1、粒子なし(globalThis.__ARCS_DEBUG。開発サーバでだけ有効)、DPR 1、キャンバスだけ。
+//   2. 同じ弧の曲線を、geometry/arc.js の arcPoint(原作の d3.svg.line().interpolate('basis') と一致することを
+//      test/arc.test.js で確かめている)で作り、アプリの screenMatrix() で画面へ射影する。
+//   3. 曲線上の点のうち、ほかの弧から 5px 以上離れ、都道府県の点から 10px 以上離れた点で、曲線の法線方向 ±3px の
+//      画素の濃さの重心を求め、曲線からの垂直方向のずれを測る。
+// 判定(終了コード 0): 3 つの地域すべてで、ずれの最大が 1px 以下、99 パーセンタイルが 0.5px 以下、標本が 500 以上。
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build, preview } from 'vite';
+import { createServer } from 'vite';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
-const d3 = require('d3');
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 const args = process.argv.slice(2);
-const opt = { build: false, size: '1440x900', year: 2014, out: null, threshold: 0.25 };
+const opt = { size: '1440x900', year: 2014, out: null };
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
-  if (a === '--build') opt.build = true;
-  else if (a === '--size') opt.size = args[++i];
+  if (a === '--size') opt.size = args[++i];
   else if (a === '--year') opt.year = Number(args[++i]);
   else if (a === '--out') opt.out = resolve(args[++i]);
-  else if (a === '--threshold') opt.threshold = Number(args[++i]);
   else throw new Error(`不明な引数: ${a}`);
 }
 const [W, H] = opt.size.split('x').map(Number);
 
-if (opt.build || !existsSync(resolve(root, 'dist/index.html'))) await build({ root, logLevel: 'warn' });
-const server = await preview({ root, logLevel: 'warn', preview: { port: 0, host: '127.0.0.1', open: false } });
-const base = server.resolvedUrls.local[0];
+const { arcPoint } = await import(resolve(root, 'src/geometry/arc.js'));
+const { lineLayout } = await import(resolve(root, 'src/geometry/layout.js'));
+const { selectionMask } = await import(resolve(root, 'src/geometry/flows.js'));
+const line = lineLayout();
 
+const server = await createServer({ root, logLevel: 'warn', server: { port: 0, host: '127.0.0.1' } });
+await server.listen();
+const base = server.resolvedUrls.local[0];
 const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
-let exitCode = 0;
+
+const quantile = (xs, q) => xs[Math.min(xs.length - 1, Math.floor(q * xs.length))];
+let failed = false;
 try {
-  // ---- 1. アプリの弧(線幅 1px・不透明度 1) ----
-  const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
-  const problems = [];
-  page.on('console', (m) => (m.type() === 'error' || m.type() === 'warning') && problems.push(m.text()));
-  page.on('pageerror', (e) => problems.push(e.message));
-  await page.addInitScript(() => {
-    globalThis.__ARCS_DEBUG = { width: 1, alpha: 1 };
-  });
-  await page.goto(`${base}?morph=0&cam=side&year=${opt.year}&still=1`);
-  await page.waitForSelector('html[data-ready="1"]', { timeout: 60000 });
-  await page.addStyleTag({
-    content: 'html,body{background:#fff !important}#app>*:not(#stage){display:none !important}#stage{background:transparent !important}',
-  });
-  await page.waitForTimeout(500);
-  const info = await page.evaluate(() => {
-    const r = window.__app.renderer;
-    return { m: Array.from(r.screenMatrix()), nodes: Array.from({ length: 47 }, (_, i) => r.project(i)) };
-  });
-  const glPng = await page.screenshot();
-  await page.close();
-
-  // ---- 2. 原作の arc diagram(同じ画面座標へ変換した SVG、1px の黒い線) ----
-  const { CX, STEP, W: AW, H: AH } = await import(resolve(root, 'src/geometry/constants.js'));
-  const m = info.m;
-  const toScreen = ([x, y]) => {
-    const wx = x - CX, wy = AH - y; // 原作の SVG 座標 → ワールド(x, y)。z = 0
-    return [m[0] * wx + m[1] * wy + m[3], m[4] * wx + m[5] * wy + m[7]];
-  };
-  const line = d3.svg.line().interpolate('basis');
-  const paths = [];
-  for (let s = 0; s < 47; s++) {
-    for (let t = 0; t < 47; t++) {
-      if (s === t) continue;
-      const sx = s * STEP, tx = t * STEP;
-      const midPercent = Math.abs((sx - tx) / AW);
-      const midY = sx > tx ? AH - midPercent * AH : AH + midPercent * AH; // 原作 arcDiagram.arc と同じ式
-      const pts = [[sx, AH], [(sx + tx) / 2, midY], [tx, AH]].map(toScreen);
-      paths.push(`<path d="${line(pts)}"/>`);
+  for (const [name, sel] of [['沖縄県', '47'], ['鹿児島県', '46'], ['東京都', '13']]) {
+    const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+    await page.addInitScript(() => {
+      globalThis.__ARCS_DEBUG = { width: 1, alpha: 1, hideParticles: true };
+    });
+    await page.goto(`${base}?morph=0&cam=side&year=${opt.year}&sel=${sel}&still=1`, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await page.waitForSelector('html[data-ready="1"]', { timeout: 120000 });
+    await page.addStyleTag({
+      content: 'html,body{background:#fff !important}body::before,body::after{display:none !important}#app>*:not(#stage){display:none !important}',
+    });
+    await page.waitForTimeout(800);
+    await page.evaluate(() => window.__app.pause());
+    const info = await page.evaluate(() => ({
+      m: Array.from(window.__app.renderer.screenMatrix()),
+      nodes: Array.from({ length: 47 }, (_, i) => window.__app.renderer.project(i)),
+    }));
+    const png = await page.screenshot();
+    if (opt.out) {
+      mkdirSync(opt.out, { recursive: true });
+      writeFileSync(resolve(opt.out, `parity-${sel}.png`), png);
     }
-  }
-  const svg = `<!doctype html><html><body style="margin:0;background:#fff"><svg width="${W}" height="${H}" style="display:block" fill="none" stroke="#000" stroke-width="1">${paths.join('')}</svg></body></html>`;
-  const page2 = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
-  await page2.setContent(svg);
-  const svgPng = await page2.screenshot();
-  await page2.close();
+    // 画素の濃さ(白 = 0、黒 = 1)を、ブラウザで PNG を読んで取り出す
+    const ink = await page.evaluate(async ([b64, w, h]) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const g = c.getContext('2d');
+      g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, w, h).data;
+      const out = new Array(w * h);
+      for (let i = 0; i < w * h; i++) out[i] = Math.round(255 - (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2]) / 3);
+      return out;
+    }, [png.toString('base64'), W, H]);
+    await page.close();
 
-  // ---- 3. 比較(ブラウザ内で画素を読む) ----
-  const page3 = await browser.newPage({ viewport: { width: W, height: H } });
-  const result = await page3.evaluate(
-    async ({ gl, sv, nodes, threshold, W, H }) => {
-      const load = (b64) =>
-        new Promise((res) => {
-          const img = new Image();
-          img.onload = () => {
-            const c = document.createElement('canvas');
-            c.width = W; c.height = H;
-            const g = c.getContext('2d');
-            g.drawImage(img, 0, 0);
-            res(g.getImageData(0, 0, W, H).data);
-          };
-          img.src = `data:image/png;base64,${b64}`;
-        });
-      const A = await load(gl), B = await load(sv);
-      // 被覆率: GL は墨(#1C1B18)の上の不透明度、SVG は黒の上の不透明度
-      const covA = new Float32Array(W * H), covB = new Float32Array(W * H);
-      for (let i = 0; i < W * H; i++) {
-        covA[i] = Math.min(1, (255 - A[i * 4 + 1]) / (255 - 27));
-        covB[i] = (255 - B[i * 4 + 1]) / 255;
+    // 弧の曲線(画面座標)
+    const mask = selectionMask(/^\d+$/.test(sel) ? { type: 'pref', code: Number(sel) } : { type: 'metro', id: sel });
+    const m = info.m;
+    const curves = [];
+    for (let o = 0; o < 47; o++) {
+      for (let d = 0; d < 47; d++) {
+        if (o === d || mask[o] === mask[d]) continue;
+        const side = mask[d] ? 1 : -1;
+        const pts = [];
+        const p = [0, 0, 0];
+        for (let k = 0; k <= 600; k++) {
+          arcPoint(line[o], line[d], side, 0, k / 600, p);
+          pts.push([m[0] * p[0] + m[1] * p[1] + m[2] * p[2] + m[3], m[4] * p[0] + m[5] * p[1] + m[6] * p[2] + m[7]]);
+        }
+        curves.push(pts);
       }
-      // 都道府県の点(半径 6px)は比較から除く
-      const skip = new Uint8Array(W * H);
-      for (const [nx, ny] of nodes) {
-        for (let y = Math.max(0, Math.floor(ny) - 7); y < Math.min(H, Math.floor(ny) + 8); y++) {
-          for (let x = Math.max(0, Math.floor(nx) - 7); x < Math.min(W, Math.floor(nx) + 8); x++) skip[y * W + x] = 1;
+    }
+    // ほかの弧に近い点を除くための格子(1px の升に、通る弧の番号を入れる)
+    const grid = new Map();
+    curves.forEach((pts, ci) => {
+      for (const [x, y] of pts) {
+        const key = `${Math.round(x)},${Math.round(y)}`;
+        if (!grid.has(key)) grid.set(key, new Set());
+        grid.get(key).add(ci);
+      }
+    });
+    const isolated = (x, y, ci, r = 5) => {
+      for (let dx = -r; dx <= r; dx++) {
+        for (let dy = -r; dy <= r; dy++) {
+          const s = grid.get(`${Math.round(x) + dx},${Math.round(y) + dy}`);
+          if (s && [...s].some((c) => c !== ci)) return false;
         }
       }
-      const bin = (cov) => {
-        const b = new Uint8Array(W * H);
-        for (let i = 0; i < W * H; i++) b[i] = !skip[i] && cov[i] >= threshold ? 1 : 0;
-        return b;
-      };
-      const a = bin(covA), b = bin(covB);
-      // x の方向と y の方向の近さ(0: 同じ画素、1: 3×3 の近傍、…)を、探索半径 3 まで調べる
-      const nearest = (from, to) => {
-        const hist = [0, 0, 0, 0, 0]; // 距離(Chebyshev)0, 1, 2, 3, それ以上
-        let n = 0;
-        for (let y = 0; y < H; y++) {
-          for (let x = 0; x < W; x++) {
-            if (!from[y * W + x]) continue;
-            n++;
-            let d = 4;
-            for (let r = 0; r <= 3 && d === 4; r++) {
-              for (let dy = -r; dy <= r && d === 4; dy++) {
-                for (let dx = -r; dx <= r; dx++) {
-                  if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-                  const xx = x + dx, yy = y + dy;
-                  if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-                  if (to[yy * W + xx]) { d = r; break; }
-                }
-              }
+      return true;
+    };
+    const devs = [];
+    curves.forEach((pts, ci) => {
+      for (let k = 5; k < pts.length - 5; k += 1) {
+        const [x, y] = pts[k];
+        if (x < 4 || y < 4 || x > W - 5 || y > H - 5) continue;
+        if (info.nodes.some(([nx, ny]) => Math.hypot(nx - x, ny - y) < 10)) continue;
+        if (!isolated(x, y, ci)) continue;
+        const tx = pts[k + 1][0] - pts[k - 1][0], ty = pts[k + 1][1] - pts[k - 1][1];
+        const tl = Math.hypot(tx, ty) || 1;
+        const nx = -ty / tl, ny = tx / tl;
+        // 曲線の点のまわりの画素(中心は整数 + 0.5)のうち、接線方向に ±0.5px、法線方向に ±3px の範囲の濃さの重心
+        let sw = 0, swt = 0;
+        for (let j = Math.floor(y) - 4; j <= Math.floor(y) + 4; j++) {
+          for (let i = Math.floor(x) - 4; i <= Math.floor(x) + 4; i++) {
+            const cx = i + 0.5 - x, cy = j + 0.5 - y;
+            const along = (cx * tx + cy * ty) / tl, t = cx * nx + cy * ny;
+            if (Math.abs(along) > 0.5 || Math.abs(t) > 3) continue;
+            const v = ink[j * W + i] / 255;
+            if (v > 0.03) {
+              sw += v;
+              swt += v * t;
             }
-            hist[d]++;
           }
         }
-        return { n, hist };
-      };
-      let massA = 0, massB = 0;
-      for (let i = 0; i < W * H; i++) if (!skip[i]) { massA += covA[i]; massB += covB[i]; }
-      return { glToSvg: nearest(a, b), svgToGl: nearest(b, a), massA, massB };
-    },
-    { gl: glPng.toString('base64'), sv: svgPng.toString('base64'), nodes: info.nodes, threshold: opt.threshold, W, H },
-  );
-  await page3.close();
-
-  if (opt.out) {
-    mkdirSync(opt.out, { recursive: true });
-    writeFileSync(resolve(opt.out, 'gl.png'), glPng);
-    writeFileSync(resolve(opt.out, 'svg.png'), svgPng);
-  }
-
-  const pct = (x, n) => `${((100 * x) / n).toFixed(3)}%`;
-  const report = (label, r) => {
-    const within1 = r.hist[0] + r.hist[1];
+        if (sw > 0.3) devs.push(Math.abs(swt / sw));
+      }
+    });
+    devs.sort((a, b) => a - b);
+    const st = { n: devs.length, median: quantile(devs, 0.5), p95: quantile(devs, 0.95), p99: quantile(devs, 0.99), max: devs[devs.length - 1] };
+    const ok = st.n >= 500 && st.max <= 1 && st.p99 <= 0.5;
+    if (!ok) failed = true;
     console.log(
-      `${label}: 線の画素 ${r.n} 個  同じ画素 ${pct(r.hist[0], r.n)}  ±1px 以内 ${pct(within1, r.n)}  ` +
-        `距離2 ${r.hist[2]}  距離3 ${r.hist[3]}  それ以上 ${r.hist[4]}`,
+      `${ok ? 'ok ' : 'NG '} ${name}を選んだ真横: 標本 ${st.n}、垂直方向のずれ 中央値 ${st.median?.toFixed(2)}px、` +
+        `95% ${st.p95?.toFixed(2)}px、99% ${st.p99?.toFixed(2)}px、最大 ${st.max?.toFixed(2)}px`,
     );
-    return within1 === r.n;
-  };
-  console.log(`size ${opt.size}  year ${opt.year}  しきい値(被覆率) ${opt.threshold}`);
-  const ok1 = report('アプリ → 原作', result.glToSvg);
-  const ok2 = report('原作 → アプリ', result.svgToGl);
-  console.log(`線の濃さの総量(被覆率の合計): アプリ ${result.massA.toFixed(0)}  原作 ${result.massB.toFixed(0)}  比 ${(result.massA / result.massB).toFixed(4)}`);
-  if (problems.length) {
-    console.error('コンソールの問題:', problems);
-    exitCode = 1;
   }
-  console.log(ok1 && ok2 ? '結果: 一致(±1px)' : '結果: ±1px を超える画素があります');
-  if (!(ok1 && ok2)) exitCode = 1;
 } finally {
   await browser.close();
-  server.httpServer.close();
+  await server.close();
 }
-process.exit(exitCode);
+if (failed) {
+  console.error('原作の曲線から ±1px を超えるずれがありました。');
+  process.exit(1);
+}
+console.log('弧は原作の arc diagram の曲線と ±1px 以内で一致しました。');

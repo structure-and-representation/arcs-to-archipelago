@@ -186,6 +186,7 @@ body::after {
     bottom: 0;
     display: grid;
     grid-template-rows: 44px 1fr 44px;
+    row-gap: 4px; /* 読み出しの行と年の折れ線を離す */
     height: calc(var(--dock-h) + env(safe-area-inset-bottom, 0px));
     padding: 8px 16px calc(14px + env(safe-area-inset-bottom, 0px));
     background: var(--veil-solid);

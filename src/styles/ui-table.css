@@ -212,6 +212,10 @@ table.data tr.sel th.name { color: var(--accent); font-weight: 500; }
   .table-close { min-width: 44px; min-height: 44px; }
   table.data tbody tr { height: 44px; }
   table.data tbody th, table.data tbody td { padding-top: 0; padding-bottom: 0; }
+  /* 幅 390px でも差引の列まで収める: 列の幅を固定し、数の列を等分する(名前の列は 30%) */
+  table.data { table-layout: fixed; }
+  table.data thead th[data-key="pref"] { width: 30%; }
+  table.data th, table.data td { padding-left: 4px; padding-right: 4px; overflow-wrap: anywhere; }
 }
 
 /* ---- WebGL2 が使えないときの案内(scene/fallback2d.js が作る) ----

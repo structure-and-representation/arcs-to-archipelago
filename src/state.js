@@ -44,17 +44,24 @@ export function createStore(initial = {}) {
       queue.push([state, changed]);
       if (notifying) return;
       notifying = true;
+      // 購読関数が例外を投げても、残りの購読関数と積まれた通知は配り終えてから、最初の例外を投げ直す
+      let error = null;
       try {
         while (queue.length) {
           const [snapshot, keys] = queue.shift();
           for (const fn of [...listeners]) {
-            if (listeners.has(fn)) fn(snapshot, keys);
+            if (!listeners.has(fn)) continue;
+            try {
+              fn(snapshot, keys);
+            } catch (err) {
+              error ??= err;
+            }
           }
         }
       } finally {
         notifying = false;
-        queue.length = 0;
       }
+      if (error) throw error;
     },
     subscribe(fn) {
       listeners.add(fn);

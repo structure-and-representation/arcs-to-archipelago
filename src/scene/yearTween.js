@@ -1,7 +1,7 @@
 // 年の補間の持ち主。state.year が変わったとき、描画器の年を前の年から次の年へ時間をかけて移す。
 //   createYearTween({ renderer, year, duration, ease }) → { set(year, { immediate }), update(dtSec), get(), dispose() }
 //     renderer.setYear(a, b, mix) を呼ぶのはここだけ(main.js が state.year の変化を set へ渡し、毎フレーム update を呼ぶ)。
-//     duration は秒(既定 0.6 = tokens.css の --dur-year)。ease は 0〜1 → 0〜1(既定 ease-in-out。docs/particles/spec.md §6)。
+//     duration は秒、または秒を返す関数(切り替えのたびに読む。既定 0.6 = tokens.css の --dur-year)。ease は 0〜1 → 0〜1(既定 ease-in-out。docs/particles/spec.md §6)。
 //     immediate(動きを減らす設定、still=1)のときは補間せずに切り替える。
 //     補間の途中で次の年が来たら、そのとき近いほうの年から新しい年へ向かい直す(2 つの年だけを直接補間する)。
 // 読み出し・ツールチップ・表は state.year(切り替え先の年)を使うので、補間の途中でも切り替え先の値を出す。
@@ -22,6 +22,8 @@ export function createYearTween({ renderer, year, duration = YEAR_SECONDS, ease 
   let a = year;
   let b = year;
   let progress = 1;
+  let length = 0; // いまの補間の長さ(秒)
+  const durationNow = () => (typeof duration === 'function' ? duration() : duration);
   const push = () => renderer.setYear(a, b, progress >= 1 ? 0 : ease(progress));
   // 補間が終わったら (b, b, 0) にそろえる
   const settle = () => {
@@ -35,7 +37,8 @@ export function createYearTween({ renderer, year, duration = YEAR_SECONDS, ease 
     /** 年を next へ変える。immediate なら即座に、そうでなければ duration をかけて補間する。 */
     set(next, { immediate = false } = {}) {
       if (next === b && progress >= 1) return;
-      if (immediate || !(duration > 0)) {
+      length = durationNow();
+      if (immediate || !(length > 0)) {
         b = next;
         settle();
         return;
@@ -54,7 +57,7 @@ export function createYearTween({ renderer, year, duration = YEAR_SECONDS, ease 
     },
     update(dt) {
       if (progress >= 1) return;
-      progress = Math.min(1, progress + Math.max(0, dt) / duration);
+      progress = Math.min(1, progress + Math.max(0, dt) / length);
       if (progress >= 1) settle();
       else push();
     },
