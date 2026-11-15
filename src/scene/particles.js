@@ -84,13 +84,13 @@ void main(){
 }`;
 
 export const PARTICLE_FRAG = /* glsl */ `
-uniform vec3 uColor; uniform float uSize;
+uniform vec3 uInk; uniform float uSize;
 in float vA; out vec4 outColor;
 void main(){
   float r = length(gl_PointCoord * 2.0 - 1.0) * (uSize + 1.0) * 0.5;
   float a = clamp(uSize * 0.5 - r + 0.5, 0.0, 1.0) * vA;
   if (a <= 0.0) discard;
-  outColor = vec4(uColor, a);
+  outColor = vec4(uInk, a);
 }`;
 
 /** URL の still=1(撮影用の固定)。ctx.still があればそれを使う。 */
@@ -142,7 +142,6 @@ export function createParticlesLayer(ctx) {
     uAlpha: { value: ALPHA },
     uSel: { value: new Array(N).fill(0) },
     uHasSel: { value: 0 },
-    uColor: { value: new THREE.Vector3() },
   };
 
   const passes = [
@@ -190,14 +189,6 @@ export function createParticlesLayer(ctx) {
   }
   setSelection(null);
 
-  const srgb = { r: 0, g: 0, b: 0 };
-  function syncColor() {
-    // ShaderMaterial は出力の色空間を変換しないので、トークンの sRGB 値をそのまま渡す
-    shared.uniforms.uInk.value.getRGB(srgb, THREE.SRGBColorSpace);
-    own.uColor.value.set(srgb.r, srgb.g, srgb.b);
-  }
-  syncColor();
-
   return {
     object3D,
     /** 弧ごとの枠の数(per[o * 47 + d])と合計。代替表示や確認に使う。 */
@@ -209,7 +200,6 @@ export function createParticlesLayer(ctx) {
       own.uStill.value = motionless ? 1 : 0;
       own.uPhase.value = phaseAt(frame?.time ?? 0, motionless);
       own.uSize.value = SIZE_CSS_PX * shared.uniforms.uPixelRatio.value;
-      syncColor();
     },
     setYear(a, b, mix) {
       own.uYearA.value = yearIndex(a);
@@ -217,9 +207,7 @@ export function createParticlesLayer(ctx) {
       own.uYearMix.value = Math.min(1, Math.max(0, mix ?? 0));
     },
     setSelection,
-    setTheme() {
-      syncColor();
-    },
+    setTheme() {}, // 色は shared.uniforms.uInk を他の層と共有する
     setHover() {},
     dispose() {
       for (const p of passes) {
