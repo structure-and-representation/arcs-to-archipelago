@@ -32,7 +32,13 @@ const state = (page) => page.evaluate(() => { const s = window.__app.store.get()
 const geom = (page) => page.evaluate(() => [...document.querySelectorAll('.chapter')].map((e) => { const r = e.getBoundingClientRect(); return { top: r.top + scrollY, height: r.height }; }));
 const settle = (page, ms = 350) => page.waitForTimeout(ms);
 /** 見えているカード(不透明度と visibility で判定)と、その位置・現在の章 */
-const cards = (page) => page.evaluate(() => {
+const cards = async (page) => {
+  // 入れ替わりのアニメーション(消える・現れる)が終わるまで待つ(描画が重いと、決めた待ち時間より長くかかる)
+  await page.waitForTimeout(150);
+  await page.waitForFunction(() => !document.getAnimations().some((a) => a.effect?.target?.classList?.contains('chapter-card') && a.playState !== 'finished'), null, { timeout: 15000 }).catch(() => {});
+  return cardsNow(page);
+};
+const cardsNow = (page) => page.evaluate(() => {
   const r = (el) => { const b = el.getBoundingClientRect(); return { x: b.left, y: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
   const shown = [...document.querySelectorAll('.chapter-card')].map((el) => ({ el, cs: getComputedStyle(el) })).filter(({ cs }) => +cs.opacity > 0.02 && cs.visibility === 'visible');
   const rectOf = (sel) => { const e = document.querySelector(sel); return e && getComputedStyle(e).display !== 'none' ? r(e) : null; };

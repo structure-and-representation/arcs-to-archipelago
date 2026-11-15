@@ -63,6 +63,7 @@ async function run({ w, h, lang, theme, positions }) {
   for (const p of list) {
     await page.evaluate((y) => window.scrollTo(0, y), p.y);
     await wait(page, p.quick ? 250 : p.name.endsWith('switch') ? 900 : 1100);
+    if (!p.quick) await page.waitForFunction(() => !document.getAnimations().some((a) => a.effect?.target?.classList?.contains('chapter-card') && a.playState !== 'finished'), null, { timeout: 15000 }).catch(() => {});
     const r = await page.evaluate(() => {
       const rect = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; };
       const cards = [...document.querySelectorAll('.chapter-card')].map((el) => { const cs = getComputedStyle(el); return { el, op: +cs.opacity, vis: cs.visibility }; });
