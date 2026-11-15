@@ -55,12 +55,13 @@
   #app #legend { display: contents; }
   #legend::before { display: none; }
 
-  /* カメラ(左、3 つで約 150px)の右に、右寄せで 2 行に積む。幅が足りないときは、文を折り返す(カメラや隣の文字と重ならない) */
+  /* カメラ(左、3 つで約 150px)の右に、右寄せで置く。いまは「1粒 = 100人」だけ(下の .legend-height は出さない)が、
+     弧の高さの意味を出すときに備えて、積んで折り返せる形にしてある(カメラや隣の文字と重ならない) */
   .legend-key {
     position: fixed;
     z-index: var(--z-ui);
     right: 16px;
-    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(28px + env(safe-area-inset-bottom, 0px));
     max-width: calc(100vw - 32px - 156px);
     flex-direction: column;
     flex-wrap: nowrap;
