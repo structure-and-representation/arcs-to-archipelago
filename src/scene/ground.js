@@ -11,12 +11,8 @@
 import * as THREE from 'three';
 import { RENDER_ORDER } from './shared.js';
 
-// 値の出どころ: docs/design/spec.md「3. three.js に渡す値」(--gl-ground、--gl-border)。
+// 不透明度の出どころ: docs/design/spec.md「6. three.js に渡す値」(--gl-ground、--gl-border)を shared.style から読む。
 // 県境と海岸線の太さは CSS px で一定。
-const FALLBACK_OPACITY = {
-  paper: { ground: 0.3, border: 0.22 },
-  ink: { ground: 0.35, border: 0.2 },
-};
 // 海岸線を基準(1)にした、県境の不透明度の比。
 const BORDER_RATIO = 0.7;
 const COAST_WIDTH = 0.8; // CSS px
@@ -205,7 +201,7 @@ void main(){
   float a = clamp(halfW + 0.5 - abs(vDist), 0.0, 1.0);
   a *= uOpacity * vFacing;
   if (a <= 0.0) discard;
-  outColor = linearToOutputTexel(vec4(uInk, a)); // uInk は線形の THREE.Color。画面の色空間へ戻す
+  outColor = vec4(uInk, a); // uInk はトークンの sRGB の値。色空間は変換しない
 }`;
 
 const GROUND_VERT = /* glsl */ `
@@ -233,20 +229,8 @@ void main(){
   float edge = 1.0 - smoothstep(0.0, uFeather, d);
   float a = uOpacity * edge * vFacing;
   if (a <= 0.0) discard;
-  outColor = linearToOutputTexel(vec4(uPaper, a));
+  outColor = vec4(uPaper, a);
 }`;
-
-function readOpacity(theme) {
-  const out = { ...(FALLBACK_OPACITY[theme] ?? FALLBACK_OPACITY.paper) };
-  if (typeof document !== 'undefined') {
-    const cs = getComputedStyle(document.documentElement);
-    for (const [key, v] of [['ground', '--gl-ground'], ['border', '--gl-border']]) {
-      const n = parseFloat(cs.getPropertyValue(v));
-      if (Number.isFinite(n)) out[key] = n;
-    }
-  }
-  return out;
-}
 
 export function createGroundLayer(ctx) {
   const { shared, data } = ctx;
@@ -325,14 +309,14 @@ export function createGroundLayer(ctx) {
     const on = appear > 0.002;
     groundMesh.visible = borderMesh.visible = coastMesh.visible = on;
   };
-  const setTheme = (theme) => {
-    const o = readOpacity(theme);
+  const setTheme = () => {
+    const o = shared.style; // renderer が先に shared.setTheme を呼ぶ
     base.ground = o.ground;
     base.coast = o.border;
     base.border = o.border * BORDER_RATIO;
     apply();
   };
-  setTheme('paper');
+  setTheme();
 
   return {
     object3D,

@@ -4,23 +4,22 @@
 //   - 粒子は弧の長さに沿って並べ(arcT)、すべての弧を 14 秒で流れる。
 //   - 地下と地上の 2 つの Points を RENDER_ORDER.particlesBelow / particlesAbove で描く。
 //     選択が変わるたびに CPU で枠を [地下 | 地上] に並べ直し、drawRange で分ける。
-//   - 動きを減らす設定(frame.reducedMotion)と still=1 では、静止の配置(0.04 + 0.92·g)にする。
+//   - 動きを減らす設定(frame.reducedMotion)と still=1(frame.still)では、静止の配置(0.04 + 0.92·g)にする。
+//   - 不透明度の上限と径は shared.style(tokens.css の --gl-particle*、デザイン仕様 6 節)から読む。
+//     地域を選んでいるときは *Sel の値。ホバー中の弧の粒子は朱で、径は *Hover の値。
 //   計算の JavaScript 版は geometry/particles.js にある(当たり判定・代替表示・テストが使う)。
 //
 // 層の約束(arcs / particles / ground で共通):
 //   createXxxLayer(ctx) → { object3D, update(frame), setYear(a, b, mix), setSelection(mask),
 //                           setTheme(theme), setHover(arc | null), dispose() }
-//   ctx = { shared, data, arcList }。frame = { time(秒)、dt(秒)、reducedMotion }。
+//   ctx = { shared, data, arcList }。frame = { time(秒)、dt(秒)、reducedMotion、still }。
 import * as THREE from 'three';
 import { GLSL_COMMON, RENDER_ORDER } from './shared.js';
 import { N } from '../geometry/constants.js';
-import { parseParams } from '../params.js';
 import {
-  ALPHA,
   ARC_T,
   FADE,
   PHI,
-  SIZE_CSS_PX,
   countsTextureData,
   orderSlots,
   phaseAt,
@@ -41,8 +40,12 @@ uniform float uAlpha;
 uniform float uSel[47];
 uniform float uHasSel;
 uniform float uPass;         // +1 地上、-1 地下
+uniform vec2  uHover;        // ホバー中の弧 (o, d)。なければ (-1, -1)
+uniform float uSizeHover;
 in vec3 aSlot;               // o, d, k
 out float vA;
+out float vHover;
+out float vSize;
 
 uint hash(uint x){ x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16; return x; }
 float u01(uint x){ return float(hash(x) >> 8) * (1.0 / 16777216.0); }
@@ -63,7 +66,9 @@ void main(){
   float n = mix(texelFetch(uCounts, ivec2(d, uYearA * ${N} + o), 0).r,
                 texelFetch(uCounts, ivec2(d, uYearB * ${N} + o), 0).r, uYearMix) * 0.01;
   float w = clamp(n - k, 0.0, 1.0);                  // Σk w = 人数 / 100
-  if (!vis || w <= 0.0) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); gl_PointSize = 0.0; vA = 0.0; return; }
+  if (!vis || w <= 0.0) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); gl_PointSize = 0.0; vA = 0.0; vHover = 0.0; vSize = 0.0; return; }
+  vHover = (abs(aSlot.x - uHover.x) < 0.5 && abs(aSlot.y - uHover.y) < 0.5) ? 1.0 : 0.0;
+  vSize = mix(uSize, uSizeHover, vHover);
 
   float g = fract(k * ${f(PHI)} + u01(uint(o * ${N} + d)));
   float s = uStill > 0.5 ? ${f(FADE)} + ${f(1 - 2 * FADE)} * g : fract(g + uPhase);
@@ -79,34 +84,24 @@ void main(){
   vec3 p = j < 0.5 ? bsp(A, A, A, M, fr) : j < 1.5 ? bsp(A, A, M, B, fr) : j < 2.5 ? bsp(A, M, B, B, fr) : bsp(M, B, B, B, fr);
 
   gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
-  gl_PointSize = uSize + 1.0;                        // +1 px は縁のなめらかさのぶん
+  gl_PointSize = vSize + 1.0;                        // +1 px は縁のなめらかさのぶん
   vA = uAlpha * w * smoothstep(0.0, ${f(FADE)}, s) * smoothstep(1.0, ${f(1 - FADE)}, s);
 }`;
 
 export const PARTICLE_FRAG = /* glsl */ `
-uniform vec3 uInk; uniform float uSize;
-in float vA; out vec4 outColor;
+uniform vec3 uInk, uAccent;
+in float vA; in float vHover; in float vSize; out vec4 outColor;
 void main(){
-  float r = length(gl_PointCoord * 2.0 - 1.0) * (uSize + 1.0) * 0.5;
-  float a = clamp(uSize * 0.5 - r + 0.5, 0.0, 1.0) * vA;
+  float r = length(gl_PointCoord * 2.0 - 1.0) * (vSize + 1.0) * 0.5;
+  float a = clamp(vSize * 0.5 - r + 0.5, 0.0, 1.0) * vA;
   if (a <= 0.0) discard;
-  outColor = vec4(uInk, a);
+  outColor = vec4(mix(uInk, uAccent, vHover), a); // トークンの sRGB の値。色空間は変換しない
 }`;
-
-/** URL の still=1(撮影用の固定)。ctx.still があればそれを使う。 */
-function stillFromUrl() {
-  try {
-    return typeof location !== 'undefined' && parseParams(location.search).still;
-  } catch {
-    return false;
-  }
-}
 
 export function createParticlesLayer(ctx) {
   const { shared, data } = ctx;
   const years = data.years;
   const matrixOf = (y) => data.matrix(y);
-  const still = ctx.still ?? stillFromUrl();
 
   const object3D = new THREE.Group();
   object3D.name = 'particles';
@@ -137,9 +132,11 @@ export function createParticlesLayer(ctx) {
     uYearB: { value: last },
     uYearMix: { value: 0 },
     uPhase: { value: 0 },
-    uStill: { value: still ? 1 : 0 },
-    uSize: { value: SIZE_CSS_PX },
-    uAlpha: { value: ALPHA },
+    uStill: { value: 0 },
+    uSize: { value: shared.style.particleSize },
+    uSizeHover: { value: shared.style.particleSizeHover },
+    uAlpha: { value: shared.style.particle },
+    uHover: { value: new THREE.Vector2(-1, -1) },
     uSel: { value: new Array(N).fill(0) },
     uHasSel: { value: 0 },
   };
@@ -196,10 +193,15 @@ export function createParticlesLayer(ctx) {
     /** 2つの Points の drawRange(確認用)。 */
     ranges: () => passes.map((p) => ({ ...p.geom.drawRange })),
     update(frame) {
-      const motionless = still || !!frame?.reducedMotion;
+      const motionless = !!frame?.still || !!frame?.reducedMotion;
       own.uStill.value = motionless ? 1 : 0;
       own.uPhase.value = phaseAt(frame?.time ?? 0, motionless);
-      own.uSize.value = SIZE_CSS_PX * shared.uniforms.uPixelRatio.value;
+      const st = shared.style;
+      const sel = own.uHasSel.value > 0.5;
+      const dpr = shared.uniforms.uPixelRatio.value;
+      own.uSize.value = (sel ? st.particleSizeSel : st.particleSize) * dpr;
+      own.uSizeHover.value = st.particleSizeHover * dpr;
+      own.uAlpha.value = sel ? st.particleSel : st.particle;
     },
     setYear(a, b, mix) {
       own.uYearA.value = yearIndex(a);
@@ -207,8 +209,10 @@ export function createParticlesLayer(ctx) {
       own.uYearMix.value = Math.min(1, Math.max(0, mix ?? 0));
     },
     setSelection,
-    setTheme() {}, // 色は shared.uniforms.uInk を他の層と共有する
-    setHover() {},
+    setTheme() {}, // 色は shared.uniforms の uInk / uAccent、不透明度は update で shared.style から読む
+    setHover(arc) {
+      own.uHover.value.set(arc ? arc.o : -1, arc ? arc.d : -1);
+    },
     dispose() {
       for (const p of passes) {
         p.geom.dispose();

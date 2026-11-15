@@ -11,32 +11,40 @@ import { createGroundLayer } from './ground.js';
 
 const MAX_DPR = 2;
 
+// 都道府県の点(デザイン仕様 6 節): 墨の直径 3 CSS px。選択中は朱の直径 6 CSS px に、紙色の 1.5 CSS px の輪。
+const NODE_DOT = 3;
+const NODE_SEL = 6;
+const NODE_RING = 1.5;
+
 const NODE_VERT = /* glsl */ `
 ${GLSL_NODES}
 in float aI;
 in float aSel;
-uniform float uPointSize;
+uniform float uPixelRatio;
 out float vSel;
 out float vSize;
 void main(){
   vec2 p = nodePos(aI);
   vSel = aSel;
   gl_Position = projectionMatrix * viewMatrix * vec4(p.x, 0.0, p.y, 1.0);
-  gl_PointSize = uPointSize * (1.0 + aSel * 0.6);
-  vSize = gl_PointSize;
+  // 実ピクセルでの外径(選択中は輪を含む)。+1 は縁をなめらかにする余白
+  vSize = (aSel > 0.5 ? ${(NODE_SEL + 2 * NODE_RING).toFixed(1)} : ${NODE_DOT.toFixed(1)}) * uPixelRatio;
+  gl_PointSize = vSize + 1.0;
 }`;
 const NODE_FRAG = /* glsl */ `
-uniform vec3 uInk, uAccent;
+uniform vec3 uInk, uAccent, uPaper;
+uniform float uPixelRatio;
 in float vSel;
 in float vSize;
 out vec4 outColor;
 void main(){
-  vec2 c = gl_PointCoord - 0.5;
-  float r = length(c) * 2.0;
-  float a = clamp((1.0 - r) * vSize * 0.5 + 0.5, 0.0, 1.0);
-  if (a <= 0.0) discard;
-  vec3 col = mix(uInk, uAccent, vSel);
-  outColor = vec4(col, a * mix(0.85, 1.0, vSel));
+  float r = length(gl_PointCoord * 2.0 - 1.0) * (vSize + 1.0) * 0.5; // 中心からの距離(実ピクセル)
+  float outer = clamp(vSize * 0.5 - r + 0.5, 0.0, 1.0);
+  if (outer <= 0.0) discard;
+  if (vSel < 0.5) { outColor = vec4(uInk, outer); return; }
+  // 選択中: 朱の円と、その外側の紙色の輪(色はトークンの sRGB の値のまま出す)
+  float inner = clamp(${(NODE_SEL / 2).toFixed(1)} * uPixelRatio - r + 0.5, 0.0, 1.0);
+  outColor = vec4(mix(uPaper, uAccent, inner), outer);
 }`;
 
 /**
@@ -46,7 +54,7 @@ void main(){
  *     zoom: ワールド 1 単位が画面の高さの何分の一か(画面の大きさに依らない。CSS px = zoom * 画面の高さ)、
  *     center: [x, y, z] 注視点、roll: 画面の像を時計まわりに回す角度(ラジアン)
  *   setMorph(m), setLean(l), setSelection(Uint8Array(47)), setYear(a, b, mix), setTheme('paper' | 'ink'),
- *   setReducedMotion(bool), setHover(arc | null), resize(), render(timeSec),
+ *   setReducedMotion(bool), setStill(bool), setHover(arc | null), resize(), render(timeSec),
  *   project(i) → [x, y](CSS px), dispose()
  *   ほかに: layout(配置の情報)、getState()、screenMatrix()(world → CSS px のアフィン 2x4)
  * }
@@ -70,6 +78,7 @@ export function createRenderer(canvas, data) {
     hover: null,
     theme: 'paper',
     reducedMotion: false,
+    still: false,
     morph: 0,
     lean: 0,
     view: { azimuth: 0, elevation: 0, zoom: 0.003, center: [0, 0, 0], roll: 0 },
@@ -89,7 +98,7 @@ export function createRenderer(canvas, data) {
     transparent: true,
     depthTest: false,
     depthWrite: false,
-    uniforms: { ...uniforms, uPointSize: { value: 5 } },
+    uniforms: { ...uniforms },
     vertexShader: NODE_VERT,
     fragmentShader: NODE_FRAG,
   });
@@ -181,6 +190,10 @@ export function createRenderer(canvas, data) {
     setReducedMotion(on) {
       st.reducedMotion = !!on;
     },
+    /** 撮影用の固定(URL の still=1)。粒子は静止の配置になる。 */
+    setStill(on) {
+      st.still = !!on;
+    },
     setHover(arc) {
       st.hover = arc;
       each('setHover', arc);
@@ -196,7 +209,6 @@ export function createRenderer(canvas, data) {
       st.height = h;
       const buf = gl.getDrawingBufferSize(new THREE.Vector2());
       shared.setSize(buf.x, buf.y, dpr);
-      nodeMat.uniforms.uPointSize.value = 5 * dpr;
       applyFrustum();
       applyView();
     },
@@ -204,7 +216,7 @@ export function createRenderer(canvas, data) {
       const dt = Math.max(0, timeSec - st.time);
       st.time = timeSec;
       shared.setTime(timeSec);
-      const frame = { time: timeSec, dt, reducedMotion: st.reducedMotion };
+      const frame = { time: timeSec, dt, reducedMotion: st.reducedMotion, still: st.still };
       each('update', frame);
       gl.render(scene, camera);
     },
