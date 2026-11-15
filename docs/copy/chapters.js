@@ -21,9 +21,8 @@ export const chapters = [
       en: 'In 2025, 2,148,329 Japanese residents moved to another prefecture, 7% fewer than in 2012. Only 7 of the 47 prefectures gained more people than they lost. And 57% of all moves started or ended in the Tokyo area. Arcs right of the line head north; arcs to the left head south.',
     },
     steps: [
-      { year: 2014, selection: null, camera: 'side' },    // opening: the 2015 original, seen side-on
-      { year: 2014, selection: null, camera: 'oblique' }, // camera turns, prefectures move onto the map
-      { year: 2025, selection: null, camera: 'oblique' }, // year advances to the latest data
+      { year: 2025, selection: null, camera: 'side' },    // opening: the latest year, in the form of the 2015 original, seen side-on
+      { year: 2025, selection: null, camera: 'oblique' }, // camera turns, prefectures move onto the map
     ],
   },
   {
