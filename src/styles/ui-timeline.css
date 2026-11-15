@@ -1,0 +1,8 @@
+/* 年の切り替え(ui/timeline.js) */
+#timeline {
+  position: fixed;
+  z-index: 2;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: max(var(--gutter), env(safe-area-inset-bottom));
+}

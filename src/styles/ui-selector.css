@@ -1,0 +1,7 @@
+/* 地域の選択(ui/selector.js) */
+#selector {
+  position: fixed;
+  z-index: 2;
+  left: var(--gutter);
+  top: var(--gutter);
+}

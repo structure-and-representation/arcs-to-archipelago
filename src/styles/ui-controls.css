@@ -1,0 +1,9 @@
+/* 操作ボタン(ui/controls.js) */
+#controls {
+  position: fixed;
+  z-index: 2;
+  right: var(--gutter);
+  top: var(--gutter);
+  display: flex;
+  gap: 8px;
+}

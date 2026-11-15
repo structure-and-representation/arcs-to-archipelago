@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#f6f3ec}svg{position:absolute;left:0;top:0}</style>
+<script src="https://cdn.jsdelivr.net/npm/d3@3.5.17/d3.min.js"></script><script src="d3.layout.arcDiagram.js"></script></head><body>
+<script type="module">
+import * as G from './geometry.js';
+const data = await (await fetch('data.json')).json();
+const svg = d3.select('body').append('svg').attr({width:1200,height:500}).append('g').attr('transform','translate(20,20)');
+const ad = d3.layout.arcDiagram().size([1160,230]).nodes(data.nodes).links(data.links).nodeID(d=>d.name); ad();
+const paths = svg.selectAll('path').data(data.links).enter().append('path').attr('d', ad.arc)
+  .style({fill:'none',stroke:'#1b1a17','stroke-width':'1px',opacity:1});
+// numeric comparison vs JS B-spline (same math as GLSL)
+const line = G.lineLayout(); let maxErr = 0, sumErr = 0, cnt = 0;
+paths.each(function(l){
+  const s = l.source.x !== undefined ? data.nodes.indexOf(l.source) : l.source, t = data.nodes.indexOf(l.target);
+  const side = s > t ? 1 : -1;
+  const pts = []; for (let k=0;k<=10;k++){ const p = G.arcPoint(line[s], line[t], side, 0, k/10); pts.push([p[0]+G.CX, 230-p[1]]); }
+  const L = this.getTotalLength();
+  for (let k=0;k<=60;k++){ const q = this.getPointAtLength(L*k/60); let m = 1e9;
+    for (const p of pts) m = Math.min(m, Math.hypot(p[0]-q.x, p[1]-q.y)); maxErr = Math.max(maxErr, m); sumErr += m; cnt++; }
+});
+window.result = { maxErr, meanErr: sumErr/cnt, d0: d3.select('path').attr('d') };
+window.ready = true;
+</script></body></html>

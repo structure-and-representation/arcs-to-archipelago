@@ -1,0 +1,1 @@
+{"type":"Topology","objects":{"japan":{"type":"GeometryCollection","geometries":[{"type":"Polygon","id":13,"arcs":[[0]]}]}},"arcs":[[[0,0],[1,0],[0,1],[-1,0],[0,-1]]]}

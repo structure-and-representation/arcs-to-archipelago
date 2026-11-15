@@ -1,0 +1,11 @@
+/* ツールチップ(ui/tooltip.js) */
+#tooltip {
+  position: fixed;
+  z-index: 3;
+  pointer-events: none;
+  padding: 4px 8px;
+  background: var(--bg-85);
+  border: 1px solid var(--fg-20);
+  font-size: 12px;
+}
+#tooltip[hidden] { display: none; }
