@@ -1,7 +1,10 @@
 // 都道府県名のラベル(デザイン仕様 5.9 節)。
 // 要素: #labels。47 個の <button> と、圏の名前の 1 個(装飾)を作り、毎フレーム ctx.renderer.project(i) へ動かす。
 //   - 真横(morph ≈ 0): 47 個すべてを索引として並べる。デスクトップは図の下に縦書き、縦画面は図の右に横書き。
+//   - 変形の途中(真横と地図の間): 運ぶラベル(CARRIED: 両端と大きな都市、選択中・ホバー中の県)を点に付けたまま、
+//     索引の位置から点の東へ運ぶ(morph に合わせて補間し、0.5 で縦書きから横書きへ移る)。ほかのラベルは動き始めに消える。
 //   - 斜め俯瞰・真上: 優先度の高い順に、重ならない位置を貪欲に探して置く(配置は 100ms に 1 回まで)。
+//     弧の上でも読めるよう、ラベルは紙の地の小さな札にする(styles/ui-labels.css)。
 // 位置は transform: translate() で動かす。state の hover / selection / lang / year / chapter に追従する。
 // ラベルの層は Tab の止まりを 1 つにして(roving tabindex)、←→ ↑↓ で移動し、Enter で選ぶ。
 import { t, metroName } from '../i18n.js';
@@ -24,6 +27,15 @@ export const INDEX_MORPH_MAX = 0.02; // この値未満なら真横の索引
 export const INDEX_ELEVATION_MAX = 0.05;
 export const PARTNERS = 6;
 export const NATIONWIDE_MAX = 16;
+/** 縦画面の全国表示で出すラベルの上限。 */
+export const NATIONWIDE_MAX_PORTRAIT = 8;
+/** 変形の途中で点に付けたまま運ぶラベル: 北海道、宮城、東京、愛知、大阪、福岡、沖縄(両端と、大きな都市圏の中心)。 */
+export const CARRIED = [0, 3, 12, 22, 26, 39, 46];
+/** この morph 以上なら、変形を終えた地図のラベル(貪欲な配置)。 */
+export const CARRY_MORPH_MAX = 0.98;
+/** 索引の列の間隔(CSS px)がこれ未満なら、索引を詰めた形にする(10px、1 つおき)。英語は INDEX_DENSE_EN。 */
+export const INDEX_DENSE = 14;
+export const INDEX_DENSE_EN = 16;
 export const ENDPOINTS = [0, 46, 45]; // 北海道、沖縄、鹿児島
 export const THROTTLE_MS = 100;
 const GAP_LABEL = 3; // ラベルどうしの間隔(px)
@@ -79,6 +91,7 @@ export function volumeOrder(matrix) {
  *  全国表示では合計 16 個まで。地域を選んでいるときは 1〜5 の分だけ。
  */
 export function labelOrder({ hover = null, selection = null, partners = [], featured = [], endpoints = ENDPOINTS, volume = [], max = NATIONWIDE_MAX }) {
+  // (縦画面の全国表示では max に NATIONWIDE_MAX_PORTRAIT を渡す)
   const out = [];
   const seen = new Set();
   const mask = selectionMask(selection);
@@ -179,10 +192,45 @@ export function indexLayout(px, py, scale, orient) {
   return out;
 }
 
-/** 縦画面で画面の高さが 700px 未満のとき、北海道から数えて偶数番目だけを出す(守るものは常に出す)。 */
-export function indexVisible(i, { portrait, height, protect }) {
-  if (!portrait || height >= 700) return true;
+/**
+ * 索引を 1 つおきにするか: 縦画面で画面の高さが 700px 未満のとき、または列が詰まりすぎるとき(dense)、
+ * 北海道から数えて偶数番目だけを出す(守るもの: 選択中、ホバー中、章で扱う県は常に出す)。
+ */
+export function indexVisible(i, { portrait, height, protect, dense = false }) {
+  if (!dense && (!portrait || height >= 700)) return true;
   return i % 2 === 0 || protect.has(i);
+}
+
+/** 縦書きの索引の列の間隔 gap(CSS px)が、字間なしで横につながって読めてしまうほど狭いか。 */
+export function indexDense(gap, lang) {
+  return gap < (lang === 'en' ? INDEX_DENSE_EN : INDEX_DENSE);
+}
+
+const smoothstep = (a, b, x) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/**
+ * 変形の途中のラベルの置き方。morph(0〜1)、orient('v' 横長の真横から / 'h' 縦画面の真横から)、
+ * scale(画面の CSS px / ワールド 1 単位)から、点からのずれと書字の向きと不透明度を返す。
+ *  { dx, dy, vertical, carried: 運ぶラベルの不透明度, others: 運ばないラベルの不透明度 }
+ * 位置: 索引の位置(横長は点の下 INDEX_OFFSET_V、縦画面は点の右 INDEX_OFFSET_H)から、点の東(右へ 7px)へ。
+ * 横長は morph 0.5 で縦書きから横書きへ移り、そこで不透明度を一度 0.3 まで落とす。
+ */
+export function carryPose(morph, orient, scale) {
+  const k = smoothstep(0.05, 0.75, morph);
+  const from = orient === 'v' ? [0, INDEX_OFFSET_V * scale] : [INDEX_OFFSET_H * scale, 0];
+  const to = [7, 0];
+  const vertical = orient === 'v' && morph < 0.5;
+  const dip = orient === 'v' ? 0.7 * Math.max(0, 1 - Math.abs(morph - 0.5) / 0.15) : 0;
+  return {
+    dx: from[0] + (to[0] - from[0]) * k,
+    dy: from[1] + (to[1] - from[1]) * k,
+    vertical,
+    carried: 1 - dip,
+    others: 1 - smoothstep(0.02, 0.2, morph),
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -231,7 +279,8 @@ export function mount(el, store, ctx) {
   const applied = btn.map(() => ({ cls: '', tf: '' }));
   const groupApplied = { cls: '', tf: '' };
   let roving = 0;
-  let mode = ''; // 'index-v' | 'index-h' | 'free'
+  let mode = ''; // 'index-v' | 'index-h' | 'carry' | 'free'
+  const opac = btn.map(() => '');
   let portrait = false;
   let dirty = true;
   let lastPlace = -Infinity;
@@ -329,8 +378,40 @@ export function mount(el, store, ctx) {
     const rs = renderer.getState();
     const view = rs.view ?? {};
     const indexMode = rs.morph < INDEX_MORPH_MAX && Math.abs(view.elevation ?? 0) < INDEX_ELEVATION_MAX;
-    if (!indexMode) return 'free';
-    return Math.abs(Math.sin(view.roll ?? 0)) > 0.5 ? 'index-h' : 'index-v';
+    if (indexMode) return Math.abs(Math.sin(view.roll ?? 0)) > 0.5 ? 'index-h' : 'index-v';
+    return rs.morph < CARRY_MORPH_MAX ? 'carry' : 'free';
+  }
+  function setOpacity(i, v) {
+    const o = v >= 0.999 ? '' : v.toFixed(2);
+    if (opac[i] !== o) {
+      btn[i].style.opacity = o;
+      opac[i] = o;
+    }
+  }
+
+  // 変形の途中: 運ぶラベルを点に付けたまま索引の位置から点の東へ運び、ほかのラベルは消す
+  function applyCarry(s, hoverI) {
+    const rs = renderer.getState();
+    const view = rs.view ?? {};
+    const scale = (view.zoom ?? 0) * win.innerHeight || 1;
+    const pose = carryPose(rs.morph, portrait ? 'h' : 'v', scale);
+    const carried = new Set(CARRIED);
+    cache.mask.forEach((m, i) => m && carried.add(i));
+    if (hoverI != null) carried.add(hoverI);
+    for (let i = 0; i < 47; i++) {
+      const keep = carried.has(i);
+      const a = keep ? pose.carried : pose.others;
+      const tone = cache.mask[i] ? 'sel' : hoverI === i ? 'em' : '';
+      setClass(i, ['label', a < 0.01 && 'off', tone, pose.vertical ? 'v' : 'h'].filter(Boolean).join(' '));
+      setOpacity(i, a);
+      const x = px[i] + pose.dx;
+      const y = py[i] + pose.dy;
+      setTransform(i, pose.vertical ? `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translateX(-50%)` : `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translateY(-50%)`);
+    }
+    if (groupApplied.cls !== 'label group sel off') {
+      groupEl.className = 'label group sel off';
+      groupApplied.cls = 'label group sel off';
+    }
   }
 
   function applyIndex(s, hoverI) {
@@ -342,8 +423,15 @@ export function mount(el, store, ctx) {
     if (hoverI != null) protect.add(hoverI);
     cache.mask.forEach((m, i) => m && protect.add(i));
     const height = win.innerHeight;
+    // 横長の縦書きの索引は、列の間隔が狭いと横につながって読めるので、10px にして 1 つおきに出す
+    const dense = orient === 'v' && indexDense(STEP * scale, lang());
+    if (el.classList.contains('dense') !== dense) {
+      el.classList.toggle('dense', dense);
+      sizes = null;
+    }
     for (let i = 0; i < 47; i++) {
-      const show = indexVisible(i, { portrait: orient === 'h' && portrait, height, protect });
+      setOpacity(i, 1);
+      const show = indexVisible(i, { portrait: orient === 'h' && portrait, height, protect, dense });
       const tone = cache.mask[i] ? 'sel' : hoverI === i || featured.has(i) ? 'em' : '';
       setClass(i, ['label', !show && 'off', tone].filter(Boolean).join(' '));
       const p = pos[i];
@@ -367,6 +455,7 @@ export function mount(el, store, ctx) {
       partners: cache.partners,
       featured: featuredOf(s),
       volume: cache.volume,
+      max: portrait ? NATIONWIDE_MAX_PORTRAIT : NATIONWIDE_MAX,
     });
     // 選択中の地域の点(覆わない)と、圏の重心
     const selPts = [];
@@ -410,6 +499,7 @@ export function mount(el, store, ctx) {
     for (let i = 0; i < 47; i++) {
       const it = shown.get(`p${i}`);
       setClass(i, it ? ['label', it.cls].filter(Boolean).join(' ') : 'label off');
+      setOpacity(i, 1);
     }
     const g = shown.get('g');
     const gcls = g ? 'label group sel' : 'label group sel off';
@@ -461,13 +551,21 @@ export function mount(el, store, ctx) {
       mode = m;
       el.classList.toggle('index-v', m === 'index-v');
       el.classList.toggle('index-h', m === 'index-h');
+      el.classList.toggle('carry', m === 'carry');
       el.classList.toggle('free', m === 'free');
+      if (m !== 'index-v') el.classList.remove('dense');
       dirty = true;
       sizes = null;
     }
     const moved = project();
     refreshCache();
     const hoverI = s.hover?.type === 'pref' ? s.hover.code - 1 : null;
+    if (mode === 'carry') {
+      if (dirty || moved) applyCarry(s, hoverI);
+      dirty = false;
+      pending = false;
+      return;
+    }
     if (mode !== 'free') {
       if (dirty || moved) {
         applyIndex(s, hoverI);

@@ -47,12 +47,36 @@
 /* 寸法の測定用(見えない) */
 #labels .label.measure { visibility: hidden; pointer-events: none; opacity: 1; }
 
-/* 斜め俯瞰と真上: 弧に重なりうるので、地の色の縁取りを付ける */
-#labels.free .label:not(.measure) {
-  text-shadow:
-    0 0 1px var(--halo), 0 0 2px var(--halo), 0 0 2px var(--halo),
-    0 0 3px var(--halo), 0 0 4px var(--halo), 0 0 6px var(--halo);
+/* 斜め俯瞰と真上: 弧に重なるので、紙の地の小さな札にする(縁取りのぼかしは墨の弧と混ざって灰色のにじみになるため)。
+   札の地は本文の下敷きと同じ --veil(紙の .88)で、陸地の面がわずかに透ける。札の余白は測定用の要素にも付け、
+   配置の衝突判定の矩形に含める */
+#labels.free .label {
+  padding: 1px 3px 2px;
+  border-radius: 1px;
 }
+#labels.free .label:not(.measure) {
+  text-shadow: none;
+  background: var(--veil);
+  color: var(--fg-2);
+}
+#labels.free .label.em { color: var(--fg-1); }
+#labels.free .label.sel { color: var(--accent); }
+
+/* 変形の途中: 点に付けて運ぶラベル。横書きになってからは札にする */
+#labels.carry .label { transition: color var(--dur-1) var(--ease-out); }
+#labels.carry .label.v {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: .12em;
+}
+:root[lang="en"] #labels.carry .label.v { letter-spacing: .02em; }
+#labels.carry .label.h {
+  padding: 1px 3px 2px;
+  border-radius: 1px;
+  background: var(--veil);
+  color: var(--fg-2);
+}
+#labels.carry .label.h.sel { color: var(--accent); }
 
 /* 真横(デスクトップ): 図の下に縦書きの索引。弧に重ならないので縁取りは付けない */
 #labels.index-v .label:not(.measure) {
@@ -61,6 +85,9 @@
   letter-spacing: .12em;
 }
 :root[lang="en"] #labels.index-v .label:not(.measure) { letter-spacing: .02em; }
+
+/* 横長の真横で列の間隔が狭いとき(幅 1024px 前後): 索引を 10px にして 1 つおきに出す(ui/labels.js の indexDense) */
+#labels.index-v.dense .label { font-size: 10px; }
 
 /* 縦画面は 10.5px */
 #labels.portrait .label { font-size: 10.5px; }

@@ -14,7 +14,7 @@
 
 ## legend(凡例)
 
-地域を選んでいないときは、画面の向きで文言を切り替えます。横長用は `legend.none.landscape.*`、縦画面用は `legend.none.portrait.*` です。地域を選んでいるときは `legend.selected.*` を使います。`legend.particle` はどの場合にも出します。弧の高さの意味は、カメラで切り替えます。真横は `legend.height.side`(並びの上での隔たり)、斜め俯瞰と真上は `legend.height.map`(都道府県庁所在地のあいだの距離)です。
+地域を選んでいないときは、カメラと画面の向きで文言を切り替えます。真横の横長用は `legend.none.landscape.*`、真横の縦画面用は `legend.none.portrait.*`、地図の上(斜め俯瞰と真上)は `legend.none.map.*` です。地図は北が画面の上なので、地図の上では移動の向きを「北へ」でなく「北上・南下」で言います(「北へ」は、画面の上側の弧と取り違えやすいため)。地域を選んでいるときは `legend.selected.*` を使います。`legend.particle` はどの場合にも出します。弧の高さの意味は、カメラで切り替えます。真横は `legend.height.side`(並びの上での隔たり)、斜め俯瞰と真上は `legend.height.map`(都道府県庁所在地のあいだの距離)です。
 
 和文は、半角のコロンや等号で区切らず、「〜は、〜」の文にします(字間が詰まるため)。英語は現行のままです。
 
@@ -24,6 +24,8 @@
 | `legend.none.landscape.down` | 線より下は、南へ向かう移動 | Below the line: moves heading south |
 | `legend.none.portrait.up` | 線より右は、北へ向かう移動 | Right of the line: moves heading north |
 | `legend.none.portrait.down` | 線より左は、南へ向かう移動 | Left of the line: moves heading south |
+| `legend.none.map.up` | 地上の弧は、北上する移動 | Arcs above ground: northbound moves |
+| `legend.none.map.down` | 地下の弧は、南下する移動 | Arcs below ground: southbound moves |
 | `legend.selected.in` | 地上の弧は、{region}への転入 | Arcs above ground: moves into {region} |
 | `legend.selected.out` | 地下の弧は、{region}からの転出 | Arcs below ground: moves out of {region} |
 | `legend.selected.hint` | 上下の厚みの差が、転入超過・転出超過 | The difference in thickness is the net gain or loss |

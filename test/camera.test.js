@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  AZIMUTH_FROM, clampOrbit, cubicBezier, dragToAngles, easeCamera, ELEVATION_LEAD, figureRegion, isPortrait, MORPH_DELAY, MORPH_END, projectPoint, reorient,
+  AZIMUTH_FROM, MORPH_TRANSITION_SECONDS, clampOrbit, cubicBezier, dragToAngles, easeCamera, ELEVATION_LEAD, figureRegion, isPortrait, MORPH_DELAY, MORPH_END, projectPoint, reorient,
   screenAxes, SELECTION_OBLIQUE, SELECTION_ZOOM, presetRegion, topAzimuth, tween, USER_LIMITS, viewFor, viewOptions,
 } from '../src/scene/camera.js';
 import { createCameraRig } from '../src/scene/cameraRig.js';
@@ -448,16 +448,25 @@ describe('createCameraRig', () => {
     expect(store.get().morph).toBe(1);
   });
 
-  it('通常は 1600ms かけて、緩急つきで動く。morph は最初の 15% の間は 0', () => {
+  it('真横と地図の間の変形は 2400ms、斜め俯瞰と真上の間は 1600ms かけて動く。morph は最初の 15% の間は 0', () => {
+    expect(MORPH_TRANSITION_SECONDS).toBe(2.4);
     const { store, rig } = setup();
     store.set({ camera: 'oblique' });
     expect(store.get().morph).toBe(0);
-    rig.update(0.16); // 進み 10%、緩急をかけると 15% より手前
+    rig.update(0.24); // 進み 10%
     expect(store.get().morph).toBe(0);
-    for (let i = 0; i < 9; i++) rig.update(0.16);
+    for (let i = 0; i < 7; i++) rig.update(0.24); // 進み 80%
+    expect(store.get().morph).toBeLessThan(1);
+    for (let i = 0; i < 2; i++) rig.update(0.24);
     expect(store.get().morph).toBeCloseTo(1, 6);
     const want = view('oblique', 1440, 900);
     expect(rig.getView().elevation).toBeCloseTo(want.elevation, 9);
+    // 斜め俯瞰 → 真上
+    store.set({ camera: 'top' });
+    for (let i = 0; i < 9; i++) rig.update(0.16);
+    expect(rig.getView().elevation).toBeLessThan(Math.PI / 2 - 1e-6);
+    rig.update(0.16);
+    expect(rig.getView().elevation).toBeCloseTo(Math.PI / 2, 9);
   });
 
   it('移動中に次の指示が来ても、今の位置から向かい直す(跳ばない)', () => {

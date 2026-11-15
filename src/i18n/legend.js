@@ -9,8 +9,9 @@ export default {
     'legend.none.landscape.down': '線より下は、南へ向かう移動',
     'legend.none.portrait.up': '線より右は、北へ向かう移動',
     'legend.none.portrait.down': '線より左は、南へ向かう移動',
-    'legend.none.map.up': '地上の弧は、北へ向かう移動',
-    'legend.none.map.down': '地下の弧は、南へ向かう移動',
+    // 地図は北が画面の上なので、「北へ」は地図の上の向き(画面の上の弧)と取り違えやすい。移動の向きを「北上・南下」で言う
+    'legend.none.map.up': '地上の弧は、北上する移動',
+    'legend.none.map.down': '地下の弧は、南下する移動',
     // 地域を選んでいるとき
     'legend.selected.in': '地上の弧は、{region}への転入',
     'legend.selected.out': '地下の弧は、{region}からの転出',
@@ -29,8 +30,8 @@ export default {
     'legend.none.landscape.down': 'Below the line: moves heading south',
     'legend.none.portrait.up': 'Right of the line: moves heading north',
     'legend.none.portrait.down': 'Left of the line: moves heading south',
-    'legend.none.map.up': 'Arcs above ground: moves heading north',
-    'legend.none.map.down': 'Arcs below ground: moves heading south',
+    'legend.none.map.up': 'Arcs above ground: northbound moves',
+    'legend.none.map.down': 'Arcs below ground: southbound moves',
     'legend.selected.in': 'Arcs above ground: moves into {region}',
     'legend.selected.out': 'Arcs below ground: moves out of {region}',
     'legend.selected.hint': 'The difference in thickness is the net gain or loss',

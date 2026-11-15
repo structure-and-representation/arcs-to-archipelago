@@ -6,8 +6,11 @@
 //   ・図を回せる(ドラッグ)、点を押して地域を選べる、弧に触れると人数が出る: 2 章以降で、右下のカメラの上(縦画面は上の帯の下の右)。
 //     利用者が一度やったことは、一行から外す(ドラッグしたら「ドラッグで回す」を消す)。3 つとも済んだら、一行ごと消える。
 // 覚えておくのはこのページを開いている間だけ(保存しない)。代替表示(<html data-fallback="2d">)では図を回せないので、「ドラッグ」は出さない。
-// ポインタが指のとき(pointer: coarse)は、「なぞる」「タップ」の言い方にし、弧に触れる手がかりは出さない。
+// ポインタが指のとき(pointer: coarse、またはホバーできない画面、または縦画面の構成でタッチできる画面)は、
+// 「なぞる」「タップ」の言い方にし、弧に触れる手がかりは出さない。
+// 縦画面の構成(幅 1024px 未満)では、上の帯の下の一行が章の進み具合と重ならないよう、残っている手がかりを 1 つずつ出す。
 import { onLangChange, t } from '../i18n.js';
+import { PORTRAIT_MEDIA } from '../scene/camera.js';
 
 const DRAG_THRESHOLD = 4; // scene/cameraRig.js と同じ(この距離を超えて動いたらドラッグ)
 const SCROLLED = 24; // CSS px。これより下へスクロールしたら、スクロールの手がかりは役目を終える
@@ -17,8 +20,12 @@ export function mount(_el, store) {
   const host = doc.getElementById('app') ?? doc.body;
   const stage = doc.getElementById('stage');
   const fallback = doc.documentElement.dataset.fallback === '2d';
-  const touchQuery = typeof matchMedia === 'function' ? matchMedia('(pointer: coarse)') : null;
-  const touch = () => !!touchQuery?.matches;
+  const mq = (q) => (typeof matchMedia === 'function' ? matchMedia(q) : null);
+  const touchQuery = mq('(pointer: coarse), (hover: none)');
+  const narrowQuery = mq(PORTRAIT_MEDIA);
+  const narrow = () => !!narrowQuery?.matches;
+  const touch = () =>
+    !!touchQuery?.matches || (narrow() && (navigator.maxTouchPoints > 0 || !!mq('(any-pointer: coarse)')?.matches));
 
   const make = (cls) => {
     const p = doc.createElement('p');
@@ -50,7 +57,7 @@ export function mount(_el, store) {
     if (!done.drag) tips.push(t(touch() ? 'hint.dragTouch' : 'hint.drag'));
     if (!done.select) tips.push(t(touch() ? 'hint.selectTouch' : 'hint.select'));
     if (!done.hover && !touch()) tips.push(t('hint.hover'));
-    exploreHint.textContent = tips.join(t('hint.sep'));
+    exploreHint.textContent = (narrow() ? tips.slice(0, 1) : tips).join(t('hint.sep'));
     const showExplore = s.chapter >= 1 && tips.length > 0;
     scrollHint.classList.toggle('on', showScroll);
     exploreHint.classList.toggle('on', showExplore);
@@ -91,6 +98,7 @@ export function mount(_el, store) {
   });
   const offLang = onLangChange(render);
   touchQuery?.addEventListener?.('change', render);
+  narrowQuery?.addEventListener?.('change', render);
 
   render();
 
@@ -99,6 +107,7 @@ export function mount(_el, store) {
       offStore();
       offLang();
       touchQuery?.removeEventListener?.('change', render);
+      narrowQuery?.removeEventListener?.('change', render);
       stage?.removeEventListener('pointerdown', onDown);
       stage?.removeEventListener('pointermove', onMove);
       stage?.removeEventListener('pointerup', onUp);

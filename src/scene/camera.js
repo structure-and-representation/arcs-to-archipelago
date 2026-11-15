@@ -56,9 +56,11 @@ export const PORTRAIT_FIGURE_TOP = 118;
 export const PORTRAIT_LABEL_GUTTER = 80;
 /** 遷移の長さ(秒)と、真横から立ち上がるとき morph を動かし始めるまでの回転の割合。 */
 export const TRANSITION_SECONDS = 1.6;
+/** 真横と地図の間の遷移(変形)の長さ(秒)。作品の見せ場なので、ほかの遷移より長くとる。 */
+export const MORPH_TRANSITION_SECONDS = 2.4;
 export const MORPH_DELAY = 0.15;
 /**
- * 真横(morph 0)から地図(morph 1)へ移るときの段取り(遷移の進み s、緩急をかけた後の値)。
+ * 真横(morph 0)から地図(morph 1)へ移るときの段取り(遷移の進み s。緩急は成分ごとにかける)。
  *  仰角は 0 〜 ELEVATION_LEAD で上がりきり、方位(と縦画面の roll)は AZIMUTH_FROM 〜 1 で回る。
  *  morph は MORPH_DELAY 〜 MORPH_END で動く。逆向き(地図から真横)は、この段取りを時間で裏返す。
  * 真横の並び(北海道が左)と北が上の地図(北海道が右上)は向きが反対なので、低い仰角のまま方位を回すと、
@@ -412,19 +414,26 @@ const smoothstep = (a, b, x) => {
  *  動かない(平面の図が立体に見えてから動き始める)。地図から真横へは、同じ段取りを時間で裏返す。
  *  それ以外(斜め俯瞰と真上の間など): すべて同じ進み。
  */
-export function tweenChannels(a, b, s) {
+export function tweenChannels(a, b, s, ease = null) {
+  const E = ease ?? ((x) => x);
+  const win = (lo, hi, x) => E(clamp((x - lo) / (hi - lo), 0, 1));
   const rise = (x) => ({
-    el: smoothstep(0, ELEVATION_LEAD, x),
-    az: smoothstep(AZIMUTH_FROM, 1, x),
-    morph: clamp((x - MORPH_DELAY) / (MORPH_END - MORPH_DELAY), 0, 1),
-    rest: x,
+    el: win(0, ELEVATION_LEAD, x),
+    az: win(AZIMUTH_FROM, 1, x),
+    morph: smoothstep(MORPH_DELAY, MORPH_END, x),
   });
-  if (a.morph === 0 && b.morph > 0) return rise(s);
-  if (b.morph === 0 && a.morph > 0) {
+  if (isMorphing(a, b)) {
+    if (a.morph === 0) return { ...rise(s), rest: E(s) };
     const r = rise(1 - s);
-    return { el: 1 - r.el, az: 1 - r.az, morph: 1 - r.morph, rest: s };
+    return { el: 1 - r.el, az: 1 - r.az, morph: 1 - r.morph, rest: E(s) };
   }
-  return { el: s, az: s, morph: s, rest: s };
+  const e = E(s);
+  return { el: e, az: e, morph: e, rest: e };
+}
+
+/** a から b への遷移が、真横(morph 0)と地図(morph > 0)の間の変形か。 */
+export function isMorphing(a, b) {
+  return (a.morph === 0 && b.morph > 0) || (b.morph === 0 && a.morph > 0);
 }
 
 const lerpRect = (a, b, s) => ({ x0: lerp(a.x0, b.x0, s), y0: lerp(a.y0, b.y0, s), x1: lerp(a.x1, b.x1, s), y1: lerp(a.y1, b.y1, s) });
@@ -440,13 +449,14 @@ function frameOf(layout, v) {
 }
 
 /**
- * 2つの視点 a、b を s(0〜1、緩急は適用済み)で補間する。角度は短い側へ回り、zoom は対数で補間する。
+ * 2つの視点 a、b を s(0〜1)で補間する。角度は短い側へ回り、zoom は対数で補間する。
+ * ease を渡すと、成分ごとに緩急をかける(変形の段取りの区間ごとに緩急がつく)。省略すると s は緩急をかけた後の値。
  * layout を渡し、a、b が fit と size を持つとき(viewFor の結果と、それを reorient・tween したもの)は、
  * 途中の向きと形で図を領域に収め直す。利用者が拡大・移動していた分は、収めた図に対する比として補間する。
  * そうでなく a、b が anchor / target / size を持つときは、中心を毎回それらから決める(図が領域の中心から外れずに回る)。
  */
-export function tween(a, b, s, layout = null) {
-  const c = tweenChannels(a, b, s);
+export function tween(a, b, s, layout = null, ease = null) {
+  const c = tweenChannels(a, b, s, ease);
   const azimuth = lerpAngle(a.azimuth, b.azimuth, c.az);
   const elevation = lerp(a.elevation, b.elevation, c.el);
   const roll = lerpAngle(a.roll, b.roll, c.az);

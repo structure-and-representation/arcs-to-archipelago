@@ -10,14 +10,14 @@ describe('凡例の向きの文言を選ぶ', () => {
     expect(directionKeys(null, 'side', true)).toEqual({ up: 'legend.none.portrait.up', down: 'legend.none.portrait.down', hint: null });
   });
 
-  it('地域を選んでいないとき、真横以外(斜め俯瞰・真上)は「地上は北へ、地下は南へ」', () => {
+  it('地域を選んでいないとき、真横以外(斜め俯瞰・真上)は「地上は北上、地下は南下」', () => {
     for (const camera of ['oblique', 'top']) {
       for (const portrait of [false, true]) {
         expect(directionKeys(null, camera, portrait)).toEqual({ up: 'legend.none.map.up', down: 'legend.none.map.down', hint: null });
       }
     }
-    expect(DICT.ja['legend.none.map.up']).toBe('地上の弧は、北へ向かう移動');
-    expect(DICT.ja['legend.none.map.down']).toBe('地下の弧は、南へ向かう移動');
+    expect(DICT.ja['legend.none.map.up']).toBe('地上の弧は、北上する移動');
+    expect(DICT.ja['legend.none.map.down']).toBe('地下の弧は、南下する移動');
   });
 
   it('地域を選んでいるとき、カメラと画面の向きに依らず「転入・転出」と補足', () => {
