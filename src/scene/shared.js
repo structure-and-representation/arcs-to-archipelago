@@ -35,6 +35,18 @@ vec2 nodePos(float i){ vec4 v = texelFetch(uNodes, ivec2(int(i + 0.5), 0), 0); r
 
 export const GLSL_COMMON = GLSL_NODES + GLSL_ARC;
 
+// 紙と墨の質感(弧のかすれ、陸地のむらとにじみ、朱の印)に使う、決まった値のノイズ。
+// 時間に依らない(紙に置いた墨は動かない)。どれも 0〜1 を返す。
+//   inkHash(p)  2D の位置 → 一様乱数、inkNoise(x) 1D の値ノイズ、inkNoise2(p) 2D の値ノイズ、inkFbm(p) 3 オクターブ
+export const GLSL_INK_NOISE = /* glsl */ `
+float inkHash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float inkNoise(float x){ float i = floor(x), f = fract(x); float u = f * f * (3.0 - 2.0 * f);
+  return mix(inkHash(vec2(i, 17.0)), inkHash(vec2(i + 1.0, 17.0)), u); }
+float inkNoise2(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(inkHash(i), inkHash(i + vec2(1.0, 0.0)), u.x), mix(inkHash(i + vec2(0.0, 1.0)), inkHash(i + vec2(1.0, 1.0)), u.x), u.y); }
+float inkFbm(vec2 p){ return 0.5 * inkNoise2(p) + 0.3 * inkNoise2(p * 2.07 + 5.3) + 0.2 * inkNoise2(p * 4.13 + 1.7); }
+`;
+
 // 小さいほど先に描く: 地下の弧、地下の粒子、地面、地上の弧、地上の粒子、都道府県の点
 export const RENDER_ORDER = Object.freeze({
   arcsBelow: 0,

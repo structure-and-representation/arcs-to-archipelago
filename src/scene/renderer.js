@@ -2,7 +2,7 @@
 // 自分で描くのは 47 都道府県の点だけ(一直線 ↔ 地理配置の補間つき)。
 // 弧・粒子・地面は層(scene/arcs.js、particles.js、ground.js)が受け持ち、ここは層を登録して呼び出す。
 import * as THREE from 'three';
-import { GLSL_NODES, RENDER_ORDER, createShared } from './shared.js';
+import { GLSL_INK_NOISE, GLSL_NODES, RENDER_ORDER, createShared } from './shared.js';
 import { nodePos } from '../geometry/layout.js';
 import { arcList } from '../geometry/flows.js';
 import { createArcsLayer } from './arcs.js';
@@ -23,28 +23,40 @@ in float aSel;
 uniform float uPixelRatio;
 out float vSel;
 out float vSize;
+out float vI;
 void main(){
   vec2 p = nodePos(aI);
+  vI = aI;
   vSel = aSel;
   gl_Position = projectionMatrix * viewMatrix * vec4(p.x, 0.0, p.y, 1.0);
   // 実ピクセルでの外径(選択中は輪を含む)。+1 は縁をなめらかにする余白
   vSize = (aSel > 0.5 ? ${(NODE_SEL + 2 * NODE_RING).toFixed(1)} : ${NODE_DOT.toFixed(1)}) * uPixelRatio;
   gl_PointSize = vSize + 1.0;
 }`;
+// 選択中の朱の点は、朱肉で押した印のように: 縁を角度で SEAL.EDGE だけ揺らし、面の中に細かなかすれ(紙の色の抜け)を置く。
+// かすれは面の SEAL.KASURE 以下(朱の面の大半は朱のまま。点の位置と大きさは変えない)
+export const SEAL = Object.freeze({ EDGE: 0.08, KASURE: 0.45 });
 const NODE_FRAG = /* glsl */ `
+${GLSL_INK_NOISE}
 uniform vec3 uInk, uAccent, uPaper;
 uniform float uPixelRatio;
 in float vSel;
 in float vSize;
+in float vI;
 out vec4 outColor;
 void main(){
-  float r = length(gl_PointCoord * 2.0 - 1.0) * (vSize + 1.0) * 0.5; // 中心からの距離(実ピクセル)
+  vec2 q = (gl_PointCoord * 2.0 - 1.0) * (vSize + 1.0) * 0.5; // 中心からの位置(実ピクセル)
+  float r = length(q);
   float outer = clamp(vSize * 0.5 - r + 0.5, 0.0, 1.0);
   if (outer <= 0.0) discard;
   if (vSel < 0.5) { outColor = vec4(uInk, outer); return; }
-  // 選択中: 朱の円と、その外側の紙色の輪(色はトークンの sRGB の値のまま出す)
-  float inner = clamp(${(NODE_SEL / 2).toFixed(1)} * uPixelRatio - r + 0.5, 0.0, 1.0);
-  outColor = vec4(mix(uPaper, uAccent, inner), outer);
+  // 選択中: 朱の印と、その外側の紙色の輪(色はトークンの sRGB の値のまま出す)
+  float th = atan(q.y, q.x);
+  float edge = 1.0 + ${SEAL.EDGE.toFixed(2)} * (2.0 * inkNoise(th * 1.6 + vI * 5.0) - 1.0);
+  float inner = clamp(${(NODE_SEL / 2).toFixed(1)} * uPixelRatio * edge - r + 0.5, 0.0, 1.0);
+  vec2 cell = q / uPixelRatio * 1.4 + vI * 13.0;           // 約 0.7 CSS px のかすれの粒
+  float dry = smoothstep(0.62, 0.9, inkNoise2(cell)) * ${SEAL.KASURE.toFixed(2)};
+  outColor = vec4(mix(uPaper, uAccent, inner * (1.0 - dry)), outer);
 }`;
 
 /**

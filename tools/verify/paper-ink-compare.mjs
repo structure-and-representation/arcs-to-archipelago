@@ -59,6 +59,8 @@ async function shoot(which, scene, theme) {
   const [w, h] = scene.size;
   const context = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2 });
   const page = await context.newPage();
+  page.on('console', (m) => { if (m.type() === 'error') console.error(`[${which} ${scene.name} ${theme}] ${m.text().slice(0, 400)}`); });
+  page.on('pageerror', (e) => console.error(`[${which} ${scene.name} ${theme}] ${e.message}`));
   try {
     const base = servers[which].resolvedUrls.local[0];
     await page.goto(`${base}?${scene.query}&theme=${theme}&still=1`, { waitUntil: 'domcontentloaded', timeout: 120000 });

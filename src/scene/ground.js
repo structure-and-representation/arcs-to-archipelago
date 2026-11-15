@@ -14,7 +14,7 @@
 //   ctx = { shared, data, arcList }
 //   描く順序: object3D の中の Mesh / Points(葉のオブジェクト)に shared.js の RENDER_ORDER を renderOrder として付ける。
 import * as THREE from 'three';
-import { RENDER_ORDER } from './shared.js';
+import { GLSL_INK_NOISE, RENDER_ORDER } from './shared.js';
 
 // 地面の紙色の面の不透明度は、docs/design/spec.md「3. three.js に渡す値」の --gl-ground から読む。
 // 陸地の面(uInk)・選択地域の面(uInk)・県境(uPaper)の不透明度はこのファイルの値。色は shared の uInk / uPaper だけを使う。
@@ -25,6 +25,11 @@ export const LAND_OPACITY = Object.freeze({
   ink: { land: 0.09, selected: 0.15, border: 0.85 },
 });
 const BORDER_WIDTH = 0.6; // CSS px。県境の太さは一定
+// 淡墨の質感(docs/screenshots/paper-ink/land-*.png で見比べて決めた)。
+//   むら: 陸地の面の濃さを、地図の上に固定したノイズで ±MOTTLE だけ揺らす(平均の濃さは変えない)。大きな濃淡の径は MOTTLE_KM。
+//   にじみ: 海岸線に沿って、幅 BLEED_PX(CSS px)の、中心が濃く両側へ消える帯を重ねる。内側は面の縁の墨溜まり、外側は紙へのにじみに見える。
+//           帯の濃さは陸地の面の BLEED 倍。幅はノイズで 0.5〜1.3 倍に揺らす(縁が硬い輪郭にならない)。
+export const LAND_INK = Object.freeze({ MOTTLE: 0.35, MOTTLE_KM: 160, BLEED_PX: 5, BLEED: 0.75 });
 // morph がこの区間で、地面と境界線が 0 → 1 に現れる(smoothstep)。
 // 変形の後半(都道府県が動き始めてから)に、行き先として陸地が現れる。
 export const APPEAR = Object.freeze({ from: 0.6, to: 1.0 });
@@ -327,10 +332,13 @@ in float aArea;
 uniform float uSelect[47];
 uniform vec2 uRes;
 uniform float uPixelRatio;
+uniform float uKm;  // ワールド 1 単位の km
 out float vSel;
 out float vFacing;
+out vec2 vKm;       // 地図の上の位置(km)。むらのノイズに使う
 void main(){
   vSel = uSelect[int(aPref + 0.5)];
+  vKm = position.xz * uKm;
   // 島の画面上の面積(CSS px²): 正投影の 1 単位の CSS px の 2 乗 × 地面の短縮(視線の y 成分)
   float unitPx = projectionMatrix[0][0] * 0.5 * uRes.x / uPixelRatio;
   float areaPx = aArea * unitPx * unitPx * abs(viewMatrix[1][2]);
@@ -339,17 +347,122 @@ void main(){
 }`;
 
 const LAND_FRAG = /* glsl */ `
+${GLSL_INK_NOISE}
 uniform vec3 uInk;
 uniform float uLand;
 uniform float uLandSelected;
+uniform float uMottle;
 in float vSel;
 in float vFacing;
+in vec2 vKm;
 out vec4 outColor;
 void main(){
-  float a = mix(uLand, uLandSelected, vSel) * vFacing;
+  // 淡墨のむら: 大きなゆるい濃淡(fbm の平均 0.5 を中心に ±uMottle)
+  float m = inkFbm(vKm / ${LAND_INK.MOTTLE_KM.toFixed(1)});
+  float a = mix(uLand, uLandSelected, vSel) * vFacing * (1.0 + uMottle * (2.0 * m - 1.0) * 1.6);
   if (a <= 0.0) discard;
   outColor = vec4(uInk, a);
 }`;
+
+// 海岸線のにじみ: 線のリボン(LINE_VERT と同じ押し出し)に、島の面積(陸地の面と同じ判定で小さな島を消す)と
+// 幅のゆらぎを足したもの。横断の濃さは中心 1 から両端 0 へなめらかに落ちる。
+const BLEED_VERT = /* glsl */ `
+${FACING_GLSL}
+${GLSL_INK_NOISE}
+in vec3 aPrev;
+in vec3 aNext;
+in float aSide;
+in float aArea;
+uniform vec2 uRes;
+uniform float uPixelRatio;
+uniform float uWidth;
+uniform float uKm;
+out float vAcross;  // -1〜+1(リボンの横断の位置)
+out float vFacing;
+out vec2 vKm;
+vec2 toPx(vec3 p){
+  vec4 c = projectionMatrix * viewMatrix * vec4(p, 1.0);
+  return c.xy / c.w * uRes * 0.5;
+}
+void main(){
+  vec4 clip = projectionMatrix * viewMatrix * vec4(position, 1.0);
+  vec2 cur = clip.xy / clip.w * uRes * 0.5;
+  vec2 dp = cur - toPx(aPrev);
+  vec2 dn = toPx(aNext) - cur;
+  float lp = length(dp), ln = length(dn);
+  vec2 tp = lp > 1e-4 ? dp / lp : vec2(0.0);
+  vec2 tn = ln > 1e-4 ? dn / ln : vec2(0.0);
+  if (lp <= 1e-4) tp = tn;
+  if (ln <= 1e-4) tn = tp;
+  vec2 tm = tp + tn;
+  float tl = length(tm);
+  vec2 nm = tl > 1e-4 ? vec2(-tm.y, tm.x) / tl : vec2(-tn.y, tn.x);
+  vKm = position.xz * uKm;
+  float wob = 0.5 + 0.8 * inkNoise2(vKm / 18.0);          // 幅のゆらぎ(18 km の周期)
+  float half_ = 0.5 * uWidth * uPixelRatio * wob;
+  clip.xy += nm * aSide * half_ / (uRes * 0.5) * clip.w;
+  gl_Position = clip;
+  vAcross = aSide;
+  float unitPx = projectionMatrix[0][0] * 0.5 * uRes.x / uPixelRatio;
+  float areaPx = aArea * unitPx * unitPx * abs(viewMatrix[1][2]);
+  vFacing = groundFacing() * smoothstep(${ISLAND_MIN_PX.toFixed(1)}, ${(2 * ISLAND_MIN_PX).toFixed(1)}, areaPx);
+}`;
+
+const BLEED_FRAG = /* glsl */ `
+${GLSL_INK_NOISE}
+uniform vec3 uInk;
+uniform float uOpacity;
+in float vAcross;
+in float vFacing;
+in vec2 vKm;
+out vec4 outColor;
+void main(){
+  float x = 1.0 - abs(vAcross);
+  float a = uOpacity * vFacing * x * x * (0.55 + 0.9 * inkNoise2(vKm / 6.0));
+  if (a <= 0.0) discard;
+  outColor = vec4(uInk, a);
+}`;
+
+/**
+ * 海岸線(1 つの都道府県だけが持つ arc)を、それが属する島(多角形)の面積と一緒に取り出す。
+ * 戻り値: { lines: [x, z][][], areas: number[](線ごとの島の面積。ワールド単位の 2 乗)}
+ */
+export function extractCoastWithArea(topology, toWorld) {
+  const arcs = decodeArcs(topology).map((line) => line.map(([mx, my]) => toWorld(mx, my)));
+  const owners = new Map();
+  const geoms = topology.objects.japan.geometries;
+  geoms.forEach((geom, gi) => {
+    for (const a of ringArcIndices(geom)) {
+      let s = owners.get(a);
+      if (!s) owners.set(a, (s = new Set()));
+      s.add(gi);
+    }
+  });
+  const lines = [];
+  const areas = [];
+  const seen = new Set();
+  const ringArea = (pts) => {
+    let a = 0;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) a += (pts[j][0] - pts[i][0]) * (pts[j][1] + pts[i][1]);
+    return Math.abs(a) / 2;
+  };
+  for (const geom of geoms) {
+    const polys = geom.type === 'MultiPolygon' ? geom.arcs : geom.type === 'Polygon' ? [geom.arcs] : [];
+    for (const poly of polys) {
+      const outer = poly[0] ? ringPoints(arcs, poly[0]) : [];
+      if (outer.length < 3) continue;
+      const area = ringArea(outer);
+      for (const ring of poly) for (const i of ring) {
+        const a = i < 0 ? ~i : i;
+        if (owners.get(a)?.size !== 1 || seen.has(a)) continue;
+        seen.add(a);
+        lines.push(arcs[a]);
+        areas.push(area);
+      }
+    }
+  }
+  return { lines, areas };
+}
 
 function readGroundOpacity(theme) {
   let v = FALLBACK_GROUND[theme] ?? FALLBACK_GROUND.paper;
@@ -419,6 +532,8 @@ export function createGroundLayer(ctx) {
       uSelect: { value: select },
       uRes: uniforms.uRes,
       uPixelRatio: uniforms.uPixelRatio,
+      uKm: { value: shared.layout.kmPerUnit },
+      uMottle: { value: LAND_INK.MOTTLE },
     },
     vertexShader: LAND_VERT,
     fragmentShader: LAND_FRAG,
@@ -450,8 +565,49 @@ export function createGroundLayer(ctx) {
   borderMesh.name = 'ground-border';
   borderMesh.frustumCulled = false;
   borderMesh.renderOrder = GROUND_ORDER;
-  // 同じ renderOrder の中では、先に追加したものが先に描かれる(紙色の面 → 陸地 → 県境)
-  object3D.add(groundMesh, landMesh, borderMesh);
+  // 海岸線のにじみ(陸地の面の縁の墨溜まりと、紙へのにじみ)
+  const coastBleed = extractCoastWithArea(data.topology, shared.layout.toWorld);
+  const bleedGeom = buildRibbonGeometry(coastBleed.lines);
+  {
+    // buildRibbonGeometry は線ごとに (点の数 × 2) 頂点を順に積む。重複点を除いた数を同じ規則で数えて、島の面積を配る
+    const area = new Float32Array(bleedGeom.attributes.position.count);
+    let v = 0;
+    coastBleed.lines.forEach((raw, li) => {
+      let n = 0;
+      let q = null;
+      for (const p of raw) {
+        if (!q || q[0] !== p[0] || q[1] !== p[1]) n++;
+        q = p;
+      }
+      if (n < 2) return;
+      area.fill(coastBleed.areas[li], v, v + n * 2);
+      v += n * 2;
+    });
+    bleedGeom.setAttribute('aArea', new THREE.BufferAttribute(area, 1));
+  }
+  const bleedMat = new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms: {
+      uRes: uniforms.uRes,
+      uPixelRatio: uniforms.uPixelRatio,
+      uInk: uniforms.uInk,
+      uWidth: { value: LAND_INK.BLEED_PX },
+      uKm: { value: shared.layout.kmPerUnit },
+      uOpacity: { value: 0 },
+    },
+    vertexShader: BLEED_VERT,
+    fragmentShader: BLEED_FRAG,
+  });
+  const bleedMesh = new THREE.Mesh(bleedGeom, bleedMat);
+  bleedMesh.name = 'ground-coast-bleed';
+  bleedMesh.frustumCulled = false;
+  bleedMesh.renderOrder = GROUND_ORDER;
+  // 同じ renderOrder の中では、先に追加したものが先に描かれる(紙色の面 → 陸地 → にじみ → 県境)
+  object3D.add(groundMesh, landMesh, bleedMesh, borderMesh);
 
   // テーマで決まる基準の不透明度。morph の現れ方(appear)を掛けて素材へ渡す。
   const base = { ground: 0, land: 0, selected: 0, border: 0 };
@@ -461,8 +617,9 @@ export function createGroundLayer(ctx) {
     landMat.uniforms.uLand.value = base.land * appear;
     landMat.uniforms.uLandSelected.value = base.selected * appear;
     borderMat.uniforms.uOpacity.value = base.border * appear;
+    bleedMat.uniforms.uOpacity.value = base.land * LAND_INK.BLEED * appear;
     const on = appear > 0.002;
-    groundMesh.visible = landMesh.visible = borderMesh.visible = on;
+    groundMesh.visible = landMesh.visible = bleedMesh.visible = borderMesh.visible = on;
   };
   const setTheme = (theme) => {
     const o = LAND_OPACITY[theme] ?? LAND_OPACITY.paper;
@@ -496,7 +653,7 @@ export function createGroundLayer(ctx) {
       apply();
     },
     dispose() {
-      for (const m of [groundMesh, landMesh, borderMesh]) {
+      for (const m of [groundMesh, landMesh, bleedMesh, borderMesh]) {
         m.geometry.dispose();
         m.material.dispose();
       }
