@@ -171,11 +171,12 @@ console.log(`[${mode}] 5. 言語と本文`);
   const page = await open('lang=ja&still=1');
   const body = () => page.evaluate(() => document.querySelector('.chapter[data-chapter="0"] .body').textContent);
   const ja = await body();
-  ok(portrait ? ja.includes('線より右の弧は北へ、左の弧は南へ') : ja.includes('線より上の弧は北へ、下の弧は南へ'), `ja 第1章の本文(${portrait ? '縦画面用' : '横長用'})`);
+  // 縦画面の真横も回さずに横長の並びで描くので、縦画面でも横長用の本文(「線より上の弧は北へ」)を使う
+  ok(ja.includes('線より上の弧は北へ、下の弧は南へ'), `ja 第1章の本文(${portrait ? '縦画面' : '横長'}。横長用の本文)`);
   await page.evaluate(() => window.__app.store.set({ lang: 'en' }));
   await settle(page, 100);
   const en = await body();
-  ok(portrait ? en.includes('Arcs right of the line head north') : en.includes('Arcs above the line head north'), 'en に切り替わる');
+  ok(en.includes('Arcs above the line head north'), 'en に切り替わる');
   ok(await page.evaluate(() => document.documentElement.lang === 'en' && document.title.startsWith('Arcs Become')), 'html lang と title');
   const h2 = await page.evaluate(() => document.querySelector('.chapter[data-chapter="1"] h2').textContent);
   ok(h2 === COPY[1].heading.en, `見出し en: ${h2}`);
