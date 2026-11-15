@@ -30,6 +30,9 @@
 .toc a:hover, .toc a[aria-current="step"] { color: var(--fg-1); }
 .toc .n { font-variant-numeric: tabular-nums lining-nums; }
 
+/* 最後の章の後ろの余白(縦画面だけ) */
+.tail { display: none; }
+
 /* ---- 章の位置(縦画面): 5 本の短い線と章名。表示だけ ---- */
 .progress { display: none; }
 
@@ -149,6 +152,7 @@
 /* ---- 縦画面: 左右 16px のカード。章の先頭に置いてページと一緒に流し、通り過ぎたあとは図だけが見える ---- */
 @media (max-width: 1023.98px) {
   .toc { display: none; }
+  .tail { display: block; height: 30vh; height: 30svh; }
 
   .progress {
     position: fixed;

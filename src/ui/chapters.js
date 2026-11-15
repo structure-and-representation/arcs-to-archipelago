@@ -145,7 +145,9 @@ export function mount(root, store, ctx = {}) {
     return { section, kicker, h2, body, note };
   });
 
-  root.replaceChildren(toc, progress, ...sections.map((s) => s.section));
+  // 縦画面は基準の線が画面の上寄りにあるので、ページの最後でも最後の場面に入りきるよう、最後の章の後ろに余白を足す(CSS)
+  const tail = el('div', 'tail', { 'aria-hidden': 'true' });
+  root.replaceChildren(toc, progress, ...sections.map((s) => s.section), tail);
 
   // 目次と章の位置の表示(いま見せる章)
   let shown = store.get().chapter;
