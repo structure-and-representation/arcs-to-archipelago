@@ -270,8 +270,10 @@ export function mount(root, store, ctx = {}) {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   const g = geometry[start.chapter];
   if (g && (start.chapter > 0 || start.step > 0)) {
-    // 場面の範囲の中ほど(画面の高さの中央の線が、その場面の中央に来る位置。フォントの読み込みなどで高さが少し変わっても場面を外れない)
-    const y = g.top + (g.height / g.steps) * (start.step + 0.5) - window.innerHeight * ANCHOR;
+    // 場面の頭を画面の上端に合わせる(前の章の本文が画面に残らない)。場面の高さは画面の高さの 70% 以上なので、
+    // 画面の高さの中央の線(ANCHOR)は場面の中に入り、フォントの読み込みなどで高さが少し変わっても場面を外れない
+    const stepH = g.height / g.steps;
+    const y = g.top + stepH * start.step + Math.max(0, window.innerHeight * ANCHOR - stepH * 0.8);
     window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
   } else if (window.scrollY > 0) {
     window.scrollTo({ top: 0, behavior: 'auto' });
