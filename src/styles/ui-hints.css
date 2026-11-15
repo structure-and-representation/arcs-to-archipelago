@@ -1,0 +1,39 @@
+/* 操作の手がかり(ui/hints.js)。12px の一行を --fg-3 で出すだけ。装飾は足さない。
+   スクロールの手がかり: 左の柱の、本文のカードの下(カードの下端は画面の下から 244px、凡例の上のぼかしは約 210px から)。
+   図の手がかり: 右下のカメラの上。縦画面はどちらも、上の帯の下の右(左は章の位置の表示と図の向きの注記)。同時には出ない。 */
+#hints { display: contents; }
+.hint {
+  position: fixed;
+  z-index: var(--z-ui);
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-ui);
+  letter-spacing: var(--ls-ui);
+  color: var(--fg-3);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur-3) var(--ease-out), visibility 0s linear var(--dur-3);
+}
+.hint.on { opacity: 1; visibility: visible; transition-delay: 0s; }
+
+.hint-scroll { left: var(--gutter); bottom: 222px; width: var(--col-w); }
+.hint-scroll::after { content: "↓"; margin-left: .5em; }
+.hint-explore { right: var(--gutter); bottom: 102px; max-width: min(380px, calc(100vw - var(--stage-x0) - 340px)); text-align: right; } /* 左は、年の折れ線の名前(図の領域の左端から)を避ける */
+
+@media (max-width: 1023.98px) {
+  .hint-scroll, .hint-explore {
+    top: 54px;
+    bottom: auto;
+    left: auto;
+    right: var(--gutter);
+    width: auto;
+    max-width: calc(100vw - 2 * var(--gutter) - 150px);
+    font-size: 11px;
+    line-height: 1.4;
+    text-align: right;
+  }
+  /* 代替表示の縦画面は、ここに案内の帯が入る */
+  :root[data-fallback="2d"] .hint { display: none; }
+}

@@ -1,10 +1,11 @@
 // 凡例と注記。仕様は docs/design/spec.md の 5.8、文言は docs/copy/strings.md の legend.*(src/i18n/legend.js)。
 //   mount(el, store, ctx) → { dispose() }   el は #legend。読む state: selection、camera(lang は i18n、縦画面は ui/portrait.js)
+// ・弧の高さの意味はカメラで変わる: 真横は「並び順の隔たり」、斜め俯瞰と真上(地図の上)は「県庁所在地間の距離」(heightKey)。
 //
-// ・「1粒=100人」と「弧の高さ=距離」、向きの意味(小さな図つき)、出典の注記を出す。
+// ・「1粒は100人」と弧の高さの意味、向きの意味(小さな図つき)、出典の注記を出す。
 // ・向きの意味は状態で変わる: 地域を選んでいないとき(真横の横長用 / 縦画面用、真横以外は「地上は北へ、地下は南へ」)、
-//   選んでいるとき(「地上の弧:東京圏への転入」など)。
-// ・縦画面では、「1粒=100人」と「弧の高さ=距離」がドックの 3 段目の右、向きの意味が図の左上(縦に 2 行)に分かれて出る。
+//   選んでいるとき(「地上の弧は、東京圏への転入」など)。
+// ・縦画面では、「1粒は100人」と弧の高さの意味がドックの 3 段目の右(2 行に積む)、向きの意味が図の左上(縦に 2 行)に分かれて出る。
 //   出典の注記は縦画面では出さない(表のダイアログの末尾に置く)。配置は ui-legend.css。
 import { getLang, metroName, onLangChange, prefName, t } from '../i18n.js';
 import { isPortrait, onPortraitChange } from './portrait.js';
@@ -60,6 +61,11 @@ export function directionKeys(selection, camera, portrait) {
   return { up: 'legend.none.map.up', down: 'legend.none.map.down', hint: null };
 }
 
+/** 弧の高さの意味の文言のキー。真横は並びの上の隔たり(添字の差)、それ以外は地図の上の距離。 */
+export function heightKey(camera) {
+  return camera === 'side' ? 'legend.height.side' : 'legend.height.map';
+}
+
 export function mount(root, store, ctx) {
   const sourceUrl = ctx?.data?.source?.url || FALLBACK_SOURCE_URL;
   root.setAttribute('role', 'group');
@@ -73,11 +79,11 @@ export function mount(root, store, ctx) {
 
     root.setAttribute('aria-label', t('legend.label'));
 
-    // 1粒=100人、弧の高さ=距離
+    // 1粒は100人、弧の高さの意味
     const key = el('div', 'legend-key');
     const grain = el('span', 'legend-item legend-grain');
     grain.append(el('span', 'legend-dot'), el('span', null, t('legend.particle')));
-    key.append(grain, el('span', 'legend-item legend-height', t('legend.height')));
+    key.append(grain, el('span', 'legend-item legend-height', t(heightKey(camera))));
 
     // 向きの意味
     const dir = el('ul', 'legend-dir');

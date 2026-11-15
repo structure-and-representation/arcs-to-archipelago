@@ -10,15 +10,22 @@
 //   - 都道府県の点: 墨の小さな点。選択中は朱の大きな点に紙色の輪。
 // 真横の図だけを描く。カメラの定位置(斜め俯瞰・真上)や morph の変更には従わない
 // (setView、setMorph、setLean は受け取るだけで、見た目は変えない)。
+// 図は WebGL の表示と同じ「図の領域」(scene/camera.js の figureRegion)に収める。左の柱(本文と凡例)や、右の読み出し、
+// 下の年の切り替えの下には描かない。縦画面では、並びが縦になり(北海道が上)、右に都道府県名の索引の余白を空ける。
+// 縦画面だけは、上端を案内の帯の下まで下げる(帯の上に図の端が潜らないように)。
 // 案内文(fallback.*)を、キャンバスの隣に出す。数値は ui/table.js の表で読める。
+// 代替表示の間は <html data-fallback="2d"> が付く。カメラのボタン(ui/controls.js)はこれを見て、選べない状態にする。
 import { lineLayout, geoLayout } from '../geometry/layout.js';
 import { arcPoint } from '../geometry/arc.js';
 import { arcList } from '../geometry/flows.js';
-import { screenAxes, viewFor } from './camera.js';
+import { screenAxes, viewFor, viewOptions } from './camera.js';
 import { getLang, onLangChange, t } from '../i18n.js';
 import { arcT, endFade, sideOfMask, slotS, slotWeight } from '../geometry/particles.js';
 import { DESKTOP_BREAKPOINT } from './camera.js';
 import { readStyle } from './shared.js';
+
+/** 縦画面で、案内の帯(上の帯の下、章の位置の表示の下。ui-table.css の .fallback-notice)の下端。図はこの下に収める。 */
+const PORTRAIT_NOTICE_BOTTOM = 122;
 
 const N = 47;
 const SEGMENTS = 48; // 弧の折れ線の区間数(描画器の弧の区間数と同じ)
@@ -280,7 +287,9 @@ export function createFallback(canvas, data) {
       st.dpr = dpr;
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
-      const v = viewFor('side', w / h, layout);
+      const opts = viewOptions(w, h, null, null);
+      if (opts.portrait) opts.region = { ...opts.region, y0: Math.max(opts.region.y0, Math.min(PORTRAIT_NOTICE_BOTTOM, opts.region.y1 - 200)) };
+      const v = viewFor('side', w / h, layout, opts);
       st.view = { azimuth: v.azimuth, elevation: v.elevation, zoom: v.zoom, center: v.center, roll: v.roll };
       updateMatrix();
       touch();

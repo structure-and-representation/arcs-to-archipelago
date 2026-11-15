@@ -14,19 +14,22 @@
 
 ## legend(凡例)
 
-地域を選んでいないときは、画面の向きで文言を切り替えます。横長用は `legend.none.landscape.*`、縦画面用は `legend.none.portrait.*` です。地域を選んでいるときは `legend.selected.*` を使います。`legend.particle` と `legend.height` はどの場合にも出します。
+地域を選んでいないときは、画面の向きで文言を切り替えます。横長用は `legend.none.landscape.*`、縦画面用は `legend.none.portrait.*` です。地域を選んでいるときは `legend.selected.*` を使います。`legend.particle` はどの場合にも出します。弧の高さの意味は、カメラで切り替えます。真横は `legend.height.side`(並びの上での隔たり)、斜め俯瞰と真上は `legend.height.map`(都道府県庁所在地のあいだの距離)です。
+
+和文は、半角のコロンや等号で区切らず、「〜は、〜」の文にします(字間が詰まるため)。英語は現行のままです。
 
 | key | ja | en |
 |---|---|---|
-| `legend.none.landscape.up` | 線より上:北へ向かう移動 | Above the line: moves heading north |
-| `legend.none.landscape.down` | 線より下:南へ向かう移動 | Below the line: moves heading south |
-| `legend.none.portrait.up` | 線より右:北へ向かう移動 | Right of the line: moves heading north |
-| `legend.none.portrait.down` | 線より左:南へ向かう移動 | Left of the line: moves heading south |
-| `legend.selected.in` | 地上の弧:{region}への転入 | Arcs above ground: moves into {region} |
-| `legend.selected.out` | 地下の弧:{region}からの転出 | Arcs below ground: moves out of {region} |
+| `legend.none.landscape.up` | 線より上は、北へ向かう移動 | Above the line: moves heading north |
+| `legend.none.landscape.down` | 線より下は、南へ向かう移動 | Below the line: moves heading south |
+| `legend.none.portrait.up` | 線より右は、北へ向かう移動 | Right of the line: moves heading north |
+| `legend.none.portrait.down` | 線より左は、南へ向かう移動 | Left of the line: moves heading south |
+| `legend.selected.in` | 地上の弧は、{region}への転入 | Arcs above ground: moves into {region} |
+| `legend.selected.out` | 地下の弧は、{region}からの転出 | Arcs below ground: moves out of {region} |
 | `legend.selected.hint` | 上下の厚みの差が、転入超過・転出超過 | The difference in thickness is the net gain or loss |
-| `legend.particle` | 1粒=100人 | 1 grain = 100 people |
-| `legend.height` | 弧の高さ=距離 | Arc height = distance |
+| `legend.particle` | 1粒は100人 | 1 grain = 100 people |
+| `legend.height.side` | 弧の高さは、並び順の隔たり | Arc height = gap in the order |
+| `legend.height.map` | 弧の高さは、県庁所在地間の距離 | Arc height = distance between capitals |
 
 ## readout(読み出し)
 
@@ -42,7 +45,7 @@
 | `readout.unit` | 人 | people |
 | `readout.total` | 移動者総数 | Total movers |
 
-`readout.net` の値が正のときは `readout.netGain` を、負のときは `readout.netLoss` を添えます。
+`readout.net` の値が正のときは `readout.netGain` を、負のときは `readout.netLoss` を添えます。和文は読み出しの見出しを「差引 転入超過」「差引 転出超過」とし、英語は「Net gain」「Net loss」とします(値が 0 のときは `readout.net` だけ)。
 
 ## year(年の切り替えと折れ線)
 
@@ -50,8 +53,8 @@
 |---|---|---|
 | `year.label` | 年 | Year |
 | `year.sparkTotal` | 移動者総数の推移 | Total movers, 2012–2025 |
-| `year.sparkNet` | {region}の転入超過の推移 | Net gain, {region}, 2012–2025 |
-| `year.sparkNetMetro` | {region}の転入超過の推移(圏外との移動) | Net gain, {region}, 2012–2025 (outside the area) |
+| `year.sparkNet` | {region}の差引の推移 | Net change, {region}, 2012–2025 |
+| `year.sparkNetMetro` | {region}の差引の推移(圏外との移動) | Net change, {region}, 2012–2025 (outside the area) |
 | `year.play` | 再生 | Play |
 | `year.pause` | 停止 | Pause |
 | `year.prev` | 前の年 | Previous year |
@@ -96,6 +99,7 @@
 | `camera.side` | 真横 | Side |
 | `camera.oblique` | 斜め | Angled |
 | `camera.top` | 真上 | Top |
+| `camera.unavailable` | WebGL2 が使えないため、この視点は選べません | WebGL2 isn't available, so this view can't be chosen |
 
 ## settings(テーマと言語)
 
@@ -120,7 +124,26 @@
 | `table.col.out` | 転出 | Out |
 | `table.col.net` | 差引 | Net |
 | `table.col.year` | 年 | Year |
+| `table.col.in.region` | {region}への転入 | Into {region} |
+| `table.col.out.region` | {region}からの転出 | Out of {region} |
+| `table.col.net.region` | {region}の差引 | Net for {region} |
 | `table.toggle` | 数値の表を見る | Show the numbers |
+
+地域を選んでいるときの表は、列の主語が選択地域なので、`table.col.in.region`、`table.col.out.region`、`table.col.net.region` を見出しにします。選んでいないときは `table.col.in`、`table.col.out`、`table.col.net` です。
+
+## hint(操作の手がかり)
+
+12px の一行を `--fg-3` で出します。スクロールの手がかりは最初の章でスクロールするまで、図の手がかりは 2 章以降で、一度やったことは一行から外します。ポインタが指のときは `Touch` のついた文言を使い、`hint.hover` は出しません。
+
+| key | ja | en |
+|---|---|---|
+| `hint.scroll` | スクロールで章が進む | Scroll to move through the chapters |
+| `hint.drag` | ドラッグで回す | Drag to turn |
+| `hint.dragTouch` | 横になぞって回す | Swipe sideways to turn |
+| `hint.select` | 点を押して選ぶ | Click a dot to select |
+| `hint.selectTouch` | 点をタップして選ぶ | Tap a dot to select |
+| `hint.hover` | 弧に触れると人数 | Hover an arc for counts |
+| `hint.sep` |  ·  |  ·  |
 
 ## tooltip(ツールチップ)
 
@@ -141,5 +164,5 @@
 
 | key | ja | en |
 |---|---|---|
-| `fallback.heading` | この作品は表示できません | This piece can't be shown here |
-| `fallback.body` | この作品には WebGL2 が必要ですが、お使いのブラウザでは利用できないようです。最新のブラウザで開くか、ハードウェアアクセラレーションを有効にしてください。数値は下の表で見られます。 | This piece needs WebGL2, which your browser doesn't seem to support. Try a recent browser, or turn on hardware acceleration. The numbers are still available in the table below. |
+| `fallback.heading` | WebGL2 が使えないため、真横の静止図です | No WebGL2, so this is a still side view |
+| `fallback.body` | この作品には WebGL2 が必要ですが、お使いのブラウザでは利用できないようです。最新のブラウザで開くか、ハードウェアアクセラレーションを有効にすると、斜めと真上の視点でも見られます。数値は表でも見られます。 | This piece needs WebGL2, which your browser doesn't seem to support. Try a recent browser, or turn on hardware acceleration, to see the angled and top views. The numbers are also in the table. |

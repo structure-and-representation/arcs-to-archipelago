@@ -9,10 +9,11 @@ import table from './i18n/table.js';
 import controls from './i18n/controls.js';
 import chapters from './i18n/chapters.js';
 import legend from './i18n/legend.js';
+import hints from './i18n/hints.js';
 
 export { PREF_EN, PREF_JA };
 
-const parts = [common, timeline, selector, tooltip, table, controls, chapters, legend];
+const parts = [common, timeline, selector, tooltip, table, controls, chapters, legend, hints];
 export const DICT = { ja: Object.assign({}, ...parts.map((p) => p.ja)), en: Object.assign({}, ...parts.map((p) => p.en)) };
 
 let lang = 'ja';

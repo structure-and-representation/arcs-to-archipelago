@@ -1,6 +1,6 @@
 /* 凡例と注記(ui/legend.js)。仕様は docs/design/spec.md の 5.8。
    デスクトップ: 左 40px、下 36px、幅 344px。後ろに紙色の下敷きを敷き、上端の 48px で透明へぼかす(流れてきた章の本文がここで消える)。
-   縦画面: 「1粒=100人」「弧の高さ=距離」はドックの 3 段目の右、向きの意味は図の左上に縦に 2 行。 */
+   縦画面: 「1粒は100人」と弧の高さの意味はドックの 3 段目の右(カメラの右)に 2 行で積む、向きの意味は図の左上に縦に 2 行。 */
 #app #legend {
   position: fixed;
   z-index: var(--z-ui);
@@ -55,16 +55,21 @@
   #app #legend { display: contents; }
   #legend::before { display: none; }
 
+  /* カメラ(左、3 つで約 150px)の右に、右寄せで 2 行に積む。幅が足りないときは、文を折り返す(カメラや隣の文字と重ならない) */
   .legend-key {
     position: fixed;
     z-index: var(--z-ui);
     right: 16px;
-    bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100vw - 32px - 156px);
+    flex-direction: column;
     flex-wrap: nowrap;
-    gap: 10px;
+    align-items: flex-end;
+    gap: 1px;
     font-size: 11px;
+    line-height: 1.35;
+    text-align: right;
     color: var(--fg-3);
-    white-space: nowrap;
     pointer-events: none;
   }
   .legend-key .legend-item { gap: 5px; }
@@ -82,6 +87,8 @@
     text-shadow: 0 0 2px var(--halo), 0 0 3px var(--halo), 0 0 5px var(--halo);
   }
   .legend-dir .legend-glyph { display: none; }
+  /* 代替表示(WebGL2 なし): 上の帯の下に案内の帯(下端 114px 前後)が入るので、図の向きの注記はその下に置く */
+  :root[data-fallback="2d"] .legend-dir { top: 122px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

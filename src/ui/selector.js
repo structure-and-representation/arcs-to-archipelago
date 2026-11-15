@@ -1,6 +1,6 @@
 // 地域の選択と読み出し。要素: #selector。読む・書く state: selection(null | { type: 'pref', code } | { type: 'metro', id })。
 // 読む state: year、lang。デザイン仕様 5.4 節。
-//   - 読み出し: 全国のときはその年の移動者総数。地域を選んでいるときは、地域の名前(朱)と転入・転出・差引、「全国に戻る」。
+//   - 読み出し: 全国のときはその年の移動者総数。地域を選んでいるときは、地域の名前(朱)と転入・転出・差引(「差引 転入超過」「差引 転出超過」)、「全国に戻る」。
 //     縦画面(幅 1024px 未満)のドックでは、同じ内容を1行の要約(「転入 46.9万 転出 35.9万 差引 +10.9万」)にする。
 //   - 見出しのボタンを押すと、選択の一覧(全国、三大都市圏、7地方ごとの都道府県)がポップオーバーで開く。
 //     先頭の入力欄で絞り込み(名前、読み、英語名の前方一致)。フォーカスは入力欄に置いたまま、↑↓ ←→ Home End で項目を移動する。
@@ -295,7 +295,9 @@ export function mount(el, store, ctx) {
     put(pIn.v, formatShort(f.in, L));
     put(pOut.v, formatShort(f.out, L));
     put(pNet.v, formatShort(f.net, L, { signed: true }));
-    const gain = f.net >= 0 ? t('readout.netGain', L) : t('readout.netLoss', L);
+    const gain = f.net > 0 ? t('readout.netGain', L) : f.net < 0 ? t('readout.netLoss', L) : '';
+    // 差引の見出しに「転入超過」「転出超過」を添える(和文は「差引 転入超過」、英語は「Net gain」「Net loss」)
+    dtNet.textContent = !gain ? t('readout.net', L) : L === 'ja' ? `${t('readout.net', L)} ${gain}` : gain;
     const heading = fill(t(metro ? 'readout.headingMetro' : 'readout.heading', L), { region: label, year });
     const u = L === 'ja' ? t('readout.unit', L) : '';
     announce(

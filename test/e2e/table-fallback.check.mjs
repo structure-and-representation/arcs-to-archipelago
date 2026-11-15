@@ -47,6 +47,8 @@ async function open(browser, query, size, { expectFallback = false } = {}) {
   page.on('response', (r) => r.status() >= 400 && problems.push(`http ${r.status()} ${r.url()}`));
   await page.goto(`${base}?${query}&still=1`);
   await page.waitForSelector('html[data-ready="1"], html[data-error]', { timeout: 60000 });
+  // URL の year だけを指定すると、はじめの章・場面(ui/chapters.js)が選択つきの場面になる。選択を指定していない検査は、全国で確かめる
+  if (!/(^|&)sel=/.test(query)) await page.evaluate(() => window.__app.store.set({ selection: null }));
   await page.waitForTimeout(300);
   return { page, problems };
 }
@@ -91,7 +93,7 @@ for (const [size, tag] of [['1440x900', '1440x900'], ['390x844', '390x844']]) {
       const r = n?.getBoundingClientRect();
       return n ? { text: n.textContent, w: r.width, h: r.height, vis: getComputedStyle(n).display !== 'none' } : null;
     });
-    ok(notice?.vis && /WebGL2/.test(notice.text) && /この作品は表示できません/.test(notice.text), `[${name} ${tag}] 案内文が出ている`);
+    ok(notice?.vis && /WebGL2/.test(notice.text) && /真横の静止図/.test(notice.text), `[${name} ${tag}] 案内文が出ている`);
     ok(problems.length === 0, `[${name} ${tag}] コンソールにエラーがない ${problems.join(' | ')}`);
     await shot(page, `fallback-${name}-${tag}.png`);
 
@@ -142,7 +144,7 @@ for (const [size, tag] of [['1440x900', '1440x900'], ['390x844', '390x844']]) {
   ok(rgb && rgb[0] > 200, `ダークテーマでは紙の色で描く(${cssBefore} → ${rgb})`);
   await page.evaluate(() => window.__app.store.set({ lang: 'en' }));
   const text = await page.evaluate(() => document.querySelector('.fallback-notice').textContent);
-  ok(/This piece can't be shown here/.test(text) && /Show the numbers/.test(text), '英語に切り替えると案内文も英語になる');
+  ok(/still side view/.test(text) && /Show the numbers/.test(text), '英語に切り替えると案内文も英語になる');
   // 画面の大きさの変化
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(400);

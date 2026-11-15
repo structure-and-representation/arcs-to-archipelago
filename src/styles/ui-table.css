@@ -13,7 +13,8 @@
   margin: 0;
   padding: 0;
   border: 0;
-  background: var(--veil-solid);
+  /* 後ろの本文や数字が透けて読めないよう、地は不透明にする(--veil-solid は .97 で、大きな字は透ける) */
+  background: var(--bg);
   color: var(--fg-1);
   font-family: var(--font-sans);
   font-size: var(--fs-caption);
@@ -22,9 +23,31 @@
   overflow: hidden;
 }
 .table-dialog:not([open]) { display: none; }
-.table-dialog::backdrop { background: transparent; }
+.table-dialog::backdrop { background: var(--bg); }
+
+/* 不透明にした分、紙の質感(繊維とむら)をダイアログの中にも敷く。画像と不透明度は base.css の body::before / ::after と同じ */
+.table-dialog::before,
+.table-dialog::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--fg-1);
+}
+.table-dialog::before {
+  opacity: var(--grain);
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.6 -.72'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.6 -.72'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+.table-dialog::after {
+  opacity: var(--mottle);
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='900'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='.006' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 2.2 -1.0'/></filter><rect width='100%' height='100%' filter='url(%23m)'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='900'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='.006' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 2.2 -1.0'/></filter><rect width='100%' height='100%' filter='url(%23m)'/></svg>");
+}
 
 .table-sheet {
+  position: relative;
+  z-index: 1; /* 紙の質感(::before / ::after)の上に載せる */
   display: flex;
   flex-direction: column;
   width: min(720px, calc(100% - 32px));
@@ -107,6 +130,10 @@ table.data thead th {
   white-space: nowrap;
 }
 table.data thead th[data-key="pref"] { width: 34%; text-align: left; }
+/* 地域を選んでいるときの見出し(「東京圏への転入」など)は長いので、狭い画面では折り返す */
+@media (max-width: 1023.98px) {
+  table.data thead th { white-space: normal; line-height: 1.35; vertical-align: bottom; }
+}
 table.data thead th[aria-sort] { color: var(--fg-1); }
 
 table.data thead button {
@@ -187,15 +214,17 @@ table.data tr.sel th.name { color: var(--accent); font-weight: 500; }
   table.data tbody th, table.data tbody td { padding-top: 0; padding-bottom: 0; }
 }
 
-/* ---- WebGL2 が使えないときの案内(scene/fallback2d.js が作る) ---- */
+/* ---- WebGL2 が使えないときの案内(scene/fallback2d.js が作る) ----
+   デスクトップ: 図の領域(左の柱の右、読み出しの左)の上端に、紙色の下敷きを敷いて置く。
+   縦画面: 上の帯の下に 1 行(折り返すときは 2 行)の帯として置き、図と本文のカードの上には載せない。 */
 .fallback-notice {
   position: fixed;
   z-index: var(--z-ui); /* キャンバス(--z-stage)より上 */
   top: 88px;
-  left: 424px;
-  width: clamp(240px, calc(100vw - 764px), 520px);
+  left: var(--stage-x0);
+  width: min(520px, calc(100vw - var(--stage-x0) - var(--readout-w) - 2 * var(--gutter)));
   box-sizing: border-box;
-  /* 図に重なるので、紙色の下敷きを敷き、縁をぼかす */
+  /* 図の領域の上端に載るので、紙色の下敷きを敷き、縁をぼかす */
   padding: 18px 20px;
   background: var(--veil);
   -webkit-mask-image: linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 16px), transparent), linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent);
@@ -236,9 +265,33 @@ table.data tr.sel th.name { color: var(--accent); font-weight: 500; }
 .fallback-open:hover { color: var(--fg-1); }
 .fallback-open:focus-visible { outline: 1.5px solid var(--focus); outline-offset: 3px; }
 
+/* 図の領域が狭い画面(1024〜1279px)では、案内は見出しとボタンだけにする(説明の文を足すと、図の上端に掛かる) */
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .fallback-notice { padding: 12px 20px; }
+  .fallback-body { display: none; }
+}
+
 @media (max-width: 1023.98px) {
-  .fallback-notice { top: auto; bottom: 168px; left: 0; right: 0; width: auto; padding: 18px 32px; }
-  .fallback-open { padding: 13px 0; } /* 押せる範囲 44px */
+  /* 章の位置の表示(上 50px、高さ約 14px)の下。見出し(と、収まれば同じ行にボタン)。折り返しても 2 行で、下端は 114px 前後 */
+  .fallback-notice {
+    top: 66px;
+    left: 0;
+    right: 0;
+    width: auto;
+    padding: 3px var(--gutter) 5px;
+    background: var(--veil-solid);
+    -webkit-mask-image: none;
+    mask-image: none;
+    border-bottom: 1px solid var(--line-2);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 12px;
+  }
+  .fallback-heading { font-size: var(--fs-caption); font-weight: 400; color: var(--fg-2); }
+  .fallback-body { display: none; } /* 縦画面では帯だけにする */
+  .fallback-open { position: relative; padding: 0; }
+  .fallback-open::after { content: ""; position: absolute; inset: -13px -8px; } /* 押せる範囲 44px */
 }
 
 /* 表を開く入口は上の帯の「数値の表」(ui/controls.js)。骨格の仮の <summary> は出さない */

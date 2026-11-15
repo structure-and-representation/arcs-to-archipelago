@@ -4,6 +4,7 @@ import { parseData } from '../src/data/loader.js';
 import { STEP } from '../src/geometry/constants.js';
 import { selectionMask, sideOf } from '../src/geometry/flows.js';
 import { createFallback } from '../src/scene/fallback2d.js';
+import { figureRegion } from '../src/scene/camera.js';
 import { arcT, endFade, hash, sideOfMask, slotS, slotWeight } from '../src/geometry/particles.js';
 
 const stillS = (o, d, k) => slotS(o, d, k, 0, true);
@@ -92,12 +93,14 @@ describe('createFallback の射影', () => {
     const p46 = fb.project(46);
     expect(p0[1]).toBeCloseTo(p46[1], 9);
     expect(p0[0]).toBeLessThan(p46[0]);
-    expect(p0[1]).toBeCloseTo(450, 6);
+    // 図は WebGL と同じ図の領域(figureRegion: x 424〜1400、y 96〜800)の中央に収まる
+    const r = figureRegion(1440, 900);
+    expect(p0[1]).toBeCloseTo((r.y0 + r.y1) / 2, 6);
     const { zoom } = fb.getState().view;
     expect(p1[0] - p0[0]).toBeCloseTo(STEP * zoom * 900, 9);
-    expect((p0[0] + p46[0]) / 2).toBeCloseTo(720 + 0, 6); // 中心は 47 点の中央(添字 23 = 三重県が画面の中央)
-    expect(p0[0]).toBeGreaterThan(0);
-    expect(p46[0]).toBeLessThan(1440);
+    expect((p0[0] + p46[0]) / 2).toBeCloseTo((r.x0 + r.x1) / 2, 6); // 中心は 47 点の中央(添字 23 = 三重県が領域の中央)
+    expect(p0[0]).toBeGreaterThan(r.x0); // 左の柱(本文と凡例)の下には描かない
+    expect(p46[0]).toBeLessThan(r.x1);
   });
 
   it('縦長: 90 度回して、北海道が上、沖縄県が下', () => {

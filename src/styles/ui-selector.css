@@ -139,7 +139,7 @@
   padding: 14px 16px 16px;
   text-align: left;
   color: var(--fg-1);
-  background: var(--veil-solid);
+  background: var(--bg); /* 後ろの読み出しの数や弧が透けて読めないよう、地は不透明にする */
   border: 1px solid var(--line-2);
   visibility: hidden;
   opacity: 0;

@@ -9,6 +9,7 @@ import './styles/ui-selector.css';
 import './styles/ui-controls.css';
 import './styles/ui-tooltip.css';
 import './styles/ui-table.css';
+import './styles/ui-hints.css';
 import { loadData } from './data/loader.js';
 import { createStore } from './state.js';
 import { parseParams, syncUrl } from './params.js';
@@ -28,6 +29,7 @@ import * as table from './ui/table.js';
 import * as chapters from './ui/chapters.js';
 import * as controls from './ui/controls.js';
 import * as legend from './ui/legend.js';
+import * as hints from './ui/hints.js';
 
 const $ = (id) => document.getElementById(id);
 const root = document.documentElement;
@@ -142,6 +144,7 @@ async function main() {
     [chapters, 'chapters'],
     [controls, 'controls'],
     [legend, 'legend'],
+    [hints, 'hints'], // 要素は自分で作る($('hints') は null)
   ].map(([mod, id]) => mod.mount($(id), store, ctx));
 
   // 画面の大きさ

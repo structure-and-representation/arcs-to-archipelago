@@ -7,10 +7,11 @@ import table from '../src/i18n/table.js';
 import controls from '../src/i18n/controls.js';
 import chapters from '../src/i18n/chapters.js';
 import legend from '../src/i18n/legend.js';
+import hints from '../src/i18n/hints.js';
 import { CHAPTERS } from '../src/content/chapters.js';
 import { DICT, PREF_EN, PREF_JA, metroName, prefName, setLang, t } from '../src/i18n.js';
 
-const parts = { common, timeline, selector, tooltip, table, controls, chapters, legend };
+const parts = { common, timeline, selector, tooltip, table, controls, chapters, legend, hints };
 
 describe('辞書', () => {
   it('ja と en のキーが各部品で同じ', () => {
@@ -29,7 +30,7 @@ describe('辞書', () => {
   it('各部品のキーは、その部品の接頭辞で始まる', () => {
     const prefixes = {
       timeline: ['year.'], selector: ['selector.', 'readout.', 'region.'], tooltip: ['tooltip.'], table: ['table.', 'fallback.'],
-      controls: ['camera.', 'settings.'], chapters: ['ch.'], legend: ['legend.'],
+      controls: ['camera.', 'settings.'], chapters: ['ch.'], legend: ['legend.'], hints: ['hint.'],
       common: ['app.', 'source.', 'meta.', 'footer.'],
     };
     for (const [name, pre] of Object.entries(prefixes)) {

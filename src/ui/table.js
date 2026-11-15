@@ -7,7 +7,8 @@
 //   - 上の帯の「数値の表」(ui/controls.js)が el へ送る CustomEvent('table:open', { detail: { opener } })
 //   - 戻り値の open(opener) を呼ぶ
 // 選択なしのときは 47 都道府県の転入・転出・差引、選択ありのときは選択地域から見た相手先ごとの
-// 転入(相手先 → 選択地域)・転出(選択地域 → 相手先)・差引を出す。
+// 転入(相手先 → 選択地域)・転出(選択地域 → 相手先)・差引を出す。選択ありの列の見出しは主語が分かるよう
+// 「東京圏への転入」「東京圏からの転出」「東京圏の差引」にする(table.col.*.region)。
 import { t, prefName, metroName } from '../i18n.js';
 import { formatCount, formatSigned, sortRows, tableRows } from '../data/stats.js';
 
@@ -123,7 +124,9 @@ export function mount(host, store, ctx) {
     for (const key of COLUMNS) {
       const { btn, label, arrow } = headButtons[key];
       const th = headCells[key];
-      label.textContent = t(`table.col.${key}`, lang);
+      // 地域を選んでいるときは、転入・転出・差引の主語(選択地域)を見出しに入れる
+      const regional = model.mode === 'region' && key !== 'pref';
+      label.textContent = regional ? fill(t(`table.col.${key}.region`, lang), { region: regionName(s.selection, lang) }) : t(`table.col.${key}`, lang);
       if (sort.key === key) {
         th.setAttribute('aria-sort', sort.dir > 0 ? 'ascending' : 'descending');
         arrow.textContent = sort.dir > 0 ? '↑' : '↓';
