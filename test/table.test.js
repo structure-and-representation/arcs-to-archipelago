@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseData } from '../src/data/loader.js';
-import { partnerFlows, prefectureFlows, sortRows, tableRows } from '../src/data/tableStats.js';
-import { buildTableModel, formatCount, formatNet, nextSort, regionName } from '../src/ui/table.js';
+import { formatCount, formatSigned as formatNet, partnerFlows, prefFlows as prefectureFlows, regionFlows, sortRows, tableRows } from '../src/data/stats.js';
+import { buildTableModel, nextSort, regionName } from '../src/ui/table.js';
 import { METRO_CODES } from '../src/geometry/constants.js';
 
 const read = (name) => JSON.parse(readFileSync(new URL(`../public/data/${name}`, import.meta.url), 'utf8'));

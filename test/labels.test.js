@@ -7,7 +7,8 @@ import {
   CANDIDATES, GROUP_CANDIDATES, INDEX_OFFSET_H, INDEX_OFFSET_V, indexLayout, indexVisible, labelOrder, partnerTotals, placeLabels, volumeOrder,
 } from '../src/ui/labels.js';
 import { rectsOverlap } from '../src/ui/avoid.js';
-import { fmtInt, fmtSigned, placeTooltip, prefFlows, tooltipContent } from '../src/ui/tooltip.js';
+import { placeTooltip, tooltipContent } from '../src/ui/tooltip.js';
+import { formatCount as fmtInt, formatSigned as fmtSigned, prefFlow as prefFlows } from '../src/data/stats.js';
 import tooltipDict, { shortName } from '../src/i18n/tooltip.js';
 import { PREF_EN, PREF_JA } from '../src/i18n/common.js';
 import { fixture } from './helpers.js';

@@ -9,6 +9,7 @@ import { shortName } from '../i18n/tooltip.js';
 import { PREF_EN, PREF_JA } from '../i18n/common.js';
 import { METRO_CODES, STEP } from '../geometry/constants.js';
 import { selectionMask } from '../geometry/flows.js';
+import { topPartners } from '../data/stats.js';
 import { CHAPTERS } from '../content/chapters.js';
 import { collectFixedRects, rectsOverlap } from './avoid.js';
 
@@ -56,17 +57,7 @@ function candidateRect(c, x, y, w, h) {
 // 優先度
 
 /** 選択地域との転入・転出の合計が多い都道府県(選択地域の外)の添字を、多い順に n 個。 */
-export function partnerTotals(matrix, mask, n = PARTNERS) {
-  const rows = [];
-  for (let i = 0; i < 47; i++) {
-    if (mask[i]) continue;
-    let sum = 0;
-    for (let m = 0; m < 47; m++) if (mask[m]) sum += matrix[m * 47 + i] + matrix[i * 47 + m];
-    if (sum > 0) rows.push([i, sum]);
-  }
-  rows.sort((a, b) => b[1] - a[1] || a[0] - b[0]);
-  return rows.slice(0, n).map((r) => r[0]);
-}
+export const partnerTotals = (matrix, mask, n = PARTNERS) => topPartners(matrix, mask, n);
 
 /** 人の動きの大きい順(転入と転出の合計)。「人口の多い順」の代わりに、データから求める。 */
 export function volumeOrder(matrix) {
