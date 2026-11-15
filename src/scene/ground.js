@@ -418,7 +418,7 @@ in vec2 vKm;
 out vec4 outColor;
 void main(){
   float x = 1.0 - abs(vAcross);
-  float a = uOpacity * vFacing * x * x * (0.55 + 0.9 * inkNoise2(vKm / 6.0));
+  float a = uOpacity * vFacing * x * x * (0.6 + 0.8 * inkNoise2(vKm / 14.0));
   if (a <= 0.0) discard;
   outColor = vec4(uInk, a);
 }`;

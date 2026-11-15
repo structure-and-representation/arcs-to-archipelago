@@ -91,10 +91,19 @@
 
 ### 紙の質感
 
-`body` の疑似要素2枚で作ります。どちらも `position: fixed; inset: 0; pointer-events: none; background: var(--fg-1)` に、feTurbulence のノイズを `mask-image` で掛けます。色は fg の不透明度だけで、新しい色は作りません。実装は `mock/mock.css` の `.paper::before`、`.paper::after` をそのまま使えます。
+`body` の疑似要素2枚で作ります。どちらも `position: fixed; inset: 0; pointer-events: none; background: var(--fg-1)` に、`mask-image` で質感を掛けます。色は fg の不透明度だけで、新しい色は作りません。画像ファイルは使いません(実装は `base.css`、`ui/paper.js`)。
 
-| 層 | ノイズ | 不透明度(ライト / ダーク) |
+| 層 | マスク | 不透明度(ライト / ダーク) |
 |---|---|---|
+| 繊維(`::before`) | 楮の繊維と塵(`ui/paper.js` が起動時に canvas で1回だけ描く 560px のタイル。端をまたぐ繊維を反対側にも描くので、つなぎ目が出ない)と、細かな地のノイズ(feTurbulence .85、256px) | `--grain` .065 / .05 |
+| むら(`::after`) | 漉きむら(feTurbulence .0032、4 octaves、1400px)と、雲肌(.022×.034 のやや横長の粒、480px) | `--mottle` .04 / .03 |
+
+- 暗い地では、同じ強さのむらが紙の地より目立つので、ダークの値を小さくしています。
+- 繊維とむらが重なる最悪の画素でも、`--fg-3` のコントラスト比はライトで 4.5:1、ダークで 5.2:1 を下回りません。
+- 陸地の面には、地図に固定した淡墨のむら(濃さ ±35%、径 160km)と、海岸線に沿った幅 5px のにじみの帯を重ねます(`scene/ground.js` の `LAND_INK`)。県境の、紙の色で抜いた線はそのまま残します。
+- 選択中の都道府県の点は、縁がわずかにゆらぎ、面にかすれのある朱の印にします(`scene/renderer.js` の `SEAL`)。読み出しの見出しにも、朱肉のかすれのマスクを掛けます。
+
+---|---|---|
 | 繊維 | baseFrequency .85、3 octaves、256px のタイル | `--grain` .055 / .045 |
 | むら | baseFrequency .006、3 octaves、900px のタイル | `--mottle` .02 / .03 |
 
