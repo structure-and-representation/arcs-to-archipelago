@@ -97,7 +97,7 @@ describe('locate: スクロールの位置から章と場面を求める', () =>
 
 describe('sceneToPatch', () => {
   it('章と場面の値を state の patch にする', () => {
-    expect(sceneToPatch(0, 0)).toEqual({ chapter: 0, year: 2014, selection: null, camera: 'side' });
+    expect(sceneToPatch(0, 0)).toEqual({ chapter: 0, year: 2025, selection: null, camera: 'side' });
     expect(sceneToPatch(2, 1)).toEqual({ chapter: 2, year: 2023, selection: { type: 'metro', id: 'osaka' }, camera: 'oblique' });
     expect(sceneToPatch(4, 0)).toEqual({ chapter: 4, year: 2025, selection: null, camera: 'oblique' });
   });

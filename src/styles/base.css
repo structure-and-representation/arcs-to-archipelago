@@ -129,13 +129,9 @@ body::after {
 #app #controls {
   position: fixed;
   z-index: var(--z-controls);
-  top: 0;
-  right: var(--gutter);
-  left: auto;
-  bottom: auto;
-  height: var(--header-h);
-  display: flex;
-  align-items: center;
+  inset: 0;
+  display: block;
+  pointer-events: none; /* 中の部品(ui-controls.css が画面を基準に置く)だけを押せるようにする */
 }
 
 /* 下のドックの外(デスクトップ)では、年の切り替えと読み出しは自分の領域へ置かれる */

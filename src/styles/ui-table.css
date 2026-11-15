@@ -259,3 +259,6 @@ table.data tr.sel th.name { color: var(--accent); font-weight: 500; }
   .fallback-notice { top: auto; bottom: 168px; left: 0; right: 0; width: auto; padding: 18px 32px; }
   .fallback-open { padding: 13px 0; } /* 押せる範囲 44px */
 }
+
+/* 表を開く入口は上の帯の「数値の表」(ui/controls.js)。骨格の仮の <summary> は出さない */
+#table > summary { display: none; }
