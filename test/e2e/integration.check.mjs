@@ -97,7 +97,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
 
 // ---- 2. 年の補間 ----
 {
-  const { page, problems, close } = await open('lang=ja&ch=4');
+  const { page, problems, close } = await open('lang=ja&ch=0&year=2025');
   await page.waitForTimeout(500);
   const before = await page.evaluate(() => window.__app.years.get());
   ok(before.a === 2025 && before.b === 2025 && before.mix === 0, `補間の前は (2025, 2025, 0) ${JSON.stringify(before)}`);

@@ -149,7 +149,8 @@ for (const [size, tag] of [['1440x900', '1440x900'], ['390x844', '390x844']]) {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(400);
   const pts = await page.evaluate(() => [window.__app.renderer.project(0), window.__app.renderer.project(46)]);
-  ok(Math.abs(pts[0][0] - pts[1][0]) < 1e-6 && pts[0][1] < pts[1][1], `画面を縦長にすると並びが縦になる ${JSON.stringify(pts)}`);
+  // 縦画面の真横も回さずに横長の並び(北海道が左、docs/technical-design.md のカメラの節)で、図の領域に収める
+  ok(Math.abs(pts[0][1] - pts[1][1]) < 1e-6 && pts[0][0] < pts[1][0], `画面を縦長にしても並びは横長のまま(北海道が左) ${JSON.stringify(pts)}`);
   const resized = await page.evaluate(() => {
     const c = document.getElementById('stage');
     return [c.width, c.height, c.clientWidth, c.clientHeight, devicePixelRatio];
