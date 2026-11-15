@@ -103,14 +103,14 @@ describe('createFallback の射影', () => {
     expect(p46[0]).toBeLessThan(r.x1);
   });
 
-  it('縦長: 90 度回して、北海道が上、沖縄県が下', () => {
+  it('縦長でも回さない: 北海道が左、沖縄県が右の横長の並び', () => {
     const { fb } = make(390, 844);
     const p0 = fb.project(0);
     const p46 = fb.project(46);
-    expect(p0[0]).toBeCloseTo(p46[0], 9);
-    expect(p0[1]).toBeLessThan(p46[1]);
-    expect(p0[1]).toBeGreaterThan(0);
-    expect(p46[1]).toBeLessThan(844);
+    expect(p0[1]).toBeCloseTo(p46[1], 9);
+    expect(p0[0]).toBeLessThan(p46[0]);
+    expect(p0[0]).toBeGreaterThan(0);
+    expect(p46[0]).toBeLessThan(390);
   });
 
   it('screenMatrix が project と同じ位置を与える', () => {
@@ -224,6 +224,7 @@ describe('createFallback の描画', () => {
     fb.resize();
     expect(canvas.width).toBe(390);
     expect(canvas.height).toBe(844);
-    expect(fb.project(0)[0]).toBeCloseTo(fb.project(46)[0], 9);
+    expect(fb.project(0)[1]).toBeCloseTo(fb.project(46)[1], 9);
+    expect(fb.project(46)[0]).toBeLessThan(390);
   });
 });

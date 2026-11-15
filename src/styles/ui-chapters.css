@@ -1,6 +1,6 @@
 /* 章の本文と目次(ui/chapters.js)。仕様は docs/design/spec.md の 5.2。
    本文のカードは一度に 1 枚だけ見える(現在の章)。デスクトップは左の柱(左 40px、幅 344px)に固定して、章が変わるときに入れ替える。
-   縦画面は左右 16px のカードを章の先頭に置いてページと一緒に流し、カードが通り過ぎたあとは図だけが見える。
+   縦画面は画面を図(上)と本文(下)で分け合い、左右 16px のカードを図の下からドックの上までに固定する(本文が長いときはカードの中を流れる)。
    各章は高さ「場面の数 × 70vh」(1 場面の章は 100vh)で、章の中の場面はスクロールの量で切り替わる。 */
 
 /* ---- 目次(デスクトップ): 左 40px、上 96px、幅 300px ---- */
@@ -168,24 +168,26 @@
   .progress i.on { background: var(--fg-1); }
   .progress span { margin-left: 6px; font-variant-numeric: tabular-nums lining-nums; }
 
+  /* 図と本文が画面を分け合う: 図は上の帯の下から(scene/camera.js の figureRegion)、本文のカードは図の下(--card-top、
+     ui/chapters.js が portraitSplit から書く)からドックの上までに固定する。本文が収まらないときは、章の中のスクロールの
+     進みに合わせてカードの中を流れる(--flow)。カードは図に重ならない */
   .chapter-card {
-    position: relative;
-    left: auto;
-    bottom: auto;
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    top: var(--card-top, 55svh);
+    bottom: 176px;
     width: auto;
-    margin: 0 16px;
-    /* カードの下の図の点を押せるように、カードは指を受けない */
+    overflow: hidden;
+    /* カードは指を受けない(ページのスクロールに任せる) */
     pointer-events: none;
+    /* 上端と下端をぼかす(本文が流れるとき、行が途中で切れて見えないように) */
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 10px, #000 calc(100% - 20px), transparent);
+            mask-image: linear-gradient(180deg, transparent, #000 10px, #000 calc(100% - 20px), transparent);
+    padding-top: 10px;
   }
-  /* 開幕のカードは、上の帯と図の向きの注記の下、ドックの上に収まる位置から始める */
-  .chapter[data-chapter="0"] { padding-top: 34svh; }
-  .chapter-card::before {
-    inset: -40px -16px;
-    -webkit-mask-image: linear-gradient(180deg, transparent, #000 40px, #000 calc(100% - 40px), transparent);
-            mask-image: linear-gradient(180deg, transparent, #000 40px, #000 calc(100% - 40px), transparent);
-    -webkit-mask-composite: initial;
-            mask-composite: initial;
-  }
+  .chapter-card > * { transform: translateY(var(--flow, 0px)); }
+  .chapter-card::before { display: none; }
   .chapter-card .kicker { margin-bottom: 8px; }
   .chapter-card h2 { font-size: 18px; line-height: 1.45; margin-bottom: 8px; }
   :root:lang(en) .chapter-card h2 { font-size: 20px; line-height: 1.3; }

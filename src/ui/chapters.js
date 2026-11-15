@@ -16,12 +16,18 @@ import { CHAPTERS } from '../content/chapters.js';
 import { CAMERA_PRESETS, isCameraName } from '../geometry/constants.js';
 import { onLangChange, t } from '../i18n.js';
 import { isPortrait, onPortraitChange } from './portrait.js';
+import { portraitSplit } from '../scene/camera.js';
 
 /** 画面の高さのどこにある線で、いまの章と場面を決めるか(0 = 上端、1 = 下端)。デスクトップ。 */
 export const ANCHOR = 0.5;
 /** 縦画面。章の先頭に置いたカードが、ドックの上に収まる位置で現れるように、デスクトップより上にする。 */
 export const ANCHOR_PORTRAIT = 0.3;
 const anchorRatio = () => (isPortrait() ? ANCHOR_PORTRAIT : ANCHOR);
+/** 縦画面で、図の領域の下端から本文のカードまでの間(CSS px)。カードの上 10px はぼかしの余白(ui-chapters.css)。 */
+export const PORTRAIT_CARD_GAP = 0;
+/** 縦画面で本文をカードの中で流す区間(章の中の進み)。 */
+export const FLOW_FROM = 0.08;
+export const FLOW_TO = 0.7;
 
 /**
  * スクロールの位置から、章と場面を求める純関数。
@@ -142,7 +148,7 @@ export function mount(root, store, ctx = {}) {
       card.append(note);
     }
     section.append(card);
-    return { section, kicker, h2, body, note };
+    return { section, card, kicker, h2, body, note };
   });
 
   root.replaceChildren(toc, progress, ...sections.map((s) => s.section));
@@ -158,6 +164,7 @@ export function mount(root, store, ctx = {}) {
     bars.forEach((b, k) => b.classList.toggle('on', k === i));
     // 本文のカードは現在の章の 1 枚だけ(ほかは CSS で消える)
     sections.forEach((s, k) => s.section.toggleAttribute('data-current', k === i));
+    if (geometry.length) flow();
     progressLabel.textContent = `${pad(i)} ${t(CHAPTERS[i].name)}`;
   }
 
@@ -168,7 +175,9 @@ export function mount(root, store, ctx = {}) {
       const s = sections[i];
       s.kicker.textContent = `${pad(i)} — ${t(c.name)}`;
       s.h2.textContent = t(c.heading);
-      s.body.textContent = t(portrait && c.bodyPortrait ? c.bodyPortrait : c.body);
+      // 縦画面の真横も回さずに横長の並びで描く(scene/camera.js)ので、縦画面用の本文(「線より右は北へ」)は使わない
+      void portrait;
+      s.body.textContent = t(c.body);
       if (s.note) s.note.textContent = t(c.note);
       tocLinks[i].name.textContent = t(c.name);
     });
@@ -179,6 +188,8 @@ export function mount(root, store, ctx = {}) {
   // ---- スクロール → 章と場面 ----
   let geometry = [];
   const measure = () => {
+    // 縦画面: 本文のカードは図の領域の下(scene/camera.js の portraitSplit)からドックの上までに固定する
+    root.style.setProperty('--card-top', `${portraitSplit(window.innerHeight) + PORTRAIT_CARD_GAP}px`);
     const y = window.scrollY;
     geometry = sections.map((s, i) => {
       const r = s.section.getBoundingClientRect();
@@ -193,7 +204,24 @@ export function mount(root, store, ctx = {}) {
     if (write) store.set(sceneToPatch(loc.chapter, loc.step));
     else store.set({ chapter: loc.chapter });
   };
+  // 縦画面: 本文がカードの領域に収まらないときは、章の中のスクロールの進みに合わせて本文をカードの中で流す
+  // (章の最初は冒頭を見せ、章の 8%〜70% の間に末尾まで流す。図の上へは出ない)
+  const flow = () => {
+    const i = shown;
+    const s = sections[i];
+    const g = geometry[i];
+    if (!s || !g) return;
+    if (!isPortrait()) {
+      s.card.style.removeProperty('--flow');
+      return;
+    }
+    const over = Math.max(0, s.card.scrollHeight - s.card.clientHeight);
+    const frac = (window.scrollY + window.innerHeight * anchorRatio() - g.top) / Math.max(1, g.height);
+    const k = Math.min(1, Math.max(0, (frac - FLOW_FROM) / (FLOW_TO - FLOW_FROM)));
+    s.card.style.setProperty('--flow', `${(-over * k).toFixed(1)}px`);
+  };
   const update = () => {
+    flow();
     const loc = here();
     if (loc.chapter === current.chapter && loc.step === current.step) return;
     enter(loc);

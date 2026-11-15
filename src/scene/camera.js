@@ -19,7 +19,7 @@
 //   elevation 仰角。0 で真横、π/2 で真上
 //   zoom      ワールド 1 単位が画面の高さの何分の一か(画面の大きさに依らない)
 //   center    [x, y, z] 注視点(画面の中心に来る点)
-//   roll      画面の像を時計まわりに回す角度。縦画面の真横では π/2(北海道が上)。斜め俯瞰と真上は 0(北が上)
+//   roll      画面の像を時計まわりに回す角度。定位置ではいつも 0(真横は北海道が左、斜め俯瞰と真上は北が上)
 import { CAMERA_PRESETS, isCameraName } from '../geometry/constants.js';
 import { arcPoint } from '../geometry/arc.js';
 import { lineLayout, nodePos } from '../geometry/layout.js';
@@ -52,8 +52,17 @@ export const DESKTOP_FIGURE_TOP = 250;
 /** デスクトップで地域を選んでいるとき、右の読み出しの列(幅 300 + 右の余白 40 + 間 24)を図の領域から外す幅。 */
 export const DESKTOP_READOUT_COLUMN = 324;
 export const PORTRAIT_FIGURE_TOP = 118;
-/** 縦画面の真横で、都道府県名の索引(図の右側)のために右から空ける幅(CSS px)。 */
+/**
+ * 縦画面では、上の帯の下(y 72)からドックの上(高さ − 180)までを、図(上)と本文のカード(下)で分け合う。
+ * 図はその上側のこの割合。本文のカードは図の下からドックの上までに固定して出す(styles/ui-chapters.css、ui/chapters.js)。
+ */
+export const PORTRAIT_FIGURE_SHARE = 0.55;
+export const PORTRAIT_TOP = 72;
+export const PORTRAIT_DOCK = 180;
+/** 縦画面の真横で、都道府県名の索引(図の右側)のために右から空ける幅(CSS px)。いまの縦画面の真横は回さないので使わない。 */
 export const PORTRAIT_LABEL_GUTTER = 80;
+/** 縦画面の真横で、並びの下の縦書きの索引のために、図の領域の下から空ける高さ(CSS px)。 */
+export const PORTRAIT_INDEX_GUTTER = 44;
 /** 遷移の長さ(秒)と、真横から立ち上がるとき morph を動かし始めるまでの回転の割合。 */
 export const TRANSITION_SECONDS = 1.6;
 /** 真横と地図の間の遷移(変形)の長さ(秒)。作品の見せ場なので、ほかの遷移より長くとる。 */
@@ -92,12 +101,17 @@ export function isPortrait(width, { media = true } = {}) {
  */
 export function figureRegion(width, height) {
   const r = isPortrait(width)
-    ? { x0: 16, y0: 72, x1: width - 16, y1: height - 180 }
+    ? { x0: 16, y0: PORTRAIT_TOP, x1: width - 16, y1: portraitSplit(height) }
     : { x0: 424, y0: 96, x1: width - 40, y1: height - 136 }; // 下端は年の切り替え(見出しの行を含む)の上
   // 小さな画面でも領域が潰れないようにする
   if (r.x1 - r.x0 < 120) { const c = (r.x0 + r.x1) / 2; r.x0 = c - 60; r.x1 = c + 60; }
   if (r.y1 - r.y0 < 120) { const c = (r.y0 + r.y1) / 2; r.y0 = c - 60; r.y1 = c + 60; }
   return r;
+}
+
+/** 縦画面で、図の領域の下端(= 本文のカードの領域の上端。CSS px)。 */
+export function portraitSplit(height) {
+  return Math.round(PORTRAIT_TOP + Math.max(0, height - PORTRAIT_DOCK - PORTRAIT_TOP) * PORTRAIT_FIGURE_SHARE);
 }
 
 /**
@@ -235,13 +249,14 @@ function slide(lo, hi, cLo, cHi) {
  */
 export function presetRegion(preset, region, portrait, fromLayout = true, selected = false) {
   let r = region;
-  if (portrait && preset === 'side') r = { ...r, x1: Math.max(r.x0 + 120, r.x1 - PORTRAIT_LABEL_GUTTER) };
+  // 縦画面の真横は回さずに横長の並びを描き、並びの下に縦書きの索引を出すので、下を空ける
+  if (portrait && preset === 'side' && fromLayout) r = { ...r, y1: Math.max(r.y0 + 80, r.y1 - PORTRAIT_INDEX_GUTTER) };
   if (preset !== 'side' && fromLayout && selected && !portrait && r.x1 - DESKTOP_READOUT_COLUMN - r.x0 >= 300) {
     return { ...r, x1: r.x1 - DESKTOP_READOUT_COLUMN };
   }
   if (preset !== 'side' && fromLayout) {
     const top = portrait ? PORTRAIT_FIGURE_TOP : DESKTOP_FIGURE_TOP;
-    if (r.y1 - top >= 200) r = { ...r, y0: Math.max(r.y0, top) };
+    if (r.y1 - top >= (portrait ? 120 : 200)) r = { ...r, y0: Math.max(r.y0, top) };
   }
   return r;
 }
@@ -327,8 +342,8 @@ export function viewFor(preset, aspect, layout, opts = {}) {
   const region = presetRegion(name, opts.region ?? { x0: 0, y0: 0, x1: W, y1: H }, portrait, !!opts.region, sel.length > 0);
 
   const azimuth = p.azimuth ?? topAzimuth(layout.northAngle);
-  // 縦画面では、真横だけを 90° 回して北海道を上にする。斜め俯瞰と真上は北が上のままで、縦長の画面に自然に収まる
-  const roll = name === 'side' && portrait ? Math.PI / 2 : 0;
+  // どの定位置も回さない。縦画面の図の領域は本文と分け合う横長の領域なので、真横も横長の並びのまま収める
+  const roll = 0;
   const tilt = sel.length && name === 'oblique' ? SELECTION_OBLIQUE : null;
   const elevation = tilt ? tilt.elevation : p.elevation;
   const lean = tilt ? tilt.lean : p.lean;

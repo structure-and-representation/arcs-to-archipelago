@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  AZIMUTH_FROM, MORPH_TRANSITION_SECONDS, clampOrbit, cubicBezier, dragToAngles, easeCamera, ELEVATION_LEAD, figureRegion, isPortrait, MORPH_DELAY, MORPH_END, projectPoint, reorient,
+  AZIMUTH_FROM, MORPH_TRANSITION_SECONDS, clampOrbit, cubicBezier, dragToAngles, easeCamera, ELEVATION_LEAD, figureRegion, isPortrait, portraitSplit, MORPH_DELAY, MORPH_END, projectPoint, reorient,
   screenAxes, SELECTION_OBLIQUE, SELECTION_ZOOM, presetRegion, topAzimuth, tween, USER_LIMITS, viewFor, viewOptions,
 } from '../src/scene/camera.js';
 import { createCameraRig } from '../src/scene/cameraRig.js';
@@ -56,15 +56,13 @@ describe('viewFor: 定位置', () => {
     }
   });
 
-  it('縦長では、真横だけを 90° 回して北海道(x が小さい側)を上にする。斜め俯瞰は回さない(北が上のまま)', () => {
-    const wide = view('side', 1440, 900);
-    const tall = view('side', 390, 844);
-    expect(wide.roll).toBe(0);
-    expect(tall.roll).toBeCloseTo(Math.PI / 2, 9);
-    const { up } = screenAxes(tall.azimuth, tall.elevation, tall.roll);
-    expect(dot(up, [-1, 0, 0])).toBeGreaterThan(1 - 1e-9);
-    const { right } = screenAxes(wide.azimuth, wide.elevation, wide.roll);
-    expect(dot(right, [1, 0, 0])).toBeGreaterThan(0.9);
+  it('どの定位置も回さない(縦画面の真横も横長の並び。斜め俯瞰は北が上)', () => {
+    for (const [w, h] of SIZES) {
+      const v = view('side', w, h);
+      expect(v.roll).toBe(0);
+      const { right } = screenAxes(v.azimuth, v.elevation, v.roll);
+      expect(dot(right, [1, 0, 0])).toBeGreaterThan(1 - 1e-9);
+    }
     for (const [w, h] of SIZES) {
       const v = view('oblique', w, h);
       expect(v.roll).toBe(0);
@@ -92,7 +90,9 @@ describe('viewFor: 定位置', () => {
     expect(isPortrait(1100, 1400)).toBe(false); // 縦横比では判定しない
     expect(figureRegion(1100, 1400).x0).toBe(424);
     expect(figureRegion(1440, 900)).toEqual({ x0: 424, y0: 96, x1: 1400, y1: 764 });
-    expect(figureRegion(390, 844)).toEqual({ x0: 16, y0: 72, x1: 374, y1: 664 });
+    // 縦画面は、上の帯の下からドックの上までを図(上 55%)と本文(下)で分け合う
+    expect(figureRegion(390, 844)).toEqual({ x0: 16, y0: 72, x1: 374, y1: portraitSplit(844) });
+    expect(portraitSplit(844)).toBe(Math.round(72 + (844 - 180 - 72) * 0.55));
     expect(figureRegion(1920, 1080).x1).toBe(1880);
   });
 
@@ -112,7 +112,7 @@ describe('viewFor: 定位置', () => {
     }
   });
 
-  it('デスクトップの真横は、一直線が領域の幅の 9 割強、縦画面の真横は領域の高さの 9 割強になる', () => {
+  it('真横は、デスクトップでも縦画面でも、一直線が領域の幅の 9 割強になる(回さない)', () => {
     const d = nodesOnScreen(view('side', 1440, 900), [1440, 900]);
     const xs = d.map((p) => p[0]);
     const width = Math.max(...xs) - Math.min(...xs);
@@ -120,10 +120,11 @@ describe('viewFor: 定位置', () => {
     expect(width / 976).toBeLessThan(0.96);
     expect(d.every((p) => Math.abs(p[1] - 430) < 1e-6)).toBe(true);
     const m = nodesOnScreen(view('side', 390, 844), [390, 844]);
-    const ys = m.map((p) => p[1]);
-    expect((Math.max(...ys) - Math.min(...ys)) / 606).toBeGreaterThan(0.9);
-    expect(Math.min(...ys)).toBeGreaterThanOrEqual(72);
-    expect(Math.max(...ys)).toBeLessThanOrEqual(678 - 12); // ドックの上端(694)から 12px 以上上
+    const mx = m.map((p) => p[0]);
+    expect((Math.max(...mx) - Math.min(...mx)) / 358).toBeGreaterThan(0.9);
+    expect(m[0][0]).toBeLessThan(m[46][0]); // 北海道が左
+    // 並びは本文のカードの領域(portraitSplit より下)に入らない
+    expect(Math.max(...m.map((p) => p[1]))).toBeLessThan(portraitSplit(844));
   });
 
   it('真横は、一直線の全体が画面に収まる(領域を渡さなくても)', () => {

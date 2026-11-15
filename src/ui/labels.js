@@ -394,7 +394,7 @@ export function mount(el, store, ctx) {
     const rs = renderer.getState();
     const view = rs.view ?? {};
     const scale = (view.zoom ?? 0) * win.innerHeight || 1;
-    const pose = carryPose(rs.morph, portrait ? 'h' : 'v', scale);
+    const pose = carryPose(rs.morph, Math.abs(Math.sin(view.roll ?? 0)) > 0.5 ? 'h' : 'v', scale);
     const carried = new Set(CARRIED);
     cache.mask.forEach((m, i) => m && carried.add(i));
     if (hoverI != null) carried.add(hoverI);

@@ -73,7 +73,8 @@ export function mount(root, store, ctx) {
   const render = () => {
     const { selection, camera } = store.get();
     const portrait = isPortrait();
-    const keys = directionKeys(selection, camera, portrait);
+    // 縦画面の真横も回さずに横長の並びで描く(scene/camera.js)ので、向きの文言は横長用を使う
+    const keys = directionKeys(selection, camera, false);
     const region = regionName(selection) ?? '';
     const fill = (key) => t(key).replace('{region}', region);
 
