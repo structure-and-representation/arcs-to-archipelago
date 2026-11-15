@@ -36,20 +36,23 @@ in float aI;
 in float aSel;
 uniform float uPointSize;
 out float vSel;
+out float vSize;
 void main(){
   vec2 p = nodePos(aI);
   vSel = aSel;
   gl_Position = projectionMatrix * viewMatrix * vec4(p.x, 0.0, p.y, 1.0);
   gl_PointSize = uPointSize * (1.0 + aSel * 0.6);
+  vSize = gl_PointSize;
 }`;
 const NODE_FRAG = /* glsl */ `
 uniform vec3 uInk, uAccent;
 in float vSel;
+in float vSize;
 out vec4 outColor;
 void main(){
   vec2 c = gl_PointCoord - 0.5;
   float r = length(c) * 2.0;
-  float a = clamp((1.0 - r) * gl_PointSize * 0.5 + 0.5, 0.0, 1.0);
+  float a = clamp((1.0 - r) * vSize * 0.5 + 0.5, 0.0, 1.0);
   if (a <= 0.0) discard;
   vec3 col = mix(uInk, uAccent, vSel);
   outColor = vec4(col, a * mix(0.85, 1.0, vSel));

@@ -73,6 +73,9 @@ three.js の座標系で、y が上です。単位は原作の SVG のピクセ�
 
 - 一直線の配置: 都道府県 i を `(x, z) = (i * STEP - CX, 0)` に置きます。原作と同じ並びです。
 - 地理配置: 地図座標を回転と拡大縮小でワールド座標へ移します。北海道から鹿児島へ向かう向きを +x 軸に重ね、北海道〜鹿児島の x 方向の広がりを一直線の配置の長さ `46 * STEP` に合わせます。沖縄は同じ変換で実位置に置きます。地図の東西南北の向きが鏡像にならないようにします。境界線の頂点にも同じ変換を使います。
+  - 実装で確定した点: 北海道は一直線の先頭と同じ x(`-CX`)に置き、z は 47 点の範囲の中央が 0 になるようにします。あてはめに使うのは北海道と鹿児島だけなので、沖縄は鹿児島の先(+x 側)に出て、地理配置の範囲は一直線より約4割広くなります(実データで x は −568〜1033)。カメラは `layout.bounds` を見て収めます。
+  - 地図座標 (東, 北) → ワールド (x, z) は、まず (東, −北) にして(three.js は +z が南)、北海道→鹿児島が +x になるよう回転し、拡大して平行移動します。回転だけなので鏡像になりません。真上から見て北を画面の上にしたとき、右が東です(カメラの「右 = (−上.z, 上.x)」の関係)。
+  - 北の向きは、ワールドの xz 平面で単位ベクトル `[cos(northAngle), sin(northAngle)]`、東は `[−sin(northAngle), cos(northAngle)]` です。
 - 都道府県の位置は `mix(一直線, 地理, morph)` です。`morph` は 0 から 1 です。
 
 ### 弧
@@ -178,3 +181,41 @@ src/
 - 色は3つのトークンとその不透明度違いです。
 - キーボードで操作でき、数値を表でも読めます。WebGL2 が使えない環境では、Canvas 2D で真横の図と静止した点描を描きます。
 - 外部への参照はすべて https です。資産への参照は、末尾スラッシュの有無に関わらず解決できる書き方にします。
+
+## 9. 骨格で確定した取り決め
+
+骨格の実装(`app/skeleton`)で、この文書のあいまいだった点を次のように決めました。各担当はこれに従います。
+
+### 構成と道具
+
+- `npm run dev / build / preview / test`。Vite の `base` は `./`。`index.html` の先頭で、末尾スラッシュなしのディレクトリ URL でも相対参照が解決できるよう `<base>` を補います。データは `document.baseURI` を基準に `data/…` を取得します。
+- `tools/shot.mjs`: プレビューサーバを立てて Playwright で撮影します。`node tools/shot.mjs --query "morph=0&cam=side" --size 1440x900 --out shots/a.png`(`--query` と `--size` は次に変えるまで引き継がれ、`--out` で1枚撮る。`still=1` を自動で足す)。コンソールのエラー・警告や読み込み失敗があると終了コード 1 になります。撮影の準備ができると `<html data-ready="1">`、失敗すると `data-error` が付きます。
+- テストは `test/`(Vitest)。小さなデータは `test/fixtures/`(`make-fixtures.mjs` で再生成)。原作との照合に `d3@3.5.17` を devDependency に持ちます。
+
+### 幾何
+
+- `geometry/constants.js` は `W, H, N, STEP, K, CX` に加えて、`METRO_CODES`(圏の構成、JIS コード)、`CAMERA_PRESETS`(§6 の表)、`YEAR_MIN/MAX` を持ちます。
+- `arcPoint(A, B, side, lean, t, out)` の A、B は補間後の位置 `[x, z]`。`arcTangent` は単位ベクトルで、端点では t を `[1e-4, 1 − 1e-4]` に丸めます。GLSL 側は `nodePos(i)` と `arcPoint(si, ti, side, t, out R)`(R は弦に垂直な水平の単位ベクトル)。
+- `geoLayout(prefectures)` は `{ pos, toWorld, northAngle, kmPerUnit, bounds }` を返します。`bounds = { minX, maxX, minZ, maxZ }`。
+- `geometry/flows.js` は `sideOf(o, d, selection)`(o、d は添字 0〜46)、`particleCount(v)`(`ceil(v / 100)`)に加えて、`selectionMask(selection) → Uint8Array(47)` を持ちます。圏のメンバーは `METRO_CODES` で決め、`prefectures.json` の `metro` とは独立に同じ分け方です。
+
+### state と URL
+
+- `store.subscribe(fn)` は `fn(state, changedKeys)` を、変化があったときだけ同期で呼び、購読解除の関数を返します。`get()` は set のたびに新しいオブジェクトです。
+- `parseParams(search) → { patch, still }`、`toSearch(state, { still })`、`applyParams(store, search) → still`、`syncUrl(store, { still })`。既定値は URL に出しません。`cam` だけが指定されたときの `morph` は定位置の値です。`still` は state に入れず、`main.js` が時間とカメラの補間を固定するのに使います。
+- `state.year` は整数の西暦で、既定は 2025。
+
+### 描画
+
+- `renderer.setView({ azimuth, elevation, zoom, center, roll })`: `azimuth` は Y 軸まわり(0 でカメラは +z 側、x が右)、`zoom` はワールド 1 単位が何 CSS px か、`center` は `[x, y, z]`、`roll` は画面の像を時計まわりに回す角度。仰角 90° でも上向きが定まるよう、上向きは `(−sin(el)·sin(az), cos(el), −sin(el)·cos(az))` です。
+- `renderer.setYear(a, b, mix)` の a、b は西暦です。`renderer.render(timeSec)` は呼ぶたびに各部品の `update(timeSec)` を呼びます。
+- `createRenderer` が返すオブジェクトは、設計のメソッドに加えて `layout`(`{ line, geo, toWorld, northAngle, kmPerUnit, bounds }`)、`getState()`、`screenMatrix()`(ワールド → CSS px のアフィン 2×4)を持ちます。
+- 各部品(`scene/arcs.js`、`particles.js`、`ground.js`)は `createX(ctx)` で作られます。`ctx = { data, layout, uniforms, getState }`。`uniforms` は全素材が共有する `{ uNodes, uMorph, uLean, uK, uRes, uPixelRatio, uTime, uInk, uPaper, uAccent }`(各 `{ value }`)です。弧と粒子は `{ below, above, … }`、地面は `{ object, … }` を返し、renderer が `renderOrder`(地下の弧 0、地下の粒子 1、地面 2、地上の弧 3、地上の粒子 4、都道府県の点 5)を付けます。
+- 色は `styles/tokens.css` の `--bg`、`--fg`、`--accent`(ダークテーマで入れ替わる別名)を renderer が読みます。
+- `scene/camera.js` は `viewForPreset(name, { width, height, layout })` と `createCameraRig({ store, renderer, immediate })` を持ちます。`state.camera` が変わると視点と `state.morph` を補間します(動きを減らす設定では即時)。縦長の真横は `roll = π/2` で北海道が上、真上は北が画面の上になる azimuth を使います。
+- `scene/picking.js`: `createPicker(data)` は `rebuild({ matrix, mask, selection, morph, lean, screen })`、`pickNode(x, y)`、`pickArc(x, y)` を持ちます。`pickNode` は実装済み(半径 14 CSS px)、`pickArc` は未実装です。
+- UI 部品は `mount(el, store, ctx)`、`ctx = { data, renderer, picker, onFrame(fn(timeSec)) → off }`。要素の id は `labels`、`timeline`、`selector`、`tooltip`、`table`、`chapters`、`controls`(キャンバスは `stage`)。
+
+### 未実装(後続)
+
+弧・粒子・地面・弧の当たり判定・各 UI 部品の中身、WebGL2 が使えない環境の Canvas 2D 代替表示(`main.js` に TODO)。
