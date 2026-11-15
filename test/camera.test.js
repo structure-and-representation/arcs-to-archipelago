@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   AZIMUTH_FROM, MORPH_TRANSITION_SECONDS, clampOrbit, cubicBezier, dragToAngles, easeCamera, ELEVATION_LEAD, figureRegion, isPortrait, portraitSplit, MORPH_DELAY, MORPH_END, projectPoint, reorient,
-  screenAxes, SELECTION_OBLIQUE, SELECTION_ZOOM, presetRegion, topAzimuth, tween, USER_LIMITS, viewFor, viewOptions,
+  DESKTOP_READOUT_BOTTOM, screenAxes, SELECTION_OBLIQUE, SELECTION_ZOOM, presetRegion, topAzimuth, tween, USER_LIMITS, viewFor, viewOptions,
 } from '../src/scene/camera.js';
 import { createCameraRig } from '../src/scene/cameraRig.js';
 import { createStore } from '../src/state.js';
@@ -10,6 +12,7 @@ import { selectionMask } from '../src/geometry/flows.js';
 import { CAMERA_PRESETS, CX } from '../src/geometry/constants.js';
 import { arcPoint } from '../src/geometry/arc.js';
 import { prefectures } from './helpers.js';
+import { landHull } from '../src/scene/ground.js';
 
 const geo = geoLayout(prefectures());
 const layout = { line: lineLayout(), geo: geo.pos, northAngle: geo.northAngle, bounds: geo.bounds };
@@ -214,6 +217,37 @@ describe('viewFor: 地域を選んでいるとき', () => {
     expect(presetRegion('top', r, false, true, true)).toEqual({ ...r, x1: 1400 - 324 });
     expect(presetRegion('oblique', r, false, true, false).y0).toBe(250);
     expect(presetRegion('side', r, false, true, true)).toEqual(r);
+  });
+
+  it('幅 1280px 未満のデスクトップで地域を選ぶと、列は外さず、図の領域を読み出しの下端より下へ下げる(N-3)', () => {
+    for (const [w, h] of [[1024, 768], [1100, 800], [1279, 800]]) {
+      const r = figureRegion(w, h);
+      for (const preset of ['oblique', 'top']) {
+        expect(presetRegion(preset, r, false, true, true), `${w}x${h} ${preset}`).toEqual({ ...r, y0: DESKTOP_READOUT_BOTTOM });
+      }
+      expect(presetRegion('oblique', r, false, true, false).y0).toBe(250); // 選択なしは、いまのまま
+    }
+    // 幅 1280px ちょうどからは、読み出しの列を外す
+    const r = figureRegion(1280, 800);
+    expect(presetRegion('oblique', r, false, true, true)).toEqual({ ...r, x1: 1240 - 324 });
+  });
+
+  it('縦画面の斜め俯瞰と真上は、陸地の外形(landHull)も領域に収める。陸地を持たない layout では、いままでと同じ(N-9)', () => {
+    const hullLayout = { ...layout, landHull: landHull(JSON.parse(readFileSync(resolve(__dirname, '../public/data/japan.topojson'), 'utf8')), geo.toWorld) };
+    const [w, h] = [390, 844];
+    const plain = viewFor('oblique', w / h, layout, viewOptions(w, h));
+    const withLand = viewFor('oblique', w / h, hullLayout, viewOptions(w, h));
+    expect(withLand.zoom).toBeLessThan(plain.zoom); // 北海道の陸地が右端で切れないよう、少し縮む
+    for (const preset of ['oblique', 'top']) {
+      for (const sel of [null, { type: 'pref', code: 27 }]) {
+        const v = viewFor(preset, w / h, hullLayout, viewOptions(w, h, sel));
+        const box = presetRegion(preset, figureRegion(w, h), true, true, !!sel);
+        for (const [x, z] of hullLayout.landHull) expect(inside(projectPoint(v, [x, 0, z], [w, h]), box, 1), `${preset} ${JSON.stringify(sel)} ${x},${z}`).toBe(true);
+      }
+    }
+    // デスクトップは、陸地を収める対象に加えない
+    const d = viewFor('oblique', 1440 / 900, hullLayout, viewOptions(1440, 900));
+    expect(d.zoom).toBeCloseTo(viewFor('oblique', 1440 / 900, layout, viewOptions(1440, 900)).zoom, 12);
   });
 
   it('相手先の点は、選択地域を領域の内側に置いても領域から大きくはみ出さない(デスクトップ)', () => {

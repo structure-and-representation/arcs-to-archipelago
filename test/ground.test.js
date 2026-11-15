@@ -13,6 +13,7 @@ import {
   buildLandFill,
   buildRibbonGeometry,
   extractBoundaryLines,
+  landHull,
 } from '../src/scene/ground.js';
 
 const read = (f) => JSON.parse(readFileSync(resolve(__dirname, '../public/data', f), 'utf8'));
@@ -222,5 +223,28 @@ describe('量の見え方を変えない描く順序と、小さな島', () => {
     expect(unique[0] * px * px).toBeLessThan(ISLAND_MIN_PX);
     // 本州は十分に大きい
     expect(unique[unique.length - 1] * px * px).toBeGreaterThan(100 * ISLAND_MIN_PX);
+  });
+});
+
+describe('landHull: 陸地の外形の凸包(カメラが陸地の面まで収めるため)', () => {
+  const hull = landHull(topology, geo.toWorld);
+
+  it('海岸線の外接矩形と同じ範囲を持つ', () => {
+    const { coast } = extractBoundaryLines(topology, geo.toWorld);
+    const b = boundsOfLines(coast);
+    const xs = hull.map((p) => p[0]), zs = hull.map((p) => p[1]);
+    expect(Math.min(...xs)).toBeCloseTo(b.minX, 9);
+    expect(Math.max(...xs)).toBeCloseTo(b.maxX, 9);
+    expect(Math.min(...zs)).toBeCloseTo(b.minZ, 9);
+    expect(Math.max(...zs)).toBeCloseTo(b.maxZ, 9);
+  });
+
+  it('凸で、頂点は 3 つ以上、海岸線の頂点よりずっと少ない', () => {
+    expect(hull.length).toBeGreaterThanOrEqual(3);
+    expect(hull.length).toBeLessThan(200);
+    for (let i = 0; i < hull.length; i++) {
+      const a = hull[i], b = hull[(i + 1) % hull.length], c = hull[(i + 2) % hull.length];
+      expect((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])).toBeGreaterThan(0); // 同じ向きに曲がり続ける
+    }
   });
 });

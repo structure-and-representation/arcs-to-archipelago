@@ -29,6 +29,21 @@
 #selector button:focus-visible { outline: 1.5px solid var(--focus); outline-offset: 3px; border-radius: 1px; }
 :where(#selector) p { margin: 0; }
 
+/* 読み出しの後ろの下敷き: 幅の狭いデスクトップで、陸地や弧が読み出しの数の下を通っても、数が読めるようにする。左と下をぼかす */
+#selector .sel { position: relative; }
+#selector .sel::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -24px -40px -32px -64px;
+  pointer-events: none;
+  background: var(--veil);
+  -webkit-mask-image: linear-gradient(270deg, #000 75%, transparent), linear-gradient(180deg, #000 calc(100% - 32px), transparent);
+  -webkit-mask-composite: source-in;
+          mask-image: linear-gradient(270deg, #000 75%, transparent), linear-gradient(180deg, #000 calc(100% - 32px), transparent);
+          mask-composite: intersect;
+}
+
 /* ---- 読み出しの見出し(選択のボタン) ---- */
 .sel-head { position: relative; display: inline-block; }
 .sel-btn {
@@ -44,7 +59,7 @@
 .sel-btn::before { content: ""; position: absolute; inset: -8px -6px; } /* 押せる範囲を 32px 以上にする */
 .sel-btn:hover { color: var(--fg-1); }
 .sel-chev { width: 8px; height: 8px; stroke: currentColor; fill: none; stroke-width: 1.2; transform: translateY(-1px); }
-.sel.is-sel .sel-btn {
+#selector .sel.is-sel .sel-btn {
   color: var(--accent);
   font-family: var(--font-serif);
   font-weight: 600;
@@ -230,7 +245,8 @@
     width: auto;
     text-align: left;
   }
-  .sel {
+  #selector .sel::before { display: none; } /* ドックの地が下敷き */
+  #selector .sel {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -238,10 +254,10 @@
     height: 44px;
     padding-top: 14px;
   }
-  .sel-head { position: static; flex: none; }
+  #selector .sel-head { position: static; flex: none; }
   .sel-btn { font-size: var(--fs-caption); white-space: nowrap; }
   .sel-btn::before { inset: -14px -8px; }
-  .sel.is-sel .sel-btn { font-size: 15px; letter-spacing: .06em; }
+  #selector .sel.is-sel .sel-btn { font-size: 15px; letter-spacing: .06em; }
   .sel-all, .sel-region { display: none; }
   .sel-sum {
     display: flex;

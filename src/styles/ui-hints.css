@@ -1,5 +1,5 @@
 /* 操作の手がかり(ui/hints.js)。12px の一行を --fg-3 で出すだけ。装飾は足さない。
-   スクロールの手がかり: 左の柱の、本文のカードの下(カードの下端は画面の下から 244px、凡例の上のぼかしは約 210px から)。
+   スクロールの手がかり: 左の柱の、本文のカードの下(カードの下端は --card-bottom(画面の下から 244px、高さの低い画面は 196px)、凡例の上のぼかしは約 210px から)。
    図の手がかり: 右下のカメラの上。縦画面はどちらも、上の帯の下の右(左は章の位置の表示と図の向きの注記)。同時には出ない。 */
 #hints { display: contents; }
 .hint {
@@ -18,7 +18,7 @@
 }
 .hint.on { opacity: 1; visibility: visible; transition-delay: 0s; }
 
-.hint-scroll { left: var(--gutter); bottom: 222px; width: var(--col-w); }
+.hint-scroll { left: var(--gutter); bottom: calc(var(--card-bottom, 244px) - 22px); width: var(--col-w); } /* 本文のカードの下端の直下(カードの高さに合わせて動く) */
 .hint-scroll::after { content: "↓"; margin-left: .5em; }
 .hint-explore { right: var(--gutter); bottom: 102px; max-width: min(380px, calc(100vw - var(--stage-x0) - 340px)); text-align: right; } /* 左は、年の折れ線の名前(図の領域の左端から)を避ける */
 

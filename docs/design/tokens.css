@@ -68,10 +68,10 @@
   --mottle: .03;
   --gl-fg: #F3F0E8;
   --gl-accent: #E5603F;
-  --gl-arc-all: .085;       /* 明るい線は暗い地で太って見えるので 15% 落とす */
+  --gl-arc-all: .06;        /* 明るい線は暗い地で太って見えるので落とす(本州の芯が白く飽和しない値) */
   --gl-arc-sel: .26;
-  --gl-particle: .50;
-  --gl-particle-sel: .65;
+  --gl-particle: .38;       /* 粒が重なる芯(東京〜大阪)でも濃淡の段階が見える値 */
+  --gl-particle-sel: .52;
   --gl-ground: .35;
   --gl-border: .20;
   color-scheme: dark;

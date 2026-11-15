@@ -11,7 +11,7 @@
   position: absolute;
   left: 0;
   top: 0;
-  /* 地域の一覧の .sel(ui-selector.css。縦画面で display: flex、高さ 44px)が、選択中のラベル(.label.sel)にも効かないようにする */
+  /* 部品の CSS の汎用のクラス名(.sel など)が、ここへ当たっても崩れないよう、表示と寸法をここで決める */
   display: block;
   height: auto;
   margin: 0;
