@@ -31,9 +31,8 @@ const ch = (i, id, steps, extra = {}) => ({
 
 export const CHAPTERS = [
   ch(0, 'nation', [
-    step(2014, null, 'side'), // 開幕: 2015 年の原作と同じ姿
-    step(2014, null, 'oblique'), // カメラが回り込み、都道府県が地図の上へ移る
-    step(2025, null, 'oblique'), // 年が最新のデータまで進む
+    step(2025, null, 'side'), // 開幕: 最新年を、2015 年の原作と同じ姿(真横)で見せる
+    step(2025, null, 'oblique'), // カメラが回り込み、都道府県が地図の上へ移る
   ], { bodyPortrait: 'ch.0.body.portrait' }),
   ch(1, 'tokyo', [
     step(2019, tokyo, 'oblique'),

@@ -1,7 +1,10 @@
-// 地面(y = 0 の xz 平面)と境界線の描画。
-// 紙の色の半透明の面と、都道府県の境界(県境と海岸線)。RENDER_ORDER.ground で描く。
-// 境界線の頂点は、data.topology(座標は prefectures.json と同じ平面座標、km)を shared.layout.toWorld(mapX, mapY) → [x, z] でワールド座標へ移す。
-// 境界線と地面は、morph が 0 に近いほど薄く、真横(カメラが地面と平行)では描かない。
+// 地面(y = 0 の xz 平面)の描画。「線はデータだけ」: 地形は線ではなく面で示す。
+//   1. 紙の色の半透明の面(地下の弧と粒子を一段沈めて見せる)
+//   2. 陸地: 墨の色のごく薄い面(都道府県ごとに三角形分割。海は紙のまま、海岸線は描かない)。選択地域は少し濃い
+//   3. 県境: 陸地の面の中に入れる、紙の色の極細の線(面より明るく、抜いたように見える)
+// RENDER_ORDER.ground で描く。
+// 頂点は、data.topology(座標は prefectures.json と同じ平面座標、km)を shared.layout.toWorld(mapX, mapY) → [x, z] でワールド座標へ移す。
+// 地面は、morph が 0 に近いほど薄く、真横(カメラが地面と平行)では描かない。
 //
 // 層の約束(arcs / particles / ground で共通):
 //   createXxxLayer(ctx) → { object3D, update(frame), setYear(a, b, mix), setSelection(mask),
@@ -11,15 +14,18 @@
 import * as THREE from 'three';
 import { RENDER_ORDER } from './shared.js';
 
-// 不透明度の出どころ: docs/design/spec.md「6. three.js に渡す値」(--gl-ground、--gl-border)を shared.style から読む。
-// 県境と海岸線の太さは CSS px で一定。
-// 海岸線を基準(1)にした、県境の不透明度の比。
-const BORDER_RATIO = 0.7;
-const COAST_WIDTH = 0.8; // CSS px
-const BORDER_WIDTH = 0.6; // CSS px
+// 地面の紙色の面の不透明度は、docs/design/spec.md「3. three.js に渡す値」の --gl-ground から読む。
+// 陸地の面(uInk)・選択地域の面(uInk)・県境(uPaper)の不透明度はこのファイルの値。色は shared の uInk / uPaper だけを使う。
+// 撮影した画面で比べて決めた(docs/screenshots/ground-fill/)。
+const FALLBACK_GROUND = { paper: 0.3, ink: 0.35 };
+export const LAND_OPACITY = Object.freeze({
+  paper: { land: 0.08, selected: 0.13, border: 0.85 },
+  ink: { land: 0.09, selected: 0.15, border: 0.85 },
+});
+const BORDER_WIDTH = 0.6; // CSS px。県境の太さは一定
 // morph がこの区間で、地面と境界線が 0 → 1 に現れる(smoothstep)。
 export const APPEAR = Object.freeze({ from: 0.55, to: 0.95 });
-// 地面の面は、境界線の範囲より外側へこの距離(ワールド単位)だけ広げ、縁をなめらかに消す。
+// 紙色の面は、陸地の範囲より外側へこの距離(ワールド単位)だけ広げ、縁をなめらかに消す。
 const GROUND_FEATHER = 40;
 
 const smoothstep = (a, b, x) => {
@@ -91,6 +97,51 @@ export function boundsOfLines(lines) {
     }
   }
   return { minX, maxX, minZ, maxZ };
+}
+
+// ---- 陸地の面(都道府県ごとの三角形分割) ----
+
+function ringPoints(arcs, ring) {
+  const out = [];
+  for (const i of ring) {
+    const pts = i < 0 ? [...arcs[~i]].reverse() : arcs[i];
+    out.push(...(out.length ? pts.slice(1) : pts));
+  }
+  // 閉じた環の末尾(先頭と同じ点)を除く
+  const a = out[0], b = out[out.length - 1];
+  if (out.length > 1 && a[0] === b[0] && a[1] === b[1]) out.pop();
+  return out;
+}
+
+/**
+ * 都道府県の領域を三角形に分割する(穴のある領域も扱う)。
+ * 頂点は toWorld(mapX, mapY) → [x, z] でワールド座標へ移す。
+ * 戻り値: { positions: Float32Array(x, 0, z の並び)、prefs: Float32Array(頂点ごとの都道府県の添字 0〜46)、index: 三角形の頂点の添字 }
+ */
+export function buildLandFill(topology, toWorld) {
+  const arcs = decodeArcs(topology).map((line) => line.map(([mx, my]) => toWorld(mx, my)));
+  const positions = [];
+  const prefs = [];
+  const index = [];
+  topology.objects.japan.geometries.forEach((geom) => {
+    const pref = geom.id - 1;
+    const polys = geom.type === 'MultiPolygon' ? geom.arcs : geom.type === 'Polygon' ? [geom.arcs] : [];
+    for (const poly of polys) {
+      const rings = poly.map((ring) => ringPoints(arcs, ring));
+      const [outer, ...holes] = rings;
+      if (!outer || outer.length < 3) continue;
+      const toV = (pts) => pts.map(([x, z]) => new THREE.Vector2(x, z));
+      const tris = THREE.ShapeUtils.triangulateShape(toV(outer), holes.filter((h) => h.length >= 3).map(toV));
+      const flat = [...outer, ...holes.filter((h) => h.length >= 3).flat()];
+      const base = positions.length / 3;
+      for (const [x, z] of flat) {
+        positions.push(x, 0, z);
+        prefs.push(pref);
+      }
+      for (const t of tris) index.push(base + t[0], base + t[1], base + t[2]);
+    }
+  });
+  return { positions: new Float32Array(positions), prefs: new Float32Array(prefs), index: new Uint32Array(index) };
 }
 
 // ---- 線のリボン(頂点シェーダで、画面上の法線方向へ CSS px の幅だけ押し出す) ----
@@ -189,7 +240,7 @@ void main(){
 }`;
 
 const LINE_FRAG = /* glsl */ `
-uniform vec3 uInk;
+uniform vec3 uColor;
 uniform float uWidth;
 uniform float uPixelRatio;
 uniform float uOpacity;
@@ -201,7 +252,7 @@ void main(){
   float a = clamp(halfW + 0.5 - abs(vDist), 0.0, 1.0);
   a *= uOpacity * vFacing;
   if (a <= 0.0) discard;
-  outColor = vec4(uInk, a); // uInk はトークンの sRGB の値。色空間は変換しない
+  outColor = vec4(uColor, a); // uColor はトークンの sRGB の値。色空間は変換しない
 }`;
 
 const GROUND_VERT = /* glsl */ `
@@ -232,6 +283,40 @@ void main(){
   outColor = vec4(uPaper, a);
 }`;
 
+const LAND_VERT = /* glsl */ `
+${FACING_GLSL}
+in float aPref;
+uniform float uSelect[47];
+out float vSel;
+out float vFacing;
+void main(){
+  vSel = uSelect[int(aPref + 0.5)];
+  vFacing = groundFacing();
+  gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0);
+}`;
+
+const LAND_FRAG = /* glsl */ `
+uniform vec3 uInk;
+uniform float uLand;
+uniform float uLandSelected;
+in float vSel;
+in float vFacing;
+out vec4 outColor;
+void main(){
+  float a = mix(uLand, uLandSelected, vSel) * vFacing;
+  if (a <= 0.0) discard;
+  outColor = vec4(uInk, a);
+}`;
+
+function readGroundOpacity(theme) {
+  let v = FALLBACK_GROUND[theme] ?? FALLBACK_GROUND.paper;
+  if (typeof document !== 'undefined') {
+    const n = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gl-ground'));
+    if (Number.isFinite(n)) v = n;
+  }
+  return v;
+}
+
 export function createGroundLayer(ctx) {
   const { shared, data } = ctx;
   const { uniforms } = shared;
@@ -241,7 +326,7 @@ export function createGroundLayer(ctx) {
   const { border, coast } = extractBoundaryLines(data.topology, shared.layout.toWorld);
   const rect = boundsOfLines([...border, ...coast]);
 
-  // 地面: 境界線の範囲を覆う面。縁は GROUND_FEATHER の幅でなめらかに消える。
+  // 紙色の面: 陸地の範囲を覆う。縁は GROUND_FEATHER の幅でなめらかに消える。
   const x0 = rect.minX - GROUND_FEATHER, x1 = rect.maxX + GROUND_FEATHER;
   const z0 = rect.minZ - GROUND_FEATHER, z1 = rect.maxZ + GROUND_FEATHER;
   const groundGeom = new THREE.BufferGeometry();
@@ -270,53 +355,78 @@ export function createGroundLayer(ctx) {
   groundMesh.frustumCulled = false;
   groundMesh.renderOrder = RENDER_ORDER.ground;
 
-  const makeLines = (name, lines, width) => {
-    const geom = buildRibbonGeometry(lines);
-    const mat = new THREE.ShaderMaterial({
-      glslVersion: THREE.GLSL3,
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      uniforms: {
-        uRes: uniforms.uRes,
-        uPixelRatio: uniforms.uPixelRatio,
-        uInk: uniforms.uInk,
-        uWidth: { value: width },
-        uOpacity: { value: 0 },
-      },
-      vertexShader: LINE_VERT,
-      fragmentShader: LINE_FRAG,
-    });
-    const mesh = new THREE.Mesh(geom, mat);
-    mesh.name = name;
-    mesh.frustumCulled = false;
-    mesh.renderOrder = RENDER_ORDER.ground;
-    return mesh;
-  };
-  const borderMesh = makeLines('ground-border', border, BORDER_WIDTH);
-  const coastMesh = makeLines('ground-coast', coast, COAST_WIDTH);
-  // 同じ renderOrder の中では、先に追加したものが先に描かれる(面 → 県境 → 海岸線)
-  object3D.add(groundMesh, borderMesh, coastMesh);
+  // 陸地の面: 墨の色のごく薄い面。選択地域の都道府県だけ少し濃い。
+  const land = buildLandFill(data.topology, shared.layout.toWorld);
+  const landGeom = new THREE.BufferGeometry();
+  landGeom.setAttribute('position', new THREE.BufferAttribute(land.positions, 3));
+  landGeom.setAttribute('aPref', new THREE.BufferAttribute(land.prefs, 1));
+  landGeom.setIndex(new THREE.BufferAttribute(land.index, 1));
+  const select = new Float32Array(47);
+  const landMat = new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms: {
+      uInk: uniforms.uInk,
+      uLand: { value: 0 },
+      uLandSelected: { value: 0 },
+      uSelect: { value: select },
+    },
+    vertexShader: LAND_VERT,
+    fragmentShader: LAND_FRAG,
+  });
+  const landMesh = new THREE.Mesh(landGeom, landMat);
+  landMesh.name = 'ground-land';
+  landMesh.frustumCulled = false;
+  landMesh.renderOrder = RENDER_ORDER.ground;
+
+  // 県境: 陸地の面の中の、紙の色の極細の線。海岸線は線にしない(陸と海の境は面の縁として見える)。
+  const borderGeom = buildRibbonGeometry(border);
+  const borderMat = new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms: {
+      uRes: uniforms.uRes,
+      uPixelRatio: uniforms.uPixelRatio,
+      uColor: uniforms.uPaper,
+      uWidth: { value: BORDER_WIDTH },
+      uOpacity: { value: 0 },
+    },
+    vertexShader: LINE_VERT,
+    fragmentShader: LINE_FRAG,
+  });
+  const borderMesh = new THREE.Mesh(borderGeom, borderMat);
+  borderMesh.name = 'ground-border';
+  borderMesh.frustumCulled = false;
+  borderMesh.renderOrder = RENDER_ORDER.ground;
+  // 同じ renderOrder の中では、先に追加したものが先に描かれる(紙色の面 → 陸地 → 県境)
+  object3D.add(groundMesh, landMesh, borderMesh);
 
   // テーマで決まる基準の不透明度。morph の現れ方(appear)を掛けて素材へ渡す。
-  const base = { ground: 0, border: 0, coast: 0 };
+  const base = { ground: 0, land: 0, selected: 0, border: 0 };
   let appear = appearance(uniforms.uMorph.value);
   const apply = () => {
     groundMat.uniforms.uOpacity.value = base.ground * appear;
-    borderMesh.material.uniforms.uOpacity.value = base.border * appear;
-    coastMesh.material.uniforms.uOpacity.value = base.coast * appear;
+    landMat.uniforms.uLand.value = base.land * appear;
+    landMat.uniforms.uLandSelected.value = base.selected * appear;
+    borderMat.uniforms.uOpacity.value = base.border * appear;
     const on = appear > 0.002;
-    groundMesh.visible = borderMesh.visible = coastMesh.visible = on;
+    groundMesh.visible = landMesh.visible = borderMesh.visible = on;
   };
-  const setTheme = () => {
-    const o = shared.style; // renderer が先に shared.setTheme を呼ぶ
-    base.ground = o.ground;
-    base.coast = o.border;
-    base.border = o.border * BORDER_RATIO;
+  const setTheme = (theme) => {
+    const o = LAND_OPACITY[theme] ?? LAND_OPACITY.paper;
+    base.ground = readGroundOpacity(theme);
+    base.land = o.land;
+    base.selected = o.selected;
+    base.border = o.border;
     apply();
   };
-  setTheme();
+  setTheme('paper');
 
   return {
     object3D,
@@ -328,16 +438,19 @@ export function createGroundLayer(ctx) {
       }
     },
     setYear() {},
-    setSelection() {},
+    /** 選択地域(mask: Uint8Array(47))の都道府県の面を、ほかの陸地より少し濃くする。 */
+    setSelection(mask) {
+      for (let i = 0; i < 47; i++) select[i] = mask && mask[i] ? 1 : 0;
+    },
     setTheme,
     setHover() {},
-    /** 地面・県境・海岸線の基準の不透明度を個別に変える({ ground, border, coast } の一部)。 */
+    /** 基準の不透明度を個別に変える({ ground, land, selected, border } の一部)。 */
     setOpacity(o) {
       Object.assign(base, o);
       apply();
     },
     dispose() {
-      for (const m of [groundMesh, borderMesh, coastMesh]) {
+      for (const m of [groundMesh, landMesh, borderMesh]) {
         m.geometry.dispose();
         m.material.dispose();
       }

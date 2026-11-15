@@ -97,7 +97,7 @@ describe('locate: スクロールの位置から章と場面を求める', () =>
 
 describe('sceneToPatch', () => {
   it('章と場面の値を state の patch にする', () => {
-    expect(sceneToPatch(0, 0)).toEqual({ chapter: 0, year: 2014, selection: null, camera: 'side' });
+    expect(sceneToPatch(0, 0)).toEqual({ chapter: 0, year: 2025, selection: null, camera: 'side' });
     expect(sceneToPatch(2, 1)).toEqual({ chapter: 2, year: 2023, selection: { type: 'metro', id: 'osaka' }, camera: 'oblique' });
     expect(sceneToPatch(4, 0)).toEqual({ chapter: 4, year: 2025, selection: null, camera: 'oblique' });
   });
@@ -114,8 +114,8 @@ describe('initialScene(URL の引数 → はじめの章と場面)', async () =>
   const scene = (q) => initialScene(parseParams(q).patch);
   const tokyo = { type: 'metro', id: 'tokyo' };
 
-  it('引数がなければ開幕(0 章の最初の場面: 2014 年、真横)', () => {
-    expect(scene('')).toEqual({ chapter: 0, step: 0, patch: { chapter: 0, year: 2014, selection: null, camera: 'side', morph: 0 } });
+  it('引数がなければ開幕(0 章の最初の場面: 2025 年、真横)', () => {
+    expect(scene('')).toEqual({ chapter: 0, step: 0, patch: { chapter: 0, year: 2025, selection: null, camera: 'side', morph: 0 } });
   });
 
   it('ch だけなら、その章の最初の場面の年・選択・カメラ', () => {
@@ -140,8 +140,8 @@ describe('initialScene(URL の引数 → はじめの章と場面)', async () =>
     expect(scene('?sel=tokyo')).toMatchObject({ chapter: 1, step: 0 });
     expect(scene('?sel=tokyo&year=2021&cam=oblique')).toMatchObject({ chapter: 1, step: 1, patch: { year: 2021 } });
     expect(scene('?sel=osaka&year=2023')).toMatchObject({ chapter: 2, step: 1 });
-    expect(scene('?year=2014')).toMatchObject({ chapter: 0, step: 0 });
-    expect(scene('?cam=oblique&year=2025')).toMatchObject({ chapter: 0, step: 2 });
+    expect(scene('?year=2025')).toMatchObject({ chapter: 0, step: 0 });
+    expect(scene('?cam=oblique&year=2025')).toMatchObject({ chapter: 0, step: 1 });
   });
 
   it('合う場面がなければ自由探索の章にし、URL にない値は自由探索の場面の値にする', () => {

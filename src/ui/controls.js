@@ -32,7 +32,7 @@ export function mount(el, store, ctx) {
   el.removeAttribute('role');
 
   // ---- 上の帯の右側: 数値の表、言語、テーマ ----
-  const tableBtn = h('button', { type: 'button', class: 'ctl-table', 'aria-haspopup': 'dialog' });
+  const tableBtn = h('button', { type: 'button', class: 'ctl-table', 'aria-haspopup': 'dialog', 'data-open-table': '' });
   const tableLong = h('span', { class: 'ctl-long' });
   const tableShort = h('span', { class: 'ctl-short', 'aria-hidden': 'true' });
   tableBtn.append(tableLong, tableShort);
