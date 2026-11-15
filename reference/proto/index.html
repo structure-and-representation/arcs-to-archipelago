@@ -1,0 +1,154 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#f6f3ec}canvas,svg{position:absolute;left:0;top:0}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js"}}</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import * as G from './geometry.js';
+const q = new URLSearchParams(location.search);
+const P = k => q.get(k);
+const Wpx = +(P('w') || 1200), Hpx = +(P('h') || 500), dpr = +(P('dpr') || 1);
+const data = await (await fetch('data.json')).json();
+const SEL = P('sel') ? new Set(P('sel').split(',').map(Number)) : null;
+const links = SEL ? data.links.filter(l => SEL.has(l.source) !== SEL.has(l.target)) : data.links;
+const line = G.lineLayout(), geoL = G.geoLayout(), geo = geoL.pos;
+window.G = G; window.geo = geo; window.line = line; window.links = links;
+
+const renderer = new THREE.WebGLRenderer({ antialias: P('msaa') !== '0', alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(dpr); renderer.setSize(Wpx, Hpx);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const cam = new THREE.OrthographicCamera(-Wpx/2, Wpx/2, Hpx/2, -Hpx/2, -5000, 5000);
+// world = svg px: x_w = svgX - 600 (margin 20 + CX shift handled), y_w = 250 - svgY
+// line node i: svgX = 20 + i*STEP -> world x = i*STEP - CX => need camera center at x = 600-20-CX
+const camCenter = new THREE.Vector3(600 - 20 - G.CX, 0, 0);
+const zoom = +(P('zoom') || 1);
+function setView(az, el) { // az: rotation around Y from +z; el: elevation (rad)
+  const r = 2000;
+  cam.position.set(camCenter.x + r*Math.cos(el)*Math.sin(az), r*Math.sin(el), camCenter.z + r*Math.cos(el)*Math.cos(az));
+  cam.up.set(0,1,0); if (el > 1.5) cam.up.set(-Math.sin(az - (P('north')? geoL.northAngle:0)), 0, -Math.cos(az));
+  if (P('roll')) cam.up.set(-Math.cos(az), 0, Math.sin(az)).applyAxisAngle(new THREE.Vector3(Math.cos(az)*0,1,0),0); cam.lookAt(camCenter); cam.zoom = zoom; cam.updateProjectionMatrix();
+}
+const views = { side: [0, 0], oblique: [-0.35, 0.6], top: [0, Math.PI/2 - 1e-4] };
+const v = views[P('view') || 'side']; setView(+(P('az') ?? v[0]), +(P('el') ?? v[1]));
+
+const nodeArr = new Float32Array(47*4);
+for (let i=0;i<47;i++){ nodeArr.set([line[i][0], line[i][1], geo[i][0], geo[i][1]], i*4); }
+const nodeTex = new THREE.DataTexture(nodeArr, 47, 1, THREE.RGBAFormat, THREE.FloatType); nodeTex.minFilter = nodeTex.magFilter = THREE.NearestFilter; nodeTex.needsUpdate = true;
+const common = { uNodes: { value: nodeTex }, uMorph: { value: +(P('morph') || 0) }, uLean: { value: +(P('lean') || 0) },
+  uK: { value: G.K }, uRes: { value: new THREE.Vector2(Wpx, Hpx) }, uTime: { value: 0 } };
+const side = l => SEL ? (SEL.has(l.target) ? 1 : -1) : (l.source > l.target ? 1 : -1);   // 全国: northbound above (as current SVG)
+const ink = new THREE.Color(P('dark') ? '#e8e4da' : '#1b1a17');
+
+// ---------- arcs: one instanced ribbon (SEG segments), screen-space width ----------
+const SEG = +(P('seg') || 48);
+if (P('arcs') !== '0') {
+  const base = new THREE.InstancedBufferGeometry();
+  const tv = new Float32Array((SEG+1)*2*2);
+  for (let i=0;i<=SEG;i++){ tv.set([i/SEG, -1, i/SEG, 1], i*4); }
+  base.setAttribute('position', new THREE.BufferAttribute(new Float32Array((SEG+1)*2*3), 3)); // unused, for three's bookkeeping
+  base.setAttribute('aT', new THREE.BufferAttribute(tv, 2));
+  const idx = []; for (let i=0;i<SEG;i++){ const a=i*2; idx.push(a,a+1,a+2, a+1,a+3,a+2); } base.setIndex(idx);
+  const inst = new Float32Array(links.length*4);
+  links.forEach((l,i)=>inst.set([l.source, l.target, side(l), l.value], i*4));
+  base.setAttribute('aLink', new THREE.InstancedBufferAttribute(inst, 4));
+  base.instanceCount = links.length;
+  const mat = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, transparent: true, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
+    uniforms: { ...common, uColor: { value: ink }, uWidth: { value: +(P('lw') || 0.8) * dpr }, uAlpha: { value: +(P('la') || 0.35) } },
+    vertexShader: G.GLSL_ARC + `
+      in vec2 aT; in vec4 aLink; uniform vec2 uRes; uniform float uWidth; out float vEdge;
+      vec2 toScreen(vec4 c){ return c.xy/c.w*0.5*uRes; }
+      void main(){
+        vec3 R; float t=aT.x;
+        vec3 p=arcPoint(aLink.x,aLink.y,aLink.z,t,R);
+        vec3 p2=arcPoint(aLink.x,aLink.y,aLink.z,clamp(t+0.01,0.0,1.0),R);
+        vec3 p1=arcPoint(aLink.x,aLink.y,aLink.z,clamp(t-0.01,0.0,1.0),R);
+        mat4 pv=projectionMatrix*viewMatrix;
+        vec4 c=pv*vec4(p,1.0); vec2 s2=toScreen(pv*vec4(p2,1.0)), s1=toScreen(pv*vec4(p1,1.0));
+        vec2 dir=normalize(s2-s1+1e-6); vec2 nrm=vec2(-dir.y,dir.x);
+        float hw=max(uWidth,1.0)*0.5+0.5;            // pad 0.5px for AA ramp
+        c.xy += nrm*aT.y*hw/(0.5*uRes)*c.w;
+        vEdge=aT.y*hw; gl_Position=c;
+      }`,
+    fragmentShader: `uniform vec3 uColor; uniform float uAlpha, uWidth; in float vEdge; out vec4 o;
+      void main(){ float hw=max(uWidth,1.0)*0.5; float a=clamp(hw+0.5-abs(vEdge),0.0,1.0);
+        a*=min(uWidth,1.0);                         // sub-pixel width -> lower coverage, not thinner aliasing
+        o=vec4(uColor, a*uAlpha); }`
+  });
+  if (P('native')==='1') {
+    const lg = new THREE.InstancedBufferGeometry();
+    const tt = new Float32Array((SEG+1)*2); for (let i=0;i<=SEG;i++) tt.set([i/SEG,0], i*2);
+    lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array((SEG+1)*3),3));
+    lg.setAttribute('aT', new THREE.BufferAttribute(tt,2));
+    lg.setAttribute('aLink', base.getAttribute('aLink')); lg.instanceCount = links.length;
+    const lm = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, transparent:true, depthTest:false, depthWrite:false, uniforms: mat.uniforms,
+      vertexShader: G.GLSL_ARC + `in vec2 aT; in vec4 aLink; void main(){ vec3 R; vec3 p=arcPoint(aLink.x,aLink.y,aLink.z,aT.x,R); gl_Position=projectionMatrix*viewMatrix*vec4(p,1.0); }`,
+      fragmentShader: `uniform vec3 uColor; uniform float uAlpha, uWidth; out vec4 o; void main(){ o=vec4(uColor, uAlpha*min(uWidth,1.0)); }` });
+    const ln = new THREE.Line(lg, lm); ln.frustumCulled=false; scene.add(ln);
+  } else { const m = new THREE.Mesh(base, mat); m.frustumCulled = false; scene.add(m); }
+}
+
+// ---------- particles: 1 = 100 people; floor + one fractional-alpha particle ----------
+if (P('parts') !== '0') {
+  const rec = [];
+  links.forEach((l)=>{ const n=Math.floor(l.value/100), fr=(l.value%100)/100; const tot=n+(fr>0?1:0);
+    for (let k=0;k<tot;k++){ rec.push([l.source,l.target,side(l), (k+Math.random()*0.8)/tot, k<n?1:fr, Math.random()*2-1, Math.random()*2-1, l.value]); } });
+  window.particleCount = rec.length;
+  const inst1 = new Float32Array(rec.length*4), inst2 = new Float32Array(rec.length*4);
+  rec.forEach((r,i)=>{ inst1.set(r.slice(0,4), i*4); inst2.set(r.slice(4,8), i*4); });
+  const g = new THREE.InstancedBufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1,-1,0, 1,-1,0, 1,1,0, -1,1,0]),3));
+  g.setIndex([0,1,2,0,2,3]);
+  g.setAttribute('aA', new THREE.InstancedBufferAttribute(inst1,4));
+  g.setAttribute('aB', new THREE.InstancedBufferAttribute(inst2,4));
+  g.instanceCount = rec.length;
+  const mat = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, transparent: true, depthWrite:false, depthTest:false, side: THREE.DoubleSide,
+    uniforms: { ...common, uColor:{value: ink}, uSize:{value: +(P('ps')||2.2)*dpr}, uPeriod:{value: +(P('period')||14)},
+      uTube:{value: +(P('tube')||1)}, uPA:{value: +(P('pa')||0.8)} },
+    vertexShader: G.GLSL_ARC + `
+      in vec4 aA; in vec4 aB; uniform vec2 uRes; uniform float uSize, uTime, uPeriod, uTube; out vec2 vUv; out float vA;
+      void main(){
+        float t=fract(aA.w + uTime/uPeriod);     // constant transit time: arrivals/s on every arc ∝ people
+        vec3 R; vec3 p=arcPoint(aA.x,aA.y,aA.z,t,R);
+        // tube: radius ∝ sqrt(n / chordLen) keeps areal density bounded (world units), capped
+        vec2 a2=nodePos(aA.x), b2=nodePos(aA.y); float d=max(length(b2-a2),1.0);
+        float r = uTube*min(1.2*sqrt(aB.w/100.0/d), 14.0);
+        float env = sin(3.14159*t);              // pinch at the ends so arcs still meet the node
+        p += (R*aB.y + vec3(0.0,1.0,0.0)*aB.z*0.6)*r*env;
+        vec4 c=projectionMatrix*viewMatrix*vec4(p,1.0);
+        c.xy += position.xy*uSize*0.5/(0.5*uRes)*c.w;
+        vUv=position.xy; vA=aB.x*smoothstep(0.0,0.04,t)*smoothstep(1.0,0.96,t); gl_Position=c;
+      }`,
+    fragmentShader: `uniform vec3 uColor; uniform float uSize, uPA; in vec2 vUv; in float vA; out vec4 o;
+      void main(){ float r=length(vUv)*uSize*0.5; float a=clamp(uSize*0.5-r+0.5,0.0,1.0); if(a<=0.0) discard; o=vec4(uColor,a*vA*uPA); }`
+  });
+  if (P('pts')==='1') {
+    const gp = new THREE.BufferGeometry();
+    gp.setAttribute('position', new THREE.BufferAttribute(new Float32Array(rec.length*3),3));
+    gp.setAttribute('aA', new THREE.BufferAttribute(inst1,4)); gp.setAttribute('aB', new THREE.BufferAttribute(inst2,4));
+    const mp = mat.clone(); mp.uniforms = mat.uniforms;
+    mp.vertexShader = mat.vertexShader.replace('c.xy += position.xy*uSize*0.5/(0.5*uRes)*c.w;','gl_PointSize=uSize+1.0;');
+    mp.fragmentShader = mat.fragmentShader.replace('in vec2 vUv;','').replace('float r=length(vUv)*uSize*0.5;','vec2 vUv=gl_PointCoord*2.0-1.0; float r=length(vUv)*(uSize+1.0)*0.5;');
+    mp.vertexShader = mp.vertexShader.replace('out vec2 vUv;','').replace('vUv=position.xy;','');
+    const pp = new THREE.Points(gp, mp); pp.frustumCulled=false; scene.add(pp);
+  } else { const m = new THREE.Mesh(g, mat); m.frustumCulled=false; scene.add(m); }
+}
+// nodes
+{
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(47*3),3));
+  g.setAttribute('aI', new THREE.BufferAttribute(new Float32Array([...Array(47).keys()]),1));
+  const mat = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, transparent:true, depthTest:false, uniforms:{...common},
+    vertexShader: G.GLSL_ARC+`in float aI; void main(){ vec2 p=nodePos(aI); gl_Position=projectionMatrix*viewMatrix*vec4(p.x,0.0,p.y,1.0); gl_PointSize=4.0; }`,
+    fragmentShader:`out vec4 o; void main(){ if(length(gl_PointCoord-0.5)>0.5) discard; o=vec4(0.79,0.2,0.12,1.0);} ` });
+  const pts = new THREE.Points(g, mat); pts.frustumCulled=false; if (P('nodes')!=='0') scene.add(pts);
+}
+window.state = { common, cam, renderer, scene, THREE };
+window.frame = (t) => { common.uTime.value = t; renderer.render(scene, cam); };
+// benchmark hook: render n frames, return ms per frame (gl.finish forced via readPixels)
+window.bench = (n) => { const gl = renderer.getContext(); const px = new Uint8Array(4); const t0 = performance.now();
+  for (let i=0;i<n;i++){ common.uMorph.value = (i%120)/120; window.frame(i/60); gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px); }
+  return (performance.now()-t0)/n; };
+window.frame(+(P('time')||0));
+window.ready = true;
+</script></body></html>
