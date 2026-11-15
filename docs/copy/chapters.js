@@ -28,7 +28,7 @@ export const chapters = [
   },
   {
     id: 'tokyo',
-    heading: { ja: '揺れて、戻る', en: 'A Dip, Then a Return' },
+    heading: { ja: '東京圏の転入超過は、2021年に細った', en: 'Tokyo’s Gain Narrowed in 2021' },
     body: {
       ja: '2019年、東京圏は圏外から14万5,576人の転入超過だった。2021年には8万441人に減る。東京都だけでは8万6,575人から1万815人へ。その減少の約半分は、埼玉・千葉・神奈川との間で生じた。2025年、東京圏は11万2,738人まで戻った。',
       en: "In 2019, the Tokyo area gained 145,576 people from the rest of Japan. By 2021, the gain was down to 80,441. Tokyo itself fell from 86,575 to 10,815, and about half of that drop came from moves to and from its three neighbors. By 2025, the area's gain was back to 112,738.",
@@ -45,7 +45,7 @@ export const chapters = [
   },
   {
     id: 'osaka',
-    heading: { ja: '大阪圏の反転', en: 'Osaka Turns Around' },
+    heading: { ja: '大阪圏は、転入超過に転じた', en: 'Osaka Moved Into Net Gain' },
     body: {
       ja: '2014年、大阪圏は圏外へ1万1,722人の転出超過だった。2023年に転入超過へ転じ、2025年は7,503人の転入超過。東京圏への流出は今も約1万8千人の超過だが、三大都市圏の外からの転入超過は2万2,547人と、2014年の約2倍になった。',
       en: 'In 2014, the Osaka area lost 11,722 more people than it gained. In 2023 the balance turned, and by 2025 it showed a gain of 7,503. It still loses about 18,000 to the Tokyo area each year. But its net gain from the rest of Japan has doubled, to 22,547.',
@@ -58,7 +58,7 @@ export const chapters = [
   },
   {
     id: 'nagoya',
-    heading: { ja: '名古屋圏の静かな流出', en: "Nagoya's Quiet Outflow" },
+    heading: { ja: '名古屋圏は、転出超過が続く', en: 'Nagoya Keeps Losing People' },
     body: {
       ja: '2012年、名古屋圏は圏外から1,567人の転入超過だった。翌年に転出超過へ転じ、その幅は2022年の1万3,709人まで広がった。2025年は9,561人。転出がほぼ横ばいのまま、転入が1割あまり減った。2017年からは大阪圏に対しても転出超過が続く。',
       en: 'In 2012, the Nagoya area gained 1,567 people from the rest of Japan. The next year it began to lose them, and by 2022 the net loss had grown to 13,709. In 2025 it was 9,561. Outflow barely changed, while inflow fell by more than a tenth. Since 2017, Nagoya has lost people to Osaka too.',
@@ -71,7 +71,7 @@ export const chapters = [
   },
   {
     id: 'explore',
-    heading: { ja: '変わらない弧', en: 'The Arcs That Hold' },
+    heading: { ja: '14年間、ほとんど変わらなかった流れ', en: 'Flows That Barely Changed in 14 Years' },
     body: {
       ja: '14年間でほとんど変わらない流れもある。大阪府から兵庫県へは毎年2万6千〜2万7千人台。移動の平均距離は283〜290kmに収まり、約4割は100km未満だ。一方、千葉と東京の間では流れの向きが逆転した。地域と年を選んで確かめてほしい。',
       en: 'Some flows barely moved in 14 years. Every year, 26,000 to 27,000 people moved from Osaka to Hyogo. The average move stayed between 283 and 290 km, and about 4 in 10 were under 100 km. Between Chiba and Tokyo, though, the net flow reversed. Pick a region and a year, and see for yourself.',
