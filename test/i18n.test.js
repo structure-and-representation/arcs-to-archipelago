@@ -27,8 +27,8 @@ describe('辞書', () => {
 
   it('各部品のキーは、その部品の接頭辞で始まる', () => {
     const prefixes = {
-      timeline: ['year.'], selector: ['selector.', 'metro.'], tooltip: ['tooltip.'], table: ['table.'],
-      controls: ['cam.', 'theme.', 'lang.', 'motion.'], chapters: ['ch.'],
+      timeline: ['year.'], selector: ['selector.', 'metro.', 'readout.', 'region.'], tooltip: ['tooltip.'], table: ['table.'],
+      controls: ['camera.', 'settings.'], chapters: ['ch.'],
     };
     for (const [name, pre] of Object.entries(prefixes)) {
       for (const k of Object.keys(parts[name].ja)) expect(pre.some((p) => k.startsWith(p)), `${name}: ${k}`).toBe(true);
@@ -48,11 +48,11 @@ describe('辞書', () => {
 describe('t / prefName', () => {
   it('現在の言語で引き、ないキーは key を返す', () => {
     setLang('ja');
-    expect(t('cam.side')).toBe('真横');
+    expect(t('camera.side')).toBe('真横');
     setLang('en');
-    expect(t('cam.side')).toBe('Side');
+    expect(t('camera.side')).toBe('Side');
     expect(t('no.such.key')).toBe('no.such.key');
-    expect(t('cam.side', 'ja')).toBe('真横');
+    expect(t('camera.side', 'ja')).toBe('真横');
     setLang('ja');
   });
 
