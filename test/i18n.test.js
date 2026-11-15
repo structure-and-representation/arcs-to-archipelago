@@ -6,10 +6,11 @@ import tooltip from '../src/i18n/tooltip.js';
 import table from '../src/i18n/table.js';
 import controls from '../src/i18n/controls.js';
 import chapters from '../src/i18n/chapters.js';
+import legend from '../src/i18n/legend.js';
 import { CHAPTERS } from '../src/content/chapters.js';
 import { DICT, PREF_EN, PREF_JA, metroName, prefName, setLang, t } from '../src/i18n.js';
 
-const parts = { common, timeline, selector, tooltip, table, controls, chapters };
+const parts = { common, timeline, selector, tooltip, table, controls, chapters, legend };
 
 describe('辞書', () => {
   it('ja と en のキーが各部品で同じ', () => {
@@ -28,7 +29,8 @@ describe('辞書', () => {
   it('各部品のキーは、その部品の接頭辞で始まる', () => {
     const prefixes = {
       timeline: ['year.'], selector: ['selector.', 'metro.', 'readout.', 'region.'], tooltip: ['tooltip.'], table: ['table.', 'fallback.'],
-      controls: ['camera.', 'settings.'], chapters: ['ch.'],
+      controls: ['camera.', 'settings.'], chapters: ['ch.'], legend: ['legend.'],
+      common: ['app.', 'unit.', 'flow.', 'source.', 'meta.', 'footer.'],
     };
     for (const [name, pre] of Object.entries(prefixes)) {
       for (const k of Object.keys(parts[name].ja)) expect(pre.some((p) => k.startsWith(p)), `${name}: ${k}`).toBe(true);
@@ -37,9 +39,10 @@ describe('辞書', () => {
 
   it('章の見出しと本文のキーが辞書にある', () => {
     for (const ch of CHAPTERS) {
-      expect(DICT.ja[ch.title]).toBeTruthy();
-      expect(DICT.ja[ch.body]).toBeTruthy();
-      expect(DICT.en[ch.title]).toBeTruthy();
+      for (const key of [ch.name, ch.heading, ch.body, ch.bodyPortrait, ch.note].filter(Boolean)) {
+        expect(DICT.ja[key], key).toBeTruthy();
+        expect(DICT.en[key], key).toBeTruthy();
+      }
     }
     expect(CHAPTERS).toHaveLength(5);
   });

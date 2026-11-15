@@ -1,0 +1,89 @@
+/* 凡例と注記(ui/legend.js)。仕様は docs/design/spec.md の 5.8。
+   デスクトップ: 左 40px、下 36px、幅 344px。後ろに紙色の下敷きを敷き、上端の 48px で透明へぼかす(流れてきた章の本文がここで消える)。
+   縦画面: 「1粒=100人」「弧の高さ=距離」はドックの 3 段目の右、向きの意味は図の左上に縦に 2 行。 */
+#app #legend {
+  position: fixed;
+  z-index: var(--z-ui);
+  left: var(--gutter);
+  bottom: 36px;
+  width: var(--col-w);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-ui);
+  letter-spacing: var(--ls-ui);
+  color: var(--fg-2);
+  pointer-events: none;
+}
+#legend::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -48px;
+  bottom: -36px;
+  left: calc(-1 * var(--gutter));
+  right: -56px;
+  background: linear-gradient(to bottom, transparent, var(--veil) 48px);
+  /* 右の縁もぼかす(紙のむらが、ここで急に途切れて見えないように) */
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent);
+          mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent);
+}
+
+.legend-key { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 18px; }
+.legend-item { display: inline-flex; align-items: center; gap: 7px; }
+.legend-dot { flex: none; width: 2.5px; height: 2.5px; margin: 0 .5px; border-radius: 50%; background: var(--fg-1); }
+.legend-glyph { flex: none; stroke: currentColor; fill: none; stroke-width: 1; }
+
+.legend-dir { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 1px; }
+.legend-hint { padding-left: 23px; font-size: var(--fs-label); color: var(--fg-3); }
+
+.legend-note {
+  margin: 10px 0 0;
+  font-size: var(--fs-label);
+  line-height: 1.6;
+  letter-spacing: var(--ls-ui);
+  color: var(--fg-3);
+}
+.legend-note a {
+  color: var(--fg-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-2);
+  pointer-events: auto;
+  transition: color var(--dur-1) var(--ease-out);
+}
+.legend-note a:hover { color: var(--fg-1); }
+
+@media (max-aspect-ratio: 1/1) {
+  #app #legend { display: contents; }
+  #legend::before { display: none; }
+
+  .legend-key {
+    position: fixed;
+    z-index: var(--z-ui);
+    right: 16px;
+    bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    flex-wrap: nowrap;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--fg-3);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .legend-key .legend-item { gap: 5px; }
+
+  .legend-dir {
+    position: fixed;
+    z-index: var(--z-annot);
+    top: 76px;
+    left: 16px;
+    gap: 2px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--fg-3);
+    pointer-events: none;
+    text-shadow: 0 0 2px var(--halo), 0 0 3px var(--halo), 0 0 5px var(--halo);
+  }
+  .legend-dir .legend-glyph { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .legend-note a { transition: none; }
+}

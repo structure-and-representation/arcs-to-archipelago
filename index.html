@@ -3,9 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>弧が列島になる — 都道府県間の人口移動</title>
-  <meta name="description" content="総務省統計局「住民基本台帳人口移動報告」(日本人移動者、2012〜2025年)をもとに、都道府県間の人口移動を、日本列島の上に立ち上がる弧として見せる作品です。">
+  <title>弧が列島になる — 都道府県間の人口移動 2012–2025</title>
+  <meta name="description" content="一本の線に並べた47都道府県のあいだに、14年分の引っ越しを弧で描く。弧を地図の上に立てると、日本列島が現れる。">
   <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#F3F0E8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1C1B18" media="(prefers-color-scheme: dark)">
+  <!-- OGP: クローラは JavaScript を実行しないので、静的な日本語を書く。画面の言語の切り替えでは title と description だけ差し替える -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="弧が列島になる / Arcs Become an Archipelago">
+  <meta property="og:title" content="弧が列島になる">
+  <meta property="og:description" content="都道府県間の人口移動 2012–2025年を、arc diagram から日本列島の地図へ。総務省「住民基本台帳人口移動報告」より。">
+  <meta property="og:locale" content="ja_JP">
+  <meta property="og:locale:alternate" content="en_US">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23F3F0E8'/%3E%3Cpath d='M4 22C8 4 24 4 28 22' fill='none' stroke='%231C1B18' stroke-width='2'/%3E%3C/svg%3E">
   <script>
     // 末尾スラッシュなしのディレクトリ URL(例: /works/x)で開かれても、相対参照を解決できるようにする。
     (function () {
@@ -16,25 +27,58 @@
         document.head.appendChild(b);
       }
     })();
+    // 描画の前に、テーマと言語を <html> へ反映する(最初の一枚が違う色や言語でちらつかないように)。
+    // main.js が同じ規則で state を作り、以降は state が正になる。
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var root = document.documentElement;
+      var theme = q.get('theme');
+      if (theme !== 'paper' && theme !== 'ink') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'ink' : 'paper';
+      root.dataset.theme = theme;
+      var lang = q.get('lang');
+      if (lang !== 'ja' && lang !== 'en') lang = /^en/i.test(navigator.language || '') ? 'en' : 'ja';
+      root.lang = lang;
+    })();
   </script>
+  <!-- Web フォント。接続を先に開き、CSS は描画を止めないように読む。作品名だけは text= で数 KB の部分集合を先に読む(作品名を変えたら text= も変える) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@600&text=%E5%BC%A7%E3%81%8C%E5%88%97%E5%B3%B6%E3%81%AB%E3%81%AA%E3%82%8B&display=block">
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500&family=Noto+Serif+JP:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500&family=Noto+Serif+JP:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"></noscript>
   <script type="module" src="./src/main.js"></script>
 </head>
 <body>
   <div id="app">
-    <!-- 描画。キャンバスは透明で、紙の質感は CSS の背景で作る -->
+    <!-- 描画。キャンバスは透明で、紙の質感は CSS の背景(body の疑似要素)で作る -->
     <canvas id="stage" role="img" aria-label="都道府県間の人口移動を弧で表した図。1粒が100人です。" data-i18n-attr="aria-label:app.stage"></canvas>
     <!-- 都道府県名のラベル(ui/labels.js が毎フレーム射影した位置へ動かす) -->
     <div id="labels" aria-hidden="true"></div>
 
-    <!-- 章の本文(ui/chapters.js が content/chapters.js から作る)。スクロールで 0〜4 章を進める -->
-    <main id="chapters"></main>
-
-    <!-- 年の切り替え(ui/timeline.js) -->
-    <nav id="timeline" aria-label="年" data-i18n-attr="aria-label:year.label"></nav>
-    <!-- 地域の選択(ui/selector.js) -->
-    <div id="selector" role="group" aria-label="地域" data-i18n-attr="aria-label:selector.label"></div>
-    <!-- 操作ボタン: カメラ・テーマ・言語・動きを減らす(ui/controls.js) -->
+    <!-- 上の帯(作品名と副題)。章の目次と位置の表示(#chapters の中)がこの上に重なれるよう、#chapters より前に置く -->
+    <header id="masthead">
+      <div class="masthead-title">
+        <h1 data-i18n="meta.title">弧が列島になる</h1>
+        <p data-i18n="meta.subtitle">都道府県間の人口移動 2012–2025</p>
+      </div>
+    </header>
+    <!-- 操作(ui/controls.js)。上の帯の右側の領域。中の部品(カメラなど)は、base.css の領域の値を使って自分で固定位置に置ける -->
     <div id="controls" role="toolbar"></div>
+
+    <!-- 章の本文と目次(ui/chapters.js が content/chapters.js から作る)。ページのスクロールで 0〜4 章を進める -->
+    <main id="chapters" tabindex="-1"></main>
+
+    <!-- 凡例と注記(ui/legend.js) -->
+    <div id="legend"></div>
+
+    <!-- 年の切り替えと地域の選択。デスクトップでは各部品が自分の領域に置かれ、縦画面ではドックの中に積まれる -->
+    <div id="dock">
+      <!-- 地域の選択と読み出し(ui/selector.js) -->
+      <div id="selector" role="group" aria-label="地域" data-i18n-attr="aria-label:selector.label"></div>
+      <!-- 年の切り替え(ui/timeline.js) -->
+      <nav id="timeline" aria-label="年" data-i18n-attr="aria-label:year.label"></nav>
+    </div>
+
     <!-- ホバー中の弧・都道府県の数値(ui/tooltip.js) -->
     <div id="tooltip" role="tooltip" hidden></div>
     <!-- 数値の表(ui/table.js)。図と同じ数値をキーボードと読み上げで読める -->
