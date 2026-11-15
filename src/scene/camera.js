@@ -66,18 +66,20 @@ export const PORTRAIT_INDEX_GUTTER = 44;
 /** 遷移の長さ(秒)と、真横から立ち上がるとき morph を動かし始めるまでの回転の割合。 */
 export const TRANSITION_SECONDS = 1.6;
 /** 真横と地図の間の遷移(変形)の長さ(秒)。作品の見せ場なので、ほかの遷移より長くとる。 */
-export const MORPH_TRANSITION_SECONDS = 2.4;
-export const MORPH_DELAY = 0.15;
+export const MORPH_TRANSITION_SECONDS = 1.8;
 /**
- * 真横(morph 0)から地図(morph 1)へ移るときの段取り(遷移の進み s。緩急は成分ごとにかける)。
- *  仰角は 0 〜 ELEVATION_LEAD で上がりきり、方位(と縦画面の roll)は AZIMUTH_FROM 〜 1 で回る。
- *  morph は MORPH_DELAY 〜 MORPH_END で動く。逆向き(地図から真横)は、この段取りを時間で裏返す。
- * 真横の並び(北海道が左)と北が上の地図(北海道が右上)は向きが反対なので、低い仰角のまま方位を回すと、
- * 途中で並びがカメラの方を向いて縮む。仰角を先に上げると、方位の回転は画面の中の回転に近くなる。
+ * 真横(morph 0)から地図(morph 1)へ移るときの段取り(遷移の進み s。緩急は成分ごとにかける)。2 つの段に分ける。
+ *  1 段目(0 〜 MORPH_END、約 0.8 秒): カメラは真横のまま、morph を 0 から 1 へ動かす(点が地理の並びへ動き、弧の高さが変わる)。
+ *  2 段目(MORPH_END 〜 1、約 1.0 秒): カメラを起こす。仰角は ELEVATION_FROM 〜 ELEVATION_LEAD で上がりきり、
+ *    方位は AZIMUTH_FROM 〜 1 で回る(仰角を先に上げるので、方位の回転は画面の中の回転に近くなり、列島が縮まない)。
+ *  逆向き(地図から真横)は、この段取りを時間で裏返す(カメラを寝かせてから、並びへ戻す)。
+ * 傾いた図が伸びる「どちらでもない」時間を作らず、どの点がどこへ行ったかを、真横のまま目で追えるようにする。
  */
-export const ELEVATION_LEAD = 0.55;
-export const AZIMUTH_FROM = 0.2;
-export const MORPH_END = 0.9;
+export const MORPH_DELAY = 0;
+export const MORPH_END = 0.44;
+export const ELEVATION_FROM = 0.44;
+export const ELEVATION_LEAD = 0.8;
+export const AZIMUTH_FROM = 0.52;
 /** 利用者が動かせる範囲。 */
 export const USER_LIMITS = { azimuth: 1.4, elevationMin: 0, elevationMax: Math.PI / 2, zoomMin: 0.6, zoomMax: 8 };
 
@@ -433,9 +435,9 @@ export function tweenChannels(a, b, s, ease = null) {
   const E = ease ?? ((x) => x);
   const win = (lo, hi, x) => E(clamp((x - lo) / (hi - lo), 0, 1));
   const rise = (x) => ({
-    el: win(0, ELEVATION_LEAD, x),
+    el: win(ELEVATION_FROM, ELEVATION_LEAD, x),
     az: win(AZIMUTH_FROM, 1, x),
-    morph: smoothstep(MORPH_DELAY, MORPH_END, x),
+    morph: win(MORPH_DELAY, MORPH_END, x),
   });
   if (isMorphing(a, b)) {
     if (a.morph === 0) return { ...rise(s), rest: E(s) };

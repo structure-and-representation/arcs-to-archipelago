@@ -19,25 +19,31 @@ const el = (tag, className, text) => {
   return node;
 };
 
-/** 弧の向きの小さな図: 水平の線と、上の弧(実線)または下の弧(点線)。 */
-function glyph(kind) {
+/**
+ * 弧の向きの小さな図(16 × 10)。
+ *  真横(map = false): 水平の線と、上の弧(実線)または下の弧(点線)。
+ *  斜め俯瞰と真上(map = true): 地面の平行四辺形(カメラの「斜め」のアイコンと同じ造形)と、その上に立つ弧(実線)
+ *  または下へ垂れる弧(破線。図の地下の弧と同じ)。
+ */
+function glyph(kind, map = false) {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('class', 'legend-glyph');
+  svg.setAttribute('class', map ? 'legend-glyph is-map' : 'legend-glyph');
   svg.setAttribute('width', '16');
   svg.setAttribute('height', '10');
   svg.setAttribute('viewBox', '0 0 16 10');
   svg.setAttribute('aria-hidden', 'true');
-  const line = document.createElementNS(ns, 'path');
-  line.setAttribute('d', 'M0 5H16');
+  const ground = document.createElementNS(ns, 'path');
+  ground.setAttribute('d', map ? 'M0.5 7.5L3.5 3.5H15.5L12.5 7.5Z' : 'M0 5H16');
+  if (map) ground.setAttribute('class', 'legend-ground');
   const arc = document.createElementNS(ns, 'path');
   if (kind === 'up') {
-    arc.setAttribute('d', 'M2 5C5 0 11 0 14 5');
+    arc.setAttribute('d', map ? 'M4 5.5C5 0.5 11 0.5 12 5.5' : 'M2 5C5 0 11 0 14 5');
   } else {
-    arc.setAttribute('d', 'M2 5C5 10 11 10 14 5');
-    arc.setAttribute('stroke-dasharray', '1.5 1.5');
+    arc.setAttribute('d', map ? 'M4 5.5C5 10 11 10 12 5.5' : 'M2 5C5 10 11 10 14 5');
+    arc.setAttribute('stroke-dasharray', map ? '1.6 1.2' : '1.5 1.5');
   }
-  svg.append(line, arc);
+  svg.append(ground, arc);
   return svg;
 }
 
@@ -90,7 +96,7 @@ export function mount(root, store, ctx) {
     const dir = el('ul', 'legend-dir');
     for (const [kind, k] of [['up', keys.up], ['down', keys.down]]) {
       const li = el('li', 'legend-item');
-      li.append(glyph(kind), el('span', null, fill(k)));
+      li.append(glyph(kind, camera !== 'side'), el('span', null, fill(k)));
       dir.append(li);
     }
     if (keys.hint && !portrait) dir.append(el('li', 'legend-hint', t(keys.hint)));

@@ -31,6 +31,8 @@
 .legend-item { display: inline-flex; align-items: center; gap: 7px; }
 .legend-dot { flex: none; width: 2.5px; height: 2.5px; margin: 0 .5px; border-radius: 50%; background: var(--fg-1); }
 .legend-glyph { flex: none; stroke: currentColor; fill: none; stroke-width: 1; }
+/* 斜め俯瞰と真上: 地面の平行四辺形は細く薄く、弧はその上下に(地下の弧は破線) */
+.legend-glyph .legend-ground { stroke-width: .75; stroke-opacity: .55; fill: currentColor; fill-opacity: .08; }
 
 .legend-dir { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 1px; }
 .legend-hint { padding-left: 23px; font-size: var(--fs-label); color: var(--fg-3); }

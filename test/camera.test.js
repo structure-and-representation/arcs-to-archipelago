@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  AZIMUTH_FROM, MORPH_TRANSITION_SECONDS, clampOrbit, cubicBezier, dragToAngles, easeCamera, ELEVATION_LEAD, figureRegion, isPortrait, portraitSplit, MORPH_DELAY, MORPH_END, projectPoint, reorient,
+  AZIMUTH_FROM, ELEVATION_FROM, MORPH_TRANSITION_SECONDS, clampOrbit, cubicBezier, dragToAngles, easeCamera, ELEVATION_LEAD, figureRegion, isPortrait, portraitSplit, MORPH_DELAY, MORPH_END, projectPoint, reorient,
   screenAxes, SELECTION_OBLIQUE, SELECTION_ZOOM, presetRegion, topAzimuth, tween, USER_LIMITS, viewFor, viewOptions,
 } from '../src/scene/camera.js';
 import { createCameraRig } from '../src/scene/cameraRig.js';
@@ -294,20 +294,26 @@ describe('easeCamera と tween', () => {
     }
   });
 
-  it('真横から立ち上がるとき、回転の最初の 15% の間は morph が 0 のまま、その後 90% までに 1 まで動く', () => {
-    expect(MORPH_DELAY).toBe(0.15);
-    expect(tween(a, b, 0.1).morph).toBe(0);
-    expect(tween(a, b, 0.15).morph).toBe(0);
-    expect(tween(a, b, 0.3).morph).toBeGreaterThan(0);
-    expect(tween(a, b, (MORPH_DELAY + MORPH_END) / 2).morph).toBeCloseTo(0.5, 9);
+  it('真横から地図へは 2 段: まず真横のまま morph を 0 → 1、続いてカメラを起こす(戻るときは裏返し)', () => {
+    expect(MORPH_DELAY).toBe(0);
+    // 1 段目: カメラは真横のまま、morph だけが動く
+    for (const s of [0.1, 0.25, 0.4]) {
+      const m = tween(a, b, s);
+      expect(m.elevation).toBe(0);
+      expect(m.azimuth).toBeCloseTo(a.azimuth, 12);
+      expect(m.morph).toBeGreaterThan(0);
+    }
+    expect(tween(a, b, MORPH_END / 2).morph).toBeCloseTo(0.5, 9);
     expect(tween(a, b, MORPH_END).morph).toBe(1);
+    // 2 段目: morph は 1 のまま、カメラが起きる
+    expect(tween(a, b, 0.6).morph).toBe(1);
+    expect(tween(a, b, 0.6).elevation).toBeGreaterThan(0);
     expect(tween(a, b, 1).morph).toBe(1);
-    // 回転は最初から始まっている
-    expect(tween(a, b, 0.1).elevation).toBeGreaterThan(0);
-    // 真上へも同じ。戻るときは、回転の最後の 15% の前に morph が 0 になる
-    expect(tween(a, c, 0.1).morph).toBe(0);
-    expect(tween(b, a, 0.85).morph).toBe(0);
-    expect(tween(b, a, 0.5).morph).toBeGreaterThan(0);
+    // 真上へも同じ。戻るときは、先にカメラを寝かせてから並びへ戻す
+    expect(tween(a, c, 0.3).elevation).toBe(0);
+    expect(tween(b, a, 0.3).morph).toBe(1);
+    expect(tween(b, a, 1 - MORPH_END / 2).morph).toBeCloseTo(0.5, 9);
+    expect(tween(b, a, 1 - MORPH_END / 2).elevation).toBe(0);
     // 斜め俯瞰 ↔ 真上は、morph が 1 のまま
     expect(tween(b, c, 0.5).morph).toBe(1);
   });
@@ -316,7 +322,7 @@ describe('easeCamera と tween', () => {
     // 仰角は ELEVATION_LEAD で上がりきる。方位は AZIMUTH_FROM までは動かない
     expect(tween(a, b, AZIMUTH_FROM).azimuth).toBeCloseTo(a.azimuth, 12);
     expect(tween(a, b, ELEVATION_LEAD).elevation).toBeCloseTo(b.elevation, 12);
-    expect(tween(a, b, 0.3).elevation / b.elevation).toBeGreaterThan(0.3 / ELEVATION_LEAD - 0.2);
+    expect(tween(a, b, (ELEVATION_FROM + ELEVATION_LEAD) / 2).elevation / b.elevation).toBeCloseTo(0.5, 9);
     expect(tween(b, a, 1 - ELEVATION_LEAD).elevation).toBeCloseTo(b.elevation, 12);
     expect(tween(b, a, 1 - AZIMUTH_FROM).azimuth).toBeCloseTo(a.azimuth, 12);
     // 斜め俯瞰 ↔ 真上は、方位を変えず(同じ方位)、仰角と lean だけを同じ進みで動かす
@@ -449,17 +455,19 @@ describe('createCameraRig', () => {
     expect(store.get().morph).toBe(1);
   });
 
-  it('真横と地図の間の変形は 2400ms、斜め俯瞰と真上の間は 1600ms かけて動く。morph は最初の 15% の間は 0', () => {
-    expect(MORPH_TRANSITION_SECONDS).toBe(2.4);
+  it('真横と地図の間の変形は 1800ms、斜め俯瞰と真上の間は 1600ms かけて動く', () => {
+    expect(MORPH_TRANSITION_SECONDS).toBe(1.8);
     const { store, rig } = setup();
     store.set({ camera: 'oblique' });
     expect(store.get().morph).toBe(0);
-    rig.update(0.24); // 進み 10%
-    expect(store.get().morph).toBe(0);
-    for (let i = 0; i < 7; i++) rig.update(0.24); // 進み 80%
-    expect(store.get().morph).toBeLessThan(1);
-    for (let i = 0; i < 2; i++) rig.update(0.24);
-    expect(store.get().morph).toBeCloseTo(1, 6);
+    rig.update(0.18); // 進み 10%: morph は動き始め、カメラは真横のまま
+    expect(store.get().morph).toBeGreaterThan(0);
+    expect(rig.getView().elevation).toBe(0);
+    for (let i = 0; i < 4; i++) rig.update(0.18); // 進み 50%: morph は 1
+    expect(store.get().morph).toBe(1);
+    for (let i = 0; i < 4; i++) rig.update(0.18); // 進み 90%: まだ回っている
+    expect(rig.getView().azimuth).not.toBeCloseTo(view('oblique', 1440, 900).azimuth, 3);
+    rig.update(0.18);
     const want = view('oblique', 1440, 900);
     expect(rig.getView().elevation).toBeCloseTo(want.elevation, 9);
     // 斜め俯瞰 → 真上

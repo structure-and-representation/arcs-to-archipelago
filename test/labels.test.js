@@ -4,7 +4,7 @@ import { selectionMask } from '../src/geometry/flows.js';
 import { parseData } from '../src/data/loader.js';
 import { geoLayout, lineLayout, nodePos } from '../src/geometry/layout.js';
 import {
-  CANDIDATES, CARRIED, GROUP_CANDIDATES, INDEX_OFFSET_H, INDEX_OFFSET_V, carryPose, indexDense, indexLayout, indexVisible, labelOrder, partnerTotals, placeLabels, volumeOrder,
+  CANDIDATES, CARRIED, CARRY_FLIP, CARRY_MAX_DIST, GROUP_CANDIDATES, INDEX_OFFSET_H, INDEX_OFFSET_V, carryPose, indexDense, indexLayout, indexVisible, labelOrder, partnerTotals, placeLabels, volumeOrder,
 } from '../src/ui/labels.js';
 import { rectsOverlap } from '../src/ui/avoid.js';
 import { placeTooltip, tooltipContent } from '../src/ui/tooltip.js';
@@ -294,22 +294,27 @@ describe('変形の途中のラベル(carryPose)', () => {
     for (const i of [0, 46, 12, 22, 26]) expect(CARRIED).toContain(i);
   });
 
-  it('横長: 索引の位置(点の下)から点の東へ運び、morph 0.5 で縦書きから横書きへ移る(そこで 0.3 まで薄くなる)', () => {
+  it('横長: 索引の位置(点の下)から点の東へ運び、morph 0.3 で縦書きから横書きへ移る(そこで 0.2 まで薄くなる)', () => {
     const a = carryPose(0, 'v', 0.8);
     expect([a.dx, a.dy]).toEqual([0, INDEX_OFFSET_V * 0.8]);
     expect(a.vertical).toBe(true);
-    expect(a.carried).toBe(1);
+    expect(a.carried).toBe(1); // morph 0 は索引そのもの
     expect(a.others).toBe(1);
-    const m = carryPose(0.5, 'v', 0.8);
+    // 動き出して点から 40px 以上離れている間は出さない
+    const f = carryPose(0.05, 'v', 0.8);
+    expect(Math.hypot(f.dx, f.dy)).toBeGreaterThan(CARRY_MAX_DIST);
+    expect(f.carried).toBe(0);
+    const m = carryPose(CARRY_FLIP, 'v', 0.8);
     expect(m.vertical).toBe(false);
-    expect(m.carried).toBeCloseTo(0.3, 9);
+    expect([m.dx, m.dy]).toEqual([7, 0]);
+    expect(m.carried).toBeCloseTo(0.2, 9);
     expect(m.others).toBe(0); // 運ばないラベルは動き始めに消える
     const b = carryPose(1, 'v', 0.8);
     expect([b.dx, b.dy]).toEqual([7, 0]);
     expect(b.carried).toBe(1);
   });
 
-  it('縦画面: 索引(点の右)から点の東へ、横書きのまま運ぶ', () => {
+  it('回した真横: 索引(点の右)から点の東へ、横書きのまま運ぶ', () => {
     const a = carryPose(0, 'h', 0.5);
     expect([a.dx, a.dy]).toEqual([INDEX_OFFSET_H * 0.5, 0]);
     expect(carryPose(0.5, 'h', 0.5).vertical).toBe(false);

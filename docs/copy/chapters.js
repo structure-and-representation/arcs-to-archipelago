@@ -7,6 +7,9 @@
 //
 // selection: null | { type: 'metro', id: 'tokyo' | 'osaka' | 'nagoya' } | { type: 'pref', code: 1..47 } (JIS code as a number)
 // camera:    'side' | 'oblique' | 'top'
+// A step may also have
+//   body:  { ja, en }  the card text while the reader is in that step (otherwise the chapter body)
+//   hover: { o, d }    the arc (prefecture indices 0..46, origin -> destination) shown in vermilion on entering the step
 
 export const chapters = [
   {
@@ -22,7 +25,7 @@ export const chapters = [
     },
     steps: [
       { year: 2025, selection: null, camera: 'side' },    // opening: the latest year, in the form of the 2015 original, seen side-on
-      { year: 2025, selection: null, camera: 'oblique' }, // camera turns, prefectures move onto the map
+      { year: 2025, selection: null, camera: 'oblique', body: { ja: 'カメラが回り込むと、47の点は地図の上の位置へ移る。弧は、県庁所在地のあいだに立ち上がる。地面より上の弧は北へ、地面より下の破線の弧は南へ向かう移動で、弧が通る場所は経路を表さない。', en: 'As the camera turns, the 47 points move to their places on the map, and the arcs rise between prefectural capitals. Arcs above the ground head north; dashed arcs below it head south. Where an arc passes says nothing about the route.' } }, // camera turns, prefectures move onto the map
     ],
   },
   {
@@ -76,10 +79,10 @@ export const chapters = [
       en: 'Some flows barely moved in 14 years. Every year, 26,000 to 27,000 people moved from Osaka to Hyogo. The average move stayed between 283 and 290 km, and about 4 in 10 were under 100 km. Between Chiba and Tokyo, though, the net flow reversed. Pick a region and a year, and see for yourself.',
     },
     steps: [
-      { year: 2025, selection: { type: 'pref', code: 27 }, camera: 'oblique' }, // Osaka: Hyogo takes 26,000-27,000 a year
-      { year: 2012, selection: { type: 'pref', code: 12 }, camera: 'oblique' }, // Chiba, before the flow with Tokyo reversed
-      { year: 2025, selection: { type: 'pref', code: 12 }, camera: 'oblique' }, // Chiba, after the reversal
-      { year: 2025, selection: null, camera: 'oblique' }, // free exploration starts here: the reader's choices are not overwritten from this scene on
+      { year: 2025, selection: { type: 'pref', code: 27 }, camera: 'oblique', hover: { o: 26, d: 27 }, body: { ja: '14年間でほとんど変わらない流れもある。大阪府から兵庫県へは、毎年2万6千〜2万7千人台が移った。', en: 'Some flows barely moved in 14 years. Every year, 26,000 to 27,000 people moved from Osaka to Hyogo.' } }, // Osaka: Hyogo takes 26,000-27,000 a year (arc Osaka -> Hyogo)
+      { year: 2012, selection: { type: 'pref', code: 12 }, camera: 'oblique', hover: { o: 11, d: 12 }, body: { ja: '変わった流れもある。2012年、千葉県から東京都へ移った人は5万189人で、東京都から千葉県へ移った人より9,427人多かった。', en: 'Other flows changed. In 2012, 50,189 people moved from Chiba to Tokyo, 9,427 more than moved the other way.' } }, // Chiba, before the flow with Tokyo reversed (arc Chiba -> Tokyo)
+      { year: 2025, selection: { type: 'pref', code: 12 }, camera: 'oblique', hover: { o: 11, d: 12 }, body: { ja: '2025年には向きが逆転した。東京都から千葉県へ移った人が4万5,333人で、逆向きより783人多い。', en: 'By 2025 the balance had reversed: 45,333 people moved from Tokyo to Chiba, 783 more than the other way.' } }, // Chiba, after the reversal
+      { year: 2025, selection: null, camera: 'oblique', body: { ja: '移動の平均距離は283〜290kmに収まり、約4割は100km未満だ。地域と年を選んで確かめてほしい。', en: 'The average move stayed between 283 and 290 km, and about 4 in 10 were under 100 km. Pick a region and a year, and see for yourself.' } }, // free exploration starts here: the reader's choices are not overwritten from this scene on
     ],
   },
 ];
