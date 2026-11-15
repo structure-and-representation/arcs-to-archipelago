@@ -2,7 +2,15 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { geoLayout } from '../src/geometry/layout.js';
-import { APPEAR, appearance, boundsOfLines, buildRibbonGeometry, extractBoundaryLines } from '../src/scene/ground.js';
+import {
+  APPEAR,
+  LAND_OPACITY,
+  appearance,
+  boundsOfLines,
+  buildLandFill,
+  buildRibbonGeometry,
+  extractBoundaryLines,
+} from '../src/scene/ground.js';
 
 const read = (f) => JSON.parse(readFileSync(resolve(__dirname, '../public/data', f), 'utf8'));
 const topology = read('japan.topojson');
@@ -91,6 +99,77 @@ describe('境界線とワールド座標', () => {
     const n = geo.toWorld(0, 100);
     const o = geo.toWorld(0, 0);
     expect(Math.atan2(n[1] - o[1], n[0] - o[0])).toBeCloseTo(geo.northAngle, 10);
+  });
+});
+
+describe('陸地の面の三角形分割', () => {
+  const land = buildLandFill(topology, geo.toWorld);
+  const triCount = land.index.length / 3;
+  const tri = (k) => {
+    const v = [0, 1, 2].map((j) => {
+      const i = land.index[k * 3 + j];
+      return [land.positions[i * 3], land.positions[i * 3 + 2]];
+    });
+    return { v, pref: land.prefs[land.index[k * 3]] };
+  };
+  const area2 = ([a, b, c]) => (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
+  const inTri = (p, [a, b, c]) => {
+    const d1 = area2([a, b, p]), d2 = area2([b, c, p]), d3 = area2([c, a, p]);
+    return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+  };
+
+  it('頂点と添字が有限で、三角形が 47 都道府県すべてにある', () => {
+    expect(triCount).toBeGreaterThan(1000);
+    expect(land.positions.every(Number.isFinite)).toBe(true);
+    expect(land.prefs.length * 3).toBe(land.positions.length);
+    expect(Math.max(...land.index)).toBeLessThan(land.prefs.length);
+    const seen = new Set();
+    for (let k = 0; k < triCount; k++) seen.add(tri(k).pref);
+    expect([...seen].sort((a, b) => a - b)).toEqual(Array.from({ length: 47 }, (_, i) => i));
+  });
+
+  it('47 都道府県の代表点が、その都道府県の面(三角形)の内側にある', () => {
+    const byPref = Array.from({ length: 47 }, () => []);
+    for (let k = 0; k < triCount; k++) {
+      const t = tri(k);
+      byPref[t.pref].push(t.v);
+    }
+    prefectures.forEach((p, i) => {
+      expect(byPref[i].some((t) => inTri(geo.pos[i], t)), p.ja).toBe(true);
+    });
+  });
+
+  it('三角形の面積の和が、各都道府県の領域(外輪 − 穴)の面積と一致する(分割の取りこぼしがない)', () => {
+    const ringArea = (r) => {
+      let a = 0;
+      for (let i = 0, j = r.length - 1; i < r.length; j = i++) a += r[j][0] * r[i][1] - r[i][0] * r[j][1];
+      return Math.abs(a) / 2;
+    };
+    const expected = new Array(47).fill(0);
+    topology.objects.japan.geometries.forEach((g, gi) => {
+      for (const [outer, ...holes] of regionOf(gi)) {
+        expected[g.id - 1] += ringArea(outer) - holes.reduce((s, h) => s + ringArea(h), 0);
+      }
+    });
+    const got = new Array(47).fill(0);
+    for (let k = 0; k < triCount; k++) {
+      const t = tri(k);
+      got[t.pref] += Math.abs(area2(t.v)) / 2;
+    }
+    prefectures.forEach((p, i) => {
+      expect(Math.abs(got[i] - expected[i]) / expected[i], p.ja).toBeLessThan(1e-3); // 頂点は Float32 に丸めるので、小さな島の多い県で 1e-4 台のずれが出る
+    });
+  });
+});
+
+describe('不透明度', () => {
+  it('紙・墨の両テーマで、陸地の面は薄く(0.04〜0.10)、選択地域はそれより濃く、県境は面より強い', () => {
+    for (const o of Object.values(LAND_OPACITY)) {
+      expect(o.land).toBeGreaterThanOrEqual(0.04);
+      expect(o.land).toBeLessThanOrEqual(0.1);
+      expect(o.selected).toBeGreaterThan(o.land);
+      expect(o.border).toBeGreaterThan(o.selected);
+    }
   });
 });
 
