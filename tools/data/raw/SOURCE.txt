@@ -1,0 +1,22 @@
+# 取得した原本ファイルの一覧。空行で区切った key: value の並び。
+# build_od.py / verify_od.py が取得日の参照と追記に使うので、書式を変えないこと。
+
+file: 11-long.xlsx
+retrieved: 2026-11-15
+url: https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040430819&fileKind=0
+description: 住民基本台帳人口移動報告 長期時系列表 第11表(シート2012〜、日本人移動者。一覧ページ: https://www.e-stat.go.jp/stat-search/files?toukei=00200523&tstat=000000070001&cycle=0&tclass1=000001051218&layout=datalist&page=1&tclass2val=0)
+
+file: nenpo2012_t2.xls
+retrieved: 2026-11-15
+url: https://www.e-stat.go.jp/stat-search/file-download?statInfId=000018799830&fileKind=0
+description: 年報(基本集計)2012年 第2表 男女，移動前の住所地別都道府県間移動者数。一覧: https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&cycle=7&toukei=00200523&tstat=000000070001&tclass1=000001040402&tclass2val=0&year=20120&month=0
+
+file: nenpo2013_t2.xls
+retrieved: 2026-11-15
+url: https://www.e-stat.go.jp/stat-search/file-download?statInfId=000023617820&fileKind=0
+description: 年報(基本集計)2013年 第2表 男女，移動前の住所地別都道府県間移動者数。一覧: https://www.e-stat.go.jp/stat-search/files?page=1&layout=datalist&cycle=7&toukei=00200523&tstat=000000070001&tclass1=000001040402&tclass2val=0&year=20130&month=0
+
+file: prefecturalMigrants-data.json
+retrieved: 2026-11-15
+url: https://structure-and-representation.com/works/prefecturalMigrants/data.json
+description: 旧作品「三大都市圏の人の流れ」(2015)のデータ。2014年の都道府県間移動者数
