@@ -29,10 +29,15 @@ export const PARTNERS = 6;
 export const NATIONWIDE_MAX = 16;
 /** 縦画面の全国表示で出すラベルの上限。 */
 export const NATIONWIDE_MAX_PORTRAIT = 8;
-/** 変形の途中で点に付けたまま運ぶラベル: 北海道、宮城、東京、愛知、大阪、福岡、沖縄(両端と、大きな都市圏の中心)。 */
-export const CARRIED = [0, 3, 12, 22, 26, 39, 46];
+/**
+ * 変形の途中で点に付けたまま運ぶラベル(優先度の順): 北海道、沖縄、東京、大阪、福岡、宮城、愛知(両端と、大きな都市圏の中心)。
+ * 横書きの札が重なるときは、優先度の低いほうを出さない(縦画面の狭い並びなど)。
+ */
+export const CARRIED = [0, 46, 12, 26, 39, 3, 22];
 /** この morph 以上なら、変形を終えた地図のラベル(貪欲な配置)。 */
 export const CARRY_MORPH_MAX = 0.98;
+/** morph が 1 になってから、カメラが動き続けている間、運ぶラベルのままにする時間の上限(ms)。 */
+export const CARRY_GRACE_MS = 1500;
 /** 索引の列の間隔(CSS px)がこれ未満なら、索引を詰めた形にする(10px、1 つおき)。英語は INDEX_DENSE_EN。 */
 export const INDEX_DENSE = 14;
 export const INDEX_DENSE_EN = 16;
@@ -211,26 +216,31 @@ const smoothstep = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 
+/** 変形の途中で、点からこの距離(CSS px)以上離れたラベルは出さない(宙に浮かせない)。 */
+export const CARRY_MAX_DIST = 40;
+/** 横長の索引で、縦書きから横書きへ移る morph。 */
+export const CARRY_FLIP = 0.3;
+
 /**
- * 変形の途中のラベルの置き方。morph(0〜1)、orient('v' 横長の真横から / 'h' 縦画面の真横から)、
+ * 変形の途中のラベルの置き方。morph(0〜1)、orient('v' 横長の真横から / 'h' 回した真横から)、
  * scale(画面の CSS px / ワールド 1 単位)から、点からのずれと書字の向きと不透明度を返す。
  *  { dx, dy, vertical, carried: 運ぶラベルの不透明度, others: 運ばないラベルの不透明度 }
- * 位置: 索引の位置(横長は点の下 INDEX_OFFSET_V、縦画面は点の右 INDEX_OFFSET_H)から、点の東(右へ 7px)へ。
- * 横長は morph 0.5 で縦書きから横書きへ移り、そこで不透明度を一度 0.3 まで落とす。
+ * 位置: 索引の位置(横長は点の下 INDEX_OFFSET_V、回した真横は点の右 INDEX_OFFSET_H)から、morph 0〜CARRY_FLIP の間に
+ * 点の東(右へ 7px)へ。横長は CARRY_FLIP で縦書きから横書きへ移り、そこで不透明度を一度 0.2 まで落とす。
+ * 点から CARRY_MAX_DIST 以上離れている間は出さない(索引の位置から点へ寄ってくる途中で現れる)。
+ * 運ばないラベルは、morph が 0.15 になるまでに消える。
  */
 export function carryPose(morph, orient, scale) {
-  const k = smoothstep(0.05, 0.75, morph);
+  const k = smoothstep(0, CARRY_FLIP, morph);
   const from = orient === 'v' ? [0, INDEX_OFFSET_V * scale] : [INDEX_OFFSET_H * scale, 0];
   const to = [7, 0];
-  const vertical = orient === 'v' && morph < 0.5;
-  const dip = orient === 'v' ? 0.7 * Math.max(0, 1 - Math.abs(morph - 0.5) / 0.15) : 0;
-  return {
-    dx: from[0] + (to[0] - from[0]) * k,
-    dy: from[1] + (to[1] - from[1]) * k,
-    vertical,
-    carried: 1 - dip,
-    others: 1 - smoothstep(0.02, 0.2, morph),
-  };
+  const dx = from[0] + (to[0] - from[0]) * k;
+  const dy = from[1] + (to[1] - from[1]) * k;
+  const vertical = orient === 'v' && morph < CARRY_FLIP;
+  const dip = orient === 'v' ? 0.8 * Math.max(0, 1 - Math.abs(morph - CARRY_FLIP) / 0.1) : 0;
+  // 索引の位置(morph 0)では、そのまま索引として見せる。動き出したら、点から離れている間は出さない
+  const near = morph <= 0 ? 1 : Math.min(1, Math.max(0, (CARRY_MAX_DIST + 12 - Math.hypot(dx, dy)) / 12));
+  return { dx, dy, vertical, carried: (1 - dip) * near, others: 1 - smoothstep(0, 0.15, morph) };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -374,12 +384,16 @@ export function mount(el, store, ctx) {
     return moved;
   }
 
-  function currentMode() {
+  // 変形の 2 段目(morph は 1 で、カメラが起きている間)も、運ぶラベルのまま点に付けておく
+  let morphLowAt = -Infinity;
+  function currentMode(moved, now) {
     const rs = renderer.getState();
     const view = rs.view ?? {};
     const indexMode = rs.morph < INDEX_MORPH_MAX && Math.abs(view.elevation ?? 0) < INDEX_ELEVATION_MAX;
+    if (rs.morph < CARRY_MORPH_MAX) morphLowAt = now;
     if (indexMode) return Math.abs(Math.sin(view.roll ?? 0)) > 0.5 ? 'index-h' : 'index-v';
-    return rs.morph < CARRY_MORPH_MAX ? 'carry' : 'free';
+    if (rs.morph < CARRY_MORPH_MAX) return 'carry';
+    return mode === 'carry' && moved && now - morphLowAt < CARRY_GRACE_MS ? 'carry' : 'free';
   }
   function setOpacity(i, v) {
     const o = v >= 0.999 ? '' : v.toFixed(2);
@@ -395,9 +409,23 @@ export function mount(el, store, ctx) {
     const view = rs.view ?? {};
     const scale = (view.zoom ?? 0) * win.innerHeight || 1;
     const pose = carryPose(rs.morph, Math.abs(Math.sin(view.roll ?? 0)) > 0.5 ? 'h' : 'v', scale);
-    const carried = new Set(CARRIED);
-    cache.mask.forEach((m, i) => m && carried.add(i));
-    if (hoverI != null) carried.add(hoverI);
+    // 運ぶラベル: 選択中・ホバー中を先に、続いて CARRIED の順。横書きのときは、すでに置いた札と重なるものを出さない
+    const order = [];
+    if (hoverI != null) order.push(hoverI);
+    cache.mask.forEach((m, i) => m && order.push(i));
+    order.push(...CARRIED);
+    const carried = new Set();
+    const sz = pose.vertical ? null : measureSizes();
+    const rects = [];
+    for (const i of order) {
+      if (carried.has(i)) continue;
+      if (sz) {
+        const r = { left: px[i] + pose.dx, top: py[i] + pose.dy - sz.h[i] / 2, right: px[i] + pose.dx + sz.w[i] + 6, bottom: py[i] + pose.dy + sz.h[i] / 2 + 3 }; // 札の余白(左右 3px、上下 1・2px)
+        if (rects.some((q) => rectsOverlap(r, q, GAP_LABEL))) continue;
+        rects.push(r);
+      }
+      carried.add(i);
+    }
     for (let i = 0; i < 47; i++) {
       const keep = carried.has(i);
       const a = keep ? pose.carried : pose.others;
@@ -546,7 +574,8 @@ export function mount(el, store, ctx) {
       sizes = null;
       dirty = true;
     }
-    const m = currentMode();
+    const moved = project();
+    const m = currentMode(moved, now);
     if (m !== mode) {
       mode = m;
       el.classList.toggle('index-v', m === 'index-v');
@@ -557,7 +586,6 @@ export function mount(el, store, ctx) {
       dirty = true;
       sizes = null;
     }
-    const moved = project();
     refreshCache();
     const hoverI = s.hover?.type === 'pref' ? s.hover.code - 1 : null;
     if (mode === 'carry') {
