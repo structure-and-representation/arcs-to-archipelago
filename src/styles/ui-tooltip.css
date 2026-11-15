@@ -1,11 +1,63 @@
-/* ツールチップ(ui/tooltip.js) */
+/* ツールチップ(ui/tooltip.js)。デザイン仕様 5.5 節。色・文字・時間は tokens.css のトークンから読む。 */
 #tooltip {
   position: fixed;
-  z-index: 3;
+  left: 0;
+  top: 0;
+  z-index: 5;
   pointer-events: none;
-  padding: 4px 8px;
-  background: var(--bg-85);
-  border: 1px solid var(--fg-20);
-  font-size: 12px;
+  min-width: 180px;
+  max-width: 280px;
+  padding: 8px 10px;
+  background: var(--veil-solid);
+  border: 1px solid var(--line-2);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  letter-spacing: var(--ls-ui);
+  white-space: nowrap;
+  /* 不透明度だけを動かす。位置は動かさない(ポインタに付いていく) */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur-1) var(--ease-out), visibility 0s linear var(--dur-1);
+}
+#tooltip.on {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--dur-1) var(--ease-out), visibility 0s;
 }
 #tooltip[hidden] { display: none; }
+
+#tooltip .tip-route {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-1);
+  font-weight: 500;
+}
+/* 弧のホバーの印: 朱の短い線 */
+#tooltip .tip-route i {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 1.5px;
+  background: var(--accent);
+}
+#tooltip .tip-value {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+#tooltip .tip-unit {
+  margin-left: 4px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-caption);
+  color: var(--fg-3);
+}
+#tooltip .tip-sub { color: var(--fg-3); }
+#tooltip .tip-n {
+  color: var(--fg-1);
+  font-family: var(--font-serif);
+  font-variant-numeric: tabular-nums lining-nums;
+}
