@@ -1,0 +1,25 @@
+const { chromium } = require('playwright');
+const R='/tmp/claude-0/-home-user/eb10e208-1ede-56b5-bfaa-91a18a149f17/scratchpad/';
+(async()=>{
+  const { preview } = await import(R+'n/node_modules/vite/dist/node/index.js');
+  const server=await preview({root:R+'n',logLevel:'error',preview:{port:0,host:'127.0.0.1',open:false}});
+  const base=server.resolvedUrls.local[0];
+  const browser=await chromium.launch({args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
+  const page=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:1});
+  await page.goto(`${base}?morph=0&cam=side&still=1`); await page.waitForSelector('html[data-ready="1"]');
+  await page.waitForTimeout(1500);
+  await page.addStyleTag({content:'#app>*:not(#stage):not(#labels){display:none !important}'});
+  const raf=()=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>r())));
+  await page.evaluate(()=>{ window.__st=window.requestAnimationFrame; });
+  await page.evaluate(()=>window.__app.store.set({selection:{type:'metro',id:'tokyo'}}));
+  for(let i=0;i<2;i++) await raf();
+  const prog=await page.evaluate(()=>{window.requestAnimationFrame=()=>0; return 'frozen'});
+  await page.screenshot({path:R+'review/shots/trans-mid-tokyo-side.png',clip:{x:440,y:300,width:940,height:300},timeout:120000});
+  await page.evaluate(()=>{window.requestAnimationFrame=window.__st; });
+  await page.waitForTimeout(6000);
+  await page.evaluate(()=>{window.__st2=window.requestAnimationFrame;});
+  for(let i=0;i<3;i++) await raf();
+  await page.evaluate(()=>{window.requestAnimationFrame=()=>0;});
+  await page.screenshot({path:R+'review/shots/trans-final-tokyo-side.png',clip:{x:440,y:300,width:940,height:300},timeout:120000});
+  await browser.close(); server.httpServer.close();
+})();

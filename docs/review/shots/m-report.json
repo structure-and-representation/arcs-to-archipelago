@@ -1,0 +1,812 @@
+[
+ {
+  "name": "m-1440-national-side-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-national-oblique-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-national-top-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-tokyo-side-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-tokyo-oblique-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-tokyo-top-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-osaka-side-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-osaka-oblique-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-osaka-top-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-nagoya-side-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-nagoya-oblique-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-nagoya-top-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(38x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1523,464,1566",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1577,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-national-side-ink-en",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(51x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1497,464,1541",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1551,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-national-oblique-ink-en",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(51x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1497,464,1541",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1551,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-national-top-ink-en",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(51x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1497,464,1541",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1551,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-tokyo-side-ink-en",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(51x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1497,464,1541",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1551,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-tokyo-oblique-ink-en",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(51x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1497,464,1541",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1551,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-1440-tokyo-top-ink-en",
+  "logs": [],
+  "overlaps": [
+   "cameraxtablesum(51x26)"
+  ],
+  "offscreen": [
+   "chapterH:16,1497,464,1541",
+   "chapterH:16,2423,464,2466",
+   "chapterH:16,3323,464,3366",
+   "chapterH:16,4223,464,4266",
+   "chapterP:16,1551,464,1602",
+   "chapterP:16,2477,464,2502",
+   "chapterP:16,3377,464,3402",
+   "chapterP:16,4277,464,4302"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 1440,
+  "docW": 1440
+ },
+ {
+  "name": "m-390-national-side-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-national-oblique-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-national-top-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-tokyo-side-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-tokyo-oblique-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-tokyo-top-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-osaka-side-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-osaka-oblique-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-osaka-top-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-nagoya-side-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-nagoya-oblique-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-nagoya-top-paper-ja",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(62x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1423,374,1467",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1477,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-national-side-ink-en",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(75x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1398,374,1441",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1451,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-national-oblique-ink-en",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(75x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1398,374,1441",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1451,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-national-top-ink-en",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(75x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1398,374,1441",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1451,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-tokyo-side-ink-en",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(75x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1398,374,1441",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1451,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-tokyo-oblique-ink-en",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(75x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1398,374,1441",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1451,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ },
+ {
+  "name": "m-390-tokyo-top-ink-en",
+  "logs": [],
+  "overlaps": [
+   "selectorxtimeline(358x6)",
+   "timelinextablesum(75x12)"
+  ],
+  "offscreen": [
+   "chapterH:16,1398,374,1441",
+   "chapterH:16,2267,374,2311",
+   "chapterH:16,3111,374,3155",
+   "chapterH:16,3955,374,3999",
+   "chapterP:16,1451,374,1502",
+   "chapterP:16,2321,374,2346",
+   "chapterP:16,3165,374,3190",
+   "chapterP:16,4009,374,4034"
+  ],
+  "overflow": [
+   "sel-live"
+  ],
+  "docScrollW": 390,
+  "docW": 390
+ }
+]
