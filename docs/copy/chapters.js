@@ -1,4 +1,4 @@
-// 5 chapters of "弧が列島になる / Arcs Become an Archipelago".
+// 5 chapters of "都道府県をまたぐ人の流れ / Moves Between Japan’s Prefectures".
 // Every number in the text was checked against Table 11 of the long-term series of the
 // Report on Internal Migration in Japan (Japanese nationals, moves between prefectures, 2012-2025).
 // Metro-area figures count only moves to and from outside the area, and match the official

@@ -177,7 +177,7 @@ console.log(`[${mode}] 5. 言語と本文`);
   await settle(page, 100);
   const en = await body();
   ok(en.includes('Arcs above the line head north'), 'en に切り替わる');
-  ok(await page.evaluate(() => document.documentElement.lang === 'en' && document.title.startsWith('Arcs Become')), 'html lang と title');
+  ok(await page.evaluate(() => document.documentElement.lang === 'en' && document.title.startsWith('Moves Between')), 'html lang と title');
   const h2 = await page.evaluate(() => document.querySelector('.chapter[data-chapter="1"] h2').textContent);
   ok(h2 === COPY[1].heading.en, `見出し en: ${h2}`);
   const h0 = await page.evaluate(() => document.querySelector('.chapter[data-chapter="0"] h2').textContent);

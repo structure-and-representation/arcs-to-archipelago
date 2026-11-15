@@ -7,9 +7,9 @@
 
 | key | ja | en |
 |---|---|---|
-| `meta.title` | 弧が列島になる | Arcs Become an Archipelago |
-| `meta.subtitle` | 都道府県間の人口移動 2012–2025 | Migration between Japan's prefectures, 2012–2025 |
-| `meta.intro` | 一本の線に並べた47都道府県のあいだに、14年分の引っ越しを弧で描く。弧を地図の上に立てると、日本列島が現れる。 | Forty-seven prefectures on a single line, linked by arcs for 14 years of moves. Stand the arcs on a map, and Japan appears. |
+| `meta.title` | 都道府県をまたぐ人の流れ | Moves Between Japan’s Prefectures |
+| `meta.subtitle` | 住民基本台帳人口移動報告 2012–2025年 | Internal migration data, 2012–2025 |
+| `meta.intro` | 2012年から2025年まで、都道府県をまたいで住まいを移した人の流れを、弧と粒子で描く。1粒は100人。総務省「住民基本台帳人口移動報告」(日本人移動者)より。 | How people moved between Japan’s 47 prefectures from 2012 to 2025, drawn as arcs and grains. One grain is 100 people. Data: Statistics Bureau of Japan (Japanese nationals). |
 | `meta.ogDescription` | 都道府県間の人口移動 2012–2025年を、arc diagram から日本列島の地図へ。総務省「住民基本台帳人口移動報告」より。 | Migration between Japan's prefectures, 2012–2025, from an arc diagram to a map. Data: Statistics Bureau of Japan. |
 
 ## legend(凡例)
