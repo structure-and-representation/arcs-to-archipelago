@@ -273,6 +273,9 @@ function slide(lo, hi, cLo, cHi) {
   return 0;
 }
 
+/** デスクトップの真横で、都道府県名の縦書きの索引のために下から空ける高さ(CSS px)。 */
+export const DESKTOP_SIDE_INDEX_GUTTER = 130;
+
 /**
  * 定位置ごとに、図を収める領域を整える(docs/design/spec.md 4 節)。
  *  縦画面の真横: 右に都道府県名の索引の余白を空ける。
@@ -286,6 +289,8 @@ export function presetRegion(preset, region, portrait, fromLayout = true, select
   let r = region;
   // 縦画面の真横は回さずに横長の並びを描き、並びの下に縦書きの索引を出すので、下を空ける
   if (portrait && preset === 'side' && fromLayout) r = { ...r, y1: Math.max(r.y0 + 80, r.y1 - PORTRAIT_INDEX_GUTTER) };
+  // デスクトップの真横は、並びの下に縦書きの索引が付く。索引のぶんだけ下を空け、弧の塊を上へ寄せる
+  if (!portrait && preset === 'side' && fromLayout) r = { ...r, y1: Math.max(r.y0 + 200, r.y1 - DESKTOP_SIDE_INDEX_GUTTER) };
   const wide = r.x1 + 40 >= DESKTOP_WIDE; // 右の余白 40px を足すと画面の幅
   if (preset !== 'side' && fromLayout && selected && !portrait && wide && r.x1 - DESKTOP_READOUT_COLUMN - r.x0 >= 300) {
     return { ...r, x1: r.x1 - DESKTOP_READOUT_COLUMN };

@@ -95,7 +95,7 @@ describe('createFallback の射影', () => {
     expect(p0[0]).toBeLessThan(p46[0]);
     // 図は WebGL と同じ図の領域(figureRegion: x 424〜1400、y 96〜800)の中央に収まる
     const r = figureRegion(1440, 900);
-    expect(p0[1]).toBeCloseTo((r.y0 + r.y1) / 2, 6);
+    expect(p0[1]).toBeCloseTo((r.y0 + r.y1 - 130) / 2, 6);
     const { zoom } = fb.getState().view;
     expect(p1[0] - p0[0]).toBeCloseTo(STEP * zoom * 900, 9);
     expect((p0[0] + p46[0]) / 2).toBeCloseTo((r.x0 + r.x1) / 2, 6); // 中心は 47 点の中央(添字 23 = 三重県が領域の中央)

@@ -121,7 +121,7 @@ describe('viewFor: 定位置', () => {
     const width = Math.max(...xs) - Math.min(...xs);
     expect(width / 976).toBeGreaterThan(0.9);
     expect(width / 976).toBeLessThan(0.96);
-    expect(d.every((p) => Math.abs(p[1] - 430) < 1e-6)).toBe(true);
+    expect(d.every((p) => Math.abs(p[1] - 365) < 1e-6)).toBe(true);
     const m = nodesOnScreen(view('side', 390, 844), [390, 844]);
     const mx = m.map((p) => p[0]);
     expect((Math.max(...mx) - Math.min(...mx)) / 358).toBeGreaterThan(0.9);
@@ -216,7 +216,7 @@ describe('viewFor: 地域を選んでいるとき', () => {
     expect(presetRegion('oblique', r, false, true, true)).toEqual({ ...r, x1: 1400 - 324 });
     expect(presetRegion('top', r, false, true, true)).toEqual({ ...r, x1: 1400 - 324 });
     expect(presetRegion('oblique', r, false, true, false).y0).toBe(250);
-    expect(presetRegion('side', r, false, true, true)).toEqual(r);
+    expect(presetRegion('side', r, false, true, true)).toEqual({ ...r, y1: r.y1 - 130 });
   });
 
   it('幅 1280px 未満のデスクトップで地域を選ぶと、列は外さず、図の領域を読み出しの下端より下へ下げる(N-3)', () => {
