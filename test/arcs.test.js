@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { arcList, selectionMask, sideOf } from '../src/geometry/flows.js';
-import { createArcsLayer } from '../src/scene/arcs.js';
+import { DASH_FROM, DASH_TO, createArcsLayer } from '../src/scene/arcs.js';
 import { RENDER_ORDER, createShared } from '../src/scene/shared.js';
 import { prefectures } from './helpers.js';
 
@@ -231,5 +231,33 @@ describe('setHover', () => {
     expect(hover.visible).toBe(false);
     layer.setHover({ o: 0, d: 12 });
     expect(hover.visible).toBe(true);
+  });
+});
+
+describe('地下の弧の破線', () => {
+  it('真横(morph 0)では実線、地図の上(morph 1)では破線。地上の弧は破線にしない', () => {
+    const { shared, layer, below, above, hover } = make();
+    shared.uniforms.uMorph.value = 0;
+    layer.update(still);
+    expect(below.material.uniforms.uDashOn.value).toBe(0);
+    shared.uniforms.uMorph.value = (DASH_FROM + DASH_TO) / 2;
+    layer.update(still);
+    expect(below.material.uniforms.uDashOn.value).toBeCloseTo(0.5, 9);
+    shared.uniforms.uMorph.value = 1;
+    layer.update(still);
+    expect(below.material.uniforms.uDashOn.value).toBe(1);
+    expect(hover.material.uniforms.uDashOn.value).toBe(1); // 朱の弧も、地下なら破線(シェーダが side で決める)
+    expect(above.material.uniforms.uDashOn.value).toBe(0);
+  });
+
+  it('粒子の見え方に関わる値(線幅・不透明度)は、破線の有無で変わらない', () => {
+    const { shared, layer, below } = make();
+    shared.uniforms.uMorph.value = 0;
+    layer.update(still);
+    const w0 = below.material.uniforms.uWidth.value, a0 = below.material.uniforms.uAlpha.value;
+    shared.uniforms.uMorph.value = 1;
+    layer.update(still);
+    expect(below.material.uniforms.uWidth.value).toBe(w0);
+    expect(below.material.uniforms.uAlpha.value).toBe(a0);
   });
 });

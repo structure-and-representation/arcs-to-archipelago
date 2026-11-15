@@ -1,8 +1,10 @@
 // 地面(y = 0 の xz 平面)の描画。「線はデータだけ」: 地形は線ではなく面で示す。
-//   1. 紙の色の半透明の面(地下の弧と粒子を一段沈めて見せる)
+//   1. 紙の色の半透明の面(地下の弧の線を一段沈めて見せる。地下の粒子は沈めない)
 //   2. 陸地: 墨の色のごく薄い面(都道府県ごとに三角形分割。海は紙のまま、海岸線は描かない)。選択地域は少し濃い
 //   3. 県境: 陸地の面の中に入れる、紙の色の極細の線(面より明るく、抜いたように見える)
-// RENDER_ORDER.ground で描く。
+// 描く順序は、地下の弧(RENDER_ORDER.arcsBelow)の後、地下の粒子(RENDER_ORDER.particlesBelow)の前(GROUND_ORDER)。
+// 紙色の面が沈めるのは地下の弧の線だけで、地下の粒子は地上の粒子と同じ濃さに見える(粒子の量の比較を歪めない)。
+// 画面上の面積が ISLAND_MIN_PX(CSS px²)に満たない島は、陸地の面として描かない(1 粒と見分けがつかないため)。
 // 頂点は、data.topology(座標は prefectures.json と同じ平面座標、km)を shared.layout.toWorld(mapX, mapY) → [x, z] でワールド座標へ移す。
 // 地面は、morph が 0 に近いほど薄く、真横(カメラが地面と平行)では描かない。
 //
@@ -24,7 +26,12 @@ export const LAND_OPACITY = Object.freeze({
 });
 const BORDER_WIDTH = 0.6; // CSS px。県境の太さは一定
 // morph がこの区間で、地面と境界線が 0 → 1 に現れる(smoothstep)。
-export const APPEAR = Object.freeze({ from: 0.55, to: 0.95 });
+// 変形の後半(都道府県が動き始めてから)に、行き先として陸地が現れる。
+export const APPEAR = Object.freeze({ from: 0.6, to: 1.0 });
+/** 地面の層の描く順序: 地下の弧の後、地下の粒子の前。 */
+export const GROUND_ORDER = RENDER_ORDER.arcsBelow + 0.5;
+/** この面積(CSS px²)未満の島は描かない。この 2 倍で描き終わる(その間はなめらかに薄くする)。 */
+export const ISLAND_MIN_PX = 12;
 // 紙色の面は、陸地の範囲より外側へこの距離(ワールド単位)だけ広げ、縁をなめらかに消す。
 const GROUND_FEATHER = 40;
 
@@ -116,13 +123,20 @@ function ringPoints(arcs, ring) {
 /**
  * 都道府県の領域を三角形に分割する(穴のある領域も扱う)。
  * 頂点は toWorld(mapX, mapY) → [x, z] でワールド座標へ移す。
- * 戻り値: { positions: Float32Array(x, 0, z の並び)、prefs: Float32Array(頂点ごとの都道府県の添字 0〜46)、index: 三角形の頂点の添字 }
+ * 戻り値: { positions: Float32Array(x, 0, z の並び)、prefs: Float32Array(頂点ごとの都道府県の添字 0〜46)、
+ *          areas: Float32Array(頂点ごとの、その頂点が属する島(多角形)の面積。ワールド単位の 2 乗)、index: 三角形の頂点の添字 }
  */
 export function buildLandFill(topology, toWorld) {
   const arcs = decodeArcs(topology).map((line) => line.map(([mx, my]) => toWorld(mx, my)));
   const positions = [];
   const prefs = [];
+  const areas = [];
   const index = [];
+  const ringArea = (pts) => {
+    let a = 0;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) a += (pts[j][0] - pts[i][0]) * (pts[j][1] + pts[i][1]);
+    return Math.abs(a) / 2;
+  };
   topology.objects.japan.geometries.forEach((geom) => {
     const pref = geom.id - 1;
     const polys = geom.type === 'MultiPolygon' ? geom.arcs : geom.type === 'Polygon' ? [geom.arcs] : [];
@@ -132,16 +146,19 @@ export function buildLandFill(topology, toWorld) {
       if (!outer || outer.length < 3) continue;
       const toV = (pts) => pts.map(([x, z]) => new THREE.Vector2(x, z));
       const tris = THREE.ShapeUtils.triangulateShape(toV(outer), holes.filter((h) => h.length >= 3).map(toV));
-      const flat = [...outer, ...holes.filter((h) => h.length >= 3).flat()];
+      const kept = holes.filter((h) => h.length >= 3);
+      const flat = [...outer, ...kept.flat()];
+      const area = Math.max(0, ringArea(outer) - kept.reduce((sum, h) => sum + ringArea(h), 0));
       const base = positions.length / 3;
       for (const [x, z] of flat) {
         positions.push(x, 0, z);
         prefs.push(pref);
+        areas.push(area);
       }
       for (const t of tris) index.push(base + t[0], base + t[1], base + t[2]);
     }
   });
-  return { positions: new Float32Array(positions), prefs: new Float32Array(prefs), index: new Uint32Array(index) };
+  return { positions: new Float32Array(positions), prefs: new Float32Array(prefs), areas: new Float32Array(areas), index: new Uint32Array(index) };
 }
 
 // ---- 線のリボン(頂点シェーダで、画面上の法線方向へ CSS px の幅だけ押し出す) ----
@@ -286,12 +303,18 @@ void main(){
 const LAND_VERT = /* glsl */ `
 ${FACING_GLSL}
 in float aPref;
+in float aArea;
 uniform float uSelect[47];
+uniform vec2 uRes;
+uniform float uPixelRatio;
 out float vSel;
 out float vFacing;
 void main(){
   vSel = uSelect[int(aPref + 0.5)];
-  vFacing = groundFacing();
+  // 島の画面上の面積(CSS px²): 正投影の 1 単位の CSS px の 2 乗 × 地面の短縮(視線の y 成分)
+  float unitPx = projectionMatrix[0][0] * 0.5 * uRes.x / uPixelRatio;
+  float areaPx = aArea * unitPx * unitPx * abs(viewMatrix[1][2]);
+  vFacing = groundFacing() * smoothstep(${ISLAND_MIN_PX.toFixed(1)}, ${(2 * ISLAND_MIN_PX).toFixed(1)}, areaPx);
   gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0);
 }`;
 
@@ -353,13 +376,14 @@ export function createGroundLayer(ctx) {
   const groundMesh = new THREE.Mesh(groundGeom, groundMat);
   groundMesh.name = 'ground-plane';
   groundMesh.frustumCulled = false;
-  groundMesh.renderOrder = RENDER_ORDER.ground;
+  groundMesh.renderOrder = GROUND_ORDER;
 
   // 陸地の面: 墨の色のごく薄い面。選択地域の都道府県だけ少し濃い。
   const land = buildLandFill(data.topology, shared.layout.toWorld);
   const landGeom = new THREE.BufferGeometry();
   landGeom.setAttribute('position', new THREE.BufferAttribute(land.positions, 3));
   landGeom.setAttribute('aPref', new THREE.BufferAttribute(land.prefs, 1));
+  landGeom.setAttribute('aArea', new THREE.BufferAttribute(land.areas, 1));
   landGeom.setIndex(new THREE.BufferAttribute(land.index, 1));
   const select = new Float32Array(47);
   const landMat = new THREE.ShaderMaterial({
@@ -373,6 +397,8 @@ export function createGroundLayer(ctx) {
       uLand: { value: 0 },
       uLandSelected: { value: 0 },
       uSelect: { value: select },
+      uRes: uniforms.uRes,
+      uPixelRatio: uniforms.uPixelRatio,
     },
     vertexShader: LAND_VERT,
     fragmentShader: LAND_FRAG,
@@ -380,7 +406,7 @@ export function createGroundLayer(ctx) {
   const landMesh = new THREE.Mesh(landGeom, landMat);
   landMesh.name = 'ground-land';
   landMesh.frustumCulled = false;
-  landMesh.renderOrder = RENDER_ORDER.ground;
+  landMesh.renderOrder = GROUND_ORDER;
 
   // 県境: 陸地の面の中の、紙の色の極細の線。海岸線は線にしない(陸と海の境は面の縁として見える)。
   const borderGeom = buildRibbonGeometry(border);
@@ -403,7 +429,7 @@ export function createGroundLayer(ctx) {
   const borderMesh = new THREE.Mesh(borderGeom, borderMat);
   borderMesh.name = 'ground-border';
   borderMesh.frustumCulled = false;
-  borderMesh.renderOrder = RENDER_ORDER.ground;
+  borderMesh.renderOrder = GROUND_ORDER;
   // 同じ renderOrder の中では、先に追加したものが先に描かれる(紙色の面 → 陸地 → 県境)
   object3D.add(groundMesh, landMesh, borderMesh);
 

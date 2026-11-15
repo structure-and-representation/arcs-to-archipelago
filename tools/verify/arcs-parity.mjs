@@ -59,6 +59,14 @@ try {
       content: 'html,body{background:#fff !important}body::before,body::after{display:none !important}#app>*:not(#stage){display:none !important}',
     });
     await page.waitForTimeout(800);
+    // 本文を隠すとページの高さが縮んでスクロールの位置が変わり、章の仕組みが別の場面(地図の上)を書くので、
+    // 隠した後で真横と選択を書き直す(動きを減らす設定にして、即座に切り替える)
+    await page.evaluate((code) => {
+      const { store } = window.__app;
+      store.set({ reducedMotion: true });
+      store.set({ camera: 'side', morph: 0, selection: { type: 'pref', code } });
+    }, Number(sel));
+    await page.waitForTimeout(800);
     await page.evaluate(() => window.__app.pause());
     const info = await page.evaluate(() => ({
       m: Array.from(window.__app.renderer.screenMatrix()),

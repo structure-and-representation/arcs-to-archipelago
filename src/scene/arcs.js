@@ -24,10 +24,20 @@
 //   - ホバー中の弧は、専用の 1 インスタンスの Mesh を朱で最前面に描く。
 //   - 線幅は CSS px で、DPR に依らない(シェーダが uPixelRatio を掛けて実ピクセルにする)。
 //   - 色は shared の uInk / uAccent(トークンの sRGB の値)をそのまま出す。不透明度と線幅は shared.style(tokens.css の --gl-*)から読む。
+//   - 地下の弧は、地図の上(morph が DASH_FROM〜DASH_TO で現れる)では破線にする(凡例の線画の点線と揃える)。
+//     破線の周期は画面の CSS px で一定(DASH_ON + DASH_OFF)。弧の長さは頂点シェーダで画面上の折れ線として測る。
+//     真横(morph 0)では実線のまま(原作の arc diagram と一致させるため)。粒子の数・大きさ・濃さは変えない。
 import * as THREE from 'three';
 import { GLSL_COMMON, RENDER_ORDER } from './shared.js';
 
 const SEG = 48; // 1 本の弧の区間数(設計 §5)
+// 地下の弧の破線(CSS px)。線幅 0.7px の線で、点の並びではなく短い線の並びに見える長さ
+export const DASH_ON = 3;
+export const DASH_OFF = 2.5;
+// morph がこの区間で、地下の弧が実線から破線へ移る(smoothstep)。地面の現れ方(ground.js の APPEAR)と揃える
+export const DASH_FROM = 0.5;
+export const DASH_TO = 0.9;
+const DASH_SAMPLES = 8; // 弧の長さを測る折れ線の区間数
 const TRANSITION_SEC = 0.6; // side と選択の見た目の切り替えの時間(--dur-year と同じ)
 
 const VERT = /* glsl */ `
@@ -39,8 +49,16 @@ uniform float uPixelRatio;
 uniform float uHalf;   // -1: 地下の弧だけ、+1: 地上の弧だけ、0: すべて
 uniform float uWidth;  // CSS px
 uniform float uAlpha;
+uniform float uDashOn; // 地下の弧の破線の強さ(0: 実線、1: 破線)
 out float vEdge;
 out float vAlpha;
+out float vDist;  // 弧の始点からの画面上の長さ(実ピクセル)。破線に使う
+out float vDash;
+
+vec2 toPx(vec3 p, mat4 pv){
+  vec4 c = pv * vec4(p, 1.0);
+  return c.xy / c.w * 0.5 * uRes;
+}
 
 // 一様 3 次 B スプラインの 1 区間の、パラメータ f についての導関数(向きだけを使う)
 vec3 bspDeriv(vec3 p0, vec3 p1, vec3 p2, vec3 p3, float f){
@@ -55,7 +73,7 @@ void main(){
   bool below = side < 0.0;
   if (aDyn.y <= 0.002 || (uHalf < -0.5 && !below) || (uHalf > 0.5 && below)) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // 画面の外へ(この Mesh が描かない弧)
-    vEdge = 0.0; vAlpha = 0.0;
+    vEdge = 0.0; vAlpha = 0.0; vDist = 0.0; vDash = 0.0;
     return;
   }
   vec3 R;
@@ -90,6 +108,18 @@ void main(){
   c.xy += nrm * e * hw / (0.5 * uRes) * c.w;
   vEdge = e * hw;
   vAlpha = aDyn.y;
+  // 破線: 始点から t までの画面上の長さを、折れ線で測る(B スプラインの t は長さに比例しないため)
+  vDash = below ? uDashOn : 0.0;
+  vDist = 0.0;
+  if (vDash > 0.001) {
+    vec3 Rq;
+    vec2 q0 = toPx(A, pv);
+    for (int k = 1; k <= ${DASH_SAMPLES}; k++) {
+      vec2 q1 = toPx(arcPoint(aArc.x, aArc.y, side, t * float(k) / ${DASH_SAMPLES}.0, Rq), pv);
+      vDist += length(q1 - q0);
+      q0 = q1;
+    }
+  }
   gl_Position = c;
 }`;
 
@@ -98,18 +128,29 @@ uniform float uWidth, uPixelRatio, uAlpha, uUseAccent;
 uniform vec3 uInk, uAccent;
 in float vEdge;
 in float vAlpha;
+in float vDist;
+in float vDash;
 out vec4 outColor;
 void main(){
   float wpx = uWidth * uPixelRatio;
   float hw = max(wpx, 1.0) * 0.5;
   float a = clamp(hw + 0.5 - abs(vEdge), 0.0, 1.0);
   a *= min(wpx, 1.0) * vAlpha * uAlpha; // 1px 未満の線は、細くせずに薄くする
+  if (vDash > 0.001) {
+    // 破線: 周期 (ON + OFF) の中で、ON の部分だけを残す(縁は 0.5px でなめらかに)
+    float period = ${(DASH_ON + DASH_OFF).toFixed(2)} * uPixelRatio;
+    float on = ${DASH_ON.toFixed(2)} * uPixelRatio;
+    float d = mod(vDist, period);
+    float m = clamp(on + 0.5 - d, 0.0, 1.0) * clamp(d + 0.5, 0.0, 1.0);
+    a *= mix(1.0, m, vDash);
+  }
   if (a <= 0.0) discard;
   vec3 col = uUseAccent > 0.5 ? uAccent : uInk;
   outColor = vec4(col, a); // uInk / uAccent はトークンの sRGB の値。色空間は変換しない
 }`;
 
 const smooth01 = (x) => x * x * (3 - 2 * x);
+const smoothstep = (a, b, x) => smooth01(Math.min(1, Math.max(0, (x - a) / (b - a))));
 
 export function createArcsLayer(ctx) {
   const { shared, arcList } = ctx;
@@ -171,6 +212,7 @@ export function createArcsLayer(ctx) {
         uWidth: { value: shared.style.lineWidth },
         uAlpha: { value: 0 },
         uUseAccent: { value: accent ? 1 : 0 },
+        uDashOn: { value: 0 },
       },
       vertexShader: VERT,
       fragmentShader: FRAG,
@@ -239,6 +281,10 @@ export function createArcsLayer(ctx) {
       m.material.uniforms.uAlpha.value = a;
     }
     hoverMesh.material.uniforms.uWidth.value = debugStyle ? debugStyle.width : st.lineWidthHover;
+    // 地下の弧の破線は、地図の上でだけ(真横では実線)。ホバーの朱の弧は、地下でも同じ破線にする
+    const dash = smoothstep(DASH_FROM, DASH_TO, shared.uniforms.uMorph.value);
+    below.material.uniforms.uDashOn.value = dash;
+    hoverMesh.material.uniforms.uDashOn.value = dash;
     hoverMesh.material.uniforms.uAlpha.value = debugStyle ? debugStyle.alpha : st.arcHover;
   }
 

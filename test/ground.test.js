@@ -2,8 +2,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { geoLayout } from '../src/geometry/layout.js';
+import { RENDER_ORDER } from '../src/scene/shared.js';
 import {
   APPEAR,
+  GROUND_ORDER,
+  ISLAND_MIN_PX,
   LAND_OPACITY,
   appearance,
   boundsOfLines,
@@ -200,5 +203,24 @@ describe('現れ方', () => {
       expect(appearance(m)).toBeGreaterThanOrEqual(prev);
       prev = appearance(m);
     }
+  });
+});
+
+describe('量の見え方を変えない描く順序と、小さな島', () => {
+  it('地面の層は、地下の弧の後、地下の粒子の前に描く(紙色の面が地下の粒子を薄くしない)', () => {
+    expect(GROUND_ORDER).toBeGreaterThan(RENDER_ORDER.arcsBelow);
+    expect(GROUND_ORDER).toBeLessThan(RENDER_ORDER.particlesBelow);
+  });
+
+  it('陸地の面の頂点は、属する島の面積を持つ。粒子ほどの島は 1440 幅の全国の画面で描かない大きさになる', () => {
+    const land = buildLandFill(topology, geo.toWorld);
+    expect(land.areas.length).toBe(land.prefs.length);
+    expect([...land.areas].every((a) => Number.isFinite(a) && a >= 0)).toBe(true);
+    const unique = [...new Set(land.areas)].sort((a, b) => a - b);
+    // 全国の斜め俯瞰(1440 × 900)で、ワールド 1 単位はおよそ 0.6 CSS px。最も小さい島は 12 px² に届かない
+    const px = 0.6;
+    expect(unique[0] * px * px).toBeLessThan(ISLAND_MIN_PX);
+    // 本州は十分に大きい
+    expect(unique[unique.length - 1] * px * px).toBeGreaterThan(100 * ISLAND_MIN_PX);
   });
 });
