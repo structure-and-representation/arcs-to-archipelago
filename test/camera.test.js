@@ -31,14 +31,14 @@ const opts = (w, h, selection = null) => viewOptions(w, h, selection);
 const view = (preset, w, h, selection = null) => viewFor(preset, w / h, layout, opts(w, h, selection));
 
 describe('viewFor: 定位置', () => {
-  it('定位置の値は設計 §6 どおり(side: 0/0、oblique: 北が上・仰角 52°・lean 0、top: 真上)', () => {
+  it('定位置の値は設計 §6 どおり(side: 0/0、oblique: 北が上・仰角 36°・lean 0、top: 真上)', () => {
     expect(CAMERA_PRESETS.side).toMatchObject({ azimuth: 0, elevation: 0, morph: 0, lean: 0 });
     expect(CAMERA_PRESETS.oblique).toMatchObject({ azimuth: null, morph: 1, lean: 0 });
-    expect(CAMERA_PRESETS.oblique.elevation).toBeCloseTo((52 * Math.PI) / 180, 12);
+    expect(CAMERA_PRESETS.oblique.elevation).toBeCloseTo((36 * Math.PI) / 180, 12);
     expect(viewFor('side', 1.6, layout)).toMatchObject({ elevation: 0, azimuth: 0, morph: 0, lean: 0, roll: 0 });
     const ob = viewFor('oblique', 1.6, layout);
     expect(ob).toMatchObject({ morph: 1, lean: 0, roll: 0 });
-    expect(ob.elevation).toBeCloseTo((52 * Math.PI) / 180, 12);
+    expect(ob.elevation).toBeCloseTo((36 * Math.PI) / 180, 12);
     expect(ob.azimuth).toBeCloseTo(topAzimuth(geo.northAngle), 12); // 方位は真上と同じ(北が画面の上)
     const top = viewFor('top', 1.6, layout);
     expect(top.morph).toBe(1);
@@ -258,8 +258,8 @@ describe('viewFor: 地域を選んでいるとき', () => {
     for (const i of partners) expect(inside(pts[i], r, 60), `${i} ${pts[i]}`).toBe(true);
   });
 
-  it('選択時の斜め俯瞰は、弧を立てたまま仰角を 38° へ下げる(地上と地下の厚みを見せる)', () => {
-    expect(SELECTION_OBLIQUE.elevation).toBeCloseTo((38 * Math.PI) / 180, 12);
+  it('選択時の斜め俯瞰は、弧を立てたまま仰角を 26° へ下げる(地上と地下の厚みを見せる)', () => {
+    expect(SELECTION_OBLIQUE.elevation).toBeCloseTo((26 * Math.PI) / 180, 12);
     expect(SELECTION_OBLIQUE.lean).toBe(0);
     const b = view('oblique', 1440, 900, { type: 'metro', id: 'osaka' });
     expect(b.lean).toBe(SELECTION_OBLIQUE.lean);

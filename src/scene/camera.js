@@ -41,10 +41,10 @@ export const SELECTION_ZOOM = 2.5;
 /** 地域を選んだときの拡大率の下限(同じ領域に全体を収めた拡大率に対する倍率)。 */
 export const SELECTION_ZOOM_MIN = 0.75;
 /**
- * 地域を選んだときの斜め俯瞰の仰角と弧の倒し(案C4)。選択なしの 52° より低く見て、立てた弧(lean 0)の
+ * 地域を選んだときの斜め俯瞰の仰角と弧の倒し(案C4)。選択なしの 36° より低く見て、立てた弧(lean 0)の
  * 地上(転入、画面の上へふくらむ)と地下(転出、画面の下へふくらむ)の厚みの差が見える角度にする。
  */
-export const SELECTION_OBLIQUE = Object.freeze({ elevation: (38 * Math.PI) / 180, lean: 0 });
+export const SELECTION_OBLIQUE = Object.freeze({ elevation: (26 * Math.PI) / 180, lean: 0 });
 /** 選択地域を置く範囲: 領域の四辺からこの割合だけ内側。この外へ出る向きにだけ、図を動かして収める。 */
 export const SELECTION_COMFORT = 0.18;
 /** 斜め俯瞰と真上で、図を置く領域の上端(CSS px)。デスクトップは読み出し(選択なしのとき y 185 まで)と、その右下へ張り出す北海道の陸地の面を避ける高さ、縦画面は図の向きの注記の下。 */
