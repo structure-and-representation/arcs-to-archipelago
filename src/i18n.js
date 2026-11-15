@@ -46,7 +46,7 @@ export function prefName(i, forLang = lang) {
 
 /** 圏の名前。 */
 export function metroName(id, forLang = lang) {
-  return t(`metro.${id}`, forLang);
+  return t(`region.metro.${id}`, forLang);
 }
 
 /** root 以下の data-i18n / data-i18n-attr を現在の言語で書き換え、<html lang> と <title> も更新する。 */

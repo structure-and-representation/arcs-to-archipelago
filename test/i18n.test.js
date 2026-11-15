@@ -28,9 +28,9 @@ describe('辞書', () => {
 
   it('各部品のキーは、その部品の接頭辞で始まる', () => {
     const prefixes = {
-      timeline: ['year.'], selector: ['selector.', 'metro.', 'readout.', 'region.'], tooltip: ['tooltip.'], table: ['table.', 'fallback.'],
+      timeline: ['year.'], selector: ['selector.', 'readout.', 'region.'], tooltip: ['tooltip.'], table: ['table.', 'fallback.'],
       controls: ['camera.', 'settings.'], chapters: ['ch.'], legend: ['legend.'],
-      common: ['app.', 'unit.', 'flow.', 'source.', 'meta.', 'footer.'],
+      common: ['app.', 'source.', 'meta.', 'footer.'],
     };
     for (const [name, pre] of Object.entries(prefixes)) {
       for (const k of Object.keys(parts[name].ja)) expect(pre.some((p) => k.startsWith(p)), `${name}: ${k}`).toBe(true);
@@ -65,5 +65,24 @@ describe('t / prefName', () => {
     expect(prefName(12, 'ja')).toBe('東京都');
     expect(prefName(12, 'en')).toBe('Tokyo');
     expect(metroName('osaka', 'ja')).toBe('大阪圏');
+  });
+});
+
+describe('確定稿(docs/copy/strings.md)と辞書', () => {
+  it('strings.md のキーがすべて辞書にあり、文言が同じ', async () => {
+    const { readFileSync } = await import('node:fs');
+    const md = readFileSync(new URL('../docs/copy/strings.md', import.meta.url), 'utf8');
+    const rows = [...md.matchAll(/^\| `([^`]+)` \| (.*?) \| (.*?) \|$/gm)];
+    expect(rows.length).toBeGreaterThan(60);
+    const norm = (s) => s.replace(/’/g, "'");
+    for (const [, key, ja, en] of rows) {
+      expect(DICT.ja[key], key).toBe(ja);
+      expect(norm(DICT.en[key]), key).toBe(norm(en));
+    }
+  });
+
+  it('圏の名前は region.metro.* から引く', () => {
+    expect(metroName('tokyo', 'ja')).toBe('東京圏');
+    expect(metroName('osaka', 'en')).toBe('Osaka area');
   });
 });

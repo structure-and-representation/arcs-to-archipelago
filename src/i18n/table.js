@@ -3,10 +3,6 @@
 // 文言の確定稿は docs/copy/strings.md の table.* と fallback.*。
 export default {
   ja: {
-    'table.title': '数値の表',
-    'table.origin': '転出元',
-    'table.dest': '転入先',
-    'table.count': '人数',
     'table.caption': '{year}年の都道府県別の移動',
     'table.captionSelected': '{region}との移動、{year}年',
     'table.heading': '{year}年 · 都道府県別',
@@ -23,10 +19,6 @@ export default {
     'fallback.body': 'この作品には WebGL2 が必要ですが、お使いのブラウザでは利用できないようです。最新のブラウザで開くか、ハードウェアアクセラレーションを有効にしてください。数値は下の表で見られます。',
   },
   en: {
-    'table.title': 'Data table',
-    'table.origin': 'From',
-    'table.dest': 'To',
-    'table.count': 'People',
     'table.caption': 'Moves by prefecture, {year}',
     'table.captionSelected': 'Moves to and from {region}, {year}',
     'table.heading': '{year} · By prefecture',

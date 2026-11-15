@@ -165,6 +165,8 @@ export function mount(host, store, ctx) {
     const url = data.source?.url;
     const name = t('source.body', lang);
     source.append(/^https:\/\//.test(url ?? '') ? el(doc, 'a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: name }) : name);
+    // 確定稿の注記(footer.note)と、地図の出典
+    source.append(el(doc, 'span', { class: 'note', text: ` ${t('footer.note', lang)} ${t('footer.mapSource', lang)}` }));
   }
 
   // --- 開閉 ---

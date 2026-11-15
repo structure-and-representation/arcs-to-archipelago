@@ -87,6 +87,7 @@ export function mount(root, store) {
 
   const footer = el('footer', 'footnote');
   const footerNote = footer.appendChild(el('p'));
+  const footerMap = footer.appendChild(el('p', 'map-source'));
   root.replaceChildren(toc, progress, ...sections.map((s) => s.section), footer);
 
   // 目次と章の位置の表示(いま見せる章)
@@ -114,6 +115,7 @@ export function mount(root, store) {
     });
     toc.setAttribute('aria-label', t('ch.nav'));
     footerNote.textContent = t('footer.note');
+    footerMap.textContent = t('footer.mapSource');
     renderCurrent(shown);
   };
 
