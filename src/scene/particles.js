@@ -28,25 +28,6 @@ import {
 
 const f = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x));
 
-/**
- * 筆先で置いた墨の点の形(docs/screenshots/paper-ink/particles-*.png で見比べて決めた)。
- *   縁: 1 粒の縁のなだらかな幅を、実ピクセルで SOFT_BASE + SOFT_DPR * DPR にする(従来は 1px)。
- *   形: 半径を、粒ごとに向きの違う 2 つの波(2 回と 3 回の対称)で 1 ± EPS 倍に揺らす(真円でない点)。
- * 1 粒の墨の量(画素の不透明度の総和)は変えない。縁と形で増えた面積のぶん、濃さに inkNorm を掛けて、
- * 従来の 1px の縁の真円と同じ総和にする(dotInk と test/particle-ink.test.js が数値積分で確かめる)。
- */
-export const INK_DOT = Object.freeze({ SOFT_BASE: 1.0, SOFT_DPR: 0.4, EPS: 0.12, W2: 0.6, W3: 0.4 });
-
-/**
- * 1 粒の墨の量(画素の不透明度の総和、濃さ 1 のとき)。径 size(実ピクセル)、縁の幅 soft(実ピクセル)、形のゆらぎ eps。
- * 半径方向に縁の幅で直線に落ちる形の、解析的な積分(半径の最小 ≧ soft / 2 のとき厳密)。
- */
-export function dotInk(size, soft = 1, eps = 0) {
-  const R = size / 2;
-  const shape = 1 + eps * eps * (INK_DOT.W2 * INK_DOT.W2 + INK_DOT.W3 * INK_DOT.W3) / 2;
-  return Math.PI * (R * R * shape + (soft * soft) / 12);
-}
-
 export const PARTICLE_VERT = /* glsl */ `
 ${GLSL_COMMON}
 uniform sampler2D uCounts;   // R32F, 47 x (47*NY), Nearest; texel (d, year*47 + o) = 人数
@@ -60,15 +41,10 @@ uniform sampler2D uArcState; // shared: texel (d, o) = (side −1〜+1, alpha 0�
 uniform float uPass;         // +1 地上、-1 地下
 uniform vec2  uHover;        // ホバー中の弧 (o, d)。なければ (-1, -1)
 uniform float uSizeHover;
-uniform float uPixelRatio;  // shared
 in vec3 aSlot;               // o, d, k
 out float vA;
 out float vHover;
 out float vSize;
-out float vPt;    // gl_PointSize(実ピクセル)
-out float vSoft;  // 縁のなだらかな幅(実ピクセル)
-out vec2 vPhase;  // 形のゆらぎの向き(粒ごと)
-out float vNorm;  // 墨の量を従来の真円にそろえる係数
 
 uint hash(uint x){ x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16; return x; }
 float u01(uint x){ return float(hash(x) >> 8) * (1.0 / 16777216.0); }
@@ -91,7 +67,7 @@ void main(){
   float n = mix(texelFetch(uCounts, ivec2(d, uYearA * ${N} + o), 0).r,
                 texelFetch(uCounts, ivec2(d, uYearB * ${N} + o), 0).r, uYearMix) * 0.01;
   float w = clamp(n - k, 0.0, 1.0);                  // Σk w = 人数 / 100
-  if (!vis || w <= 0.0) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); gl_PointSize = 0.0; vA = 0.0; vHover = 0.0; vSize = 0.0; vPt = 0.0; vSoft = 1.0; vPhase = vec2(0.0); vNorm = 1.0; return; }
+  if (!vis || w <= 0.0) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); gl_PointSize = 0.0; vA = 0.0; vHover = 0.0; vSize = 0.0; return; }
   vHover = (abs(aSlot.x - uHover.x) < 0.5 && abs(aSlot.y - uHover.y) < 0.5) ? 1.0 : 0.0;
   vSize = mix(uSize, uSizeHover, vHover);
 
@@ -109,28 +85,16 @@ void main(){
   vec3 p = j < 0.5 ? bsp(A, A, A, M, fr) : j < 1.5 ? bsp(A, A, M, B, fr) : j < 2.5 ? bsp(A, M, B, B, fr) : bsp(M, B, B, B, fr);
 
   gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
-  // 筆先の点: 縁のなだらかな幅と、形のゆらぎ。墨の量は dotInk(従来の 1px の縁の真円)と同じにそろえる
-  vSoft = ${f(INK_DOT.SOFT_BASE)} + ${f(INK_DOT.SOFT_DPR)} * uPixelRatio;
-  float R0 = vSize * 0.5;
-  float shape = 1.0 + ${f(INK_DOT.EPS * INK_DOT.EPS * (INK_DOT.W2 * INK_DOT.W2 + INK_DOT.W3 * INK_DOT.W3) / 2)};
-  vNorm = (R0 * R0 + 1.0 / 12.0) / (R0 * R0 * shape + vSoft * vSoft / 12.0);
-  uint hs = hash(uint(o * ${N} + d) * 4099u + uint(k));
-  vPhase = vec2(u01(hs), u01(hs ^ 0x9e3779b9u)) * 6.2831853;
-  vPt = ceil(vSize * ${f(1 + INK_DOT.EPS)} + vSoft + 1.0);
-  gl_PointSize = vPt;
+  gl_PointSize = vSize + 1.0;                        // +1 px は縁のなめらかさのぶん
   vA = uAlpha * st.g * w * smoothstep(0.0, ${f(FADE)}, s) * smoothstep(1.0, ${f(1 - FADE)}, s);
 }`;
 
 export const PARTICLE_FRAG = /* glsl */ `
 uniform vec3 uInk, uAccent;
-in float vA; in float vHover; in float vSize; in float vPt; in float vSoft; in vec2 vPhase; in float vNorm;
-out vec4 outColor;
+in float vA; in float vHover; in float vSize; out vec4 outColor;
 void main(){
-  vec2 q = (gl_PointCoord * 2.0 - 1.0) * vPt * 0.5;  // 中心からの位置(実ピクセル)
-  float r = length(q);
-  float th = atan(q.y, q.x);
-  float R = vSize * 0.5 * (1.0 + ${f(INK_DOT.EPS)} * (${f(INK_DOT.W2)} * cos(2.0 * th + vPhase.x) + ${f(INK_DOT.W3)} * cos(3.0 * th + vPhase.y)));
-  float a = clamp((R - r) / vSoft + 0.5, 0.0, 1.0) * vA * vNorm;
+  float r = length(gl_PointCoord * 2.0 - 1.0) * (vSize + 1.0) * 0.5;
+  float a = clamp(vSize * 0.5 - r + 0.5, 0.0, 1.0) * vA;
   if (a <= 0.0) discard;
   outColor = vec4(mix(uInk, uAccent, vHover), a); // トークンの sRGB の値。色空間は変換しない
 }`;

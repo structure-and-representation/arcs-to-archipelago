@@ -28,7 +28,7 @@
 //     破線の周期は画面の CSS px で一定(DASH_ON + DASH_OFF)。弧の長さは頂点シェーダで画面上の折れ線として測る。
 //     真横(morph 0)では実線のまま(原作の arc diagram と一致させるため)。粒子の数・大きさ・濃さは変えない。
 import * as THREE from 'three';
-import { GLSL_COMMON, GLSL_INK_NOISE, RENDER_ORDER } from './shared.js';
+import { GLSL_COMMON, RENDER_ORDER } from './shared.js';
 
 const SEG = 48; // 1 本の弧の区間数(設計 §5)
 // 地下の弧の破線(CSS px)。線幅 0.7px の線で、点の並びではなく短い線の並びに見える長さ
@@ -37,15 +37,6 @@ export const DASH_OFF = 2.5;
 // morph がこの区間で、地下の弧が実線から破線へ移る(smoothstep)。地面の現れ方(ground.js の APPEAR)と揃える
 export const DASH_FROM = 0.5;
 export const DASH_TO = 0.9;
-// 筆の線の表情(線は量を表さないので、濃さと太さを場所で変えてよい。中心線の位置は変えない)。
-//   入り: 始点から弧の長さの IN までで、太さが IN_MIN 倍から 1 倍へ。抜き: 終点の手前 OUT から、太さが OUT_MIN 倍まで細る。
-//   肥痩: 太さを、弧に沿った PRESSURE_PX(CSS px)の周期のゆるいノイズで 1 ± PRESSURE 倍に揺らす。
-//   かすれ: 弧に沿った KASURE_PX の周期のノイズが高いところで、濃さを最大 KASURE 落とす。終点に近いほど多い(墨が切れていく)。
-//   破線: 1 つずつの破線の濃さを DASH_VAR だけばらつかせる(筆で置いた短い線の並び)。
-export const BRUSH = Object.freeze({
-  IN: 0.05, IN_MIN: 0.45, OUT: 0.2, OUT_MIN: 0.15,
-  PRESSURE_PX: 70, PRESSURE: 0.18, KASURE_PX: 9, KASURE: 0.6, DASH_VAR: 0.3,
-});
 const DASH_SAMPLES = 8; // 弧の長さを測る折れ線の区間数
 const TRANSITION_SEC = 0.6; // side と選択の見た目の切り替えの時間(--dur-year と同じ)
 
@@ -63,9 +54,6 @@ out float vEdge;
 out float vAlpha;
 out float vDist;  // 弧の始点からの画面上の長さ(実ピクセル)。破線に使う
 out float vDash;
-out float vT;     // 弧の媒介変数(0 始点〜1 終点)
-out float vLenPx; // 弧の画面上のおおよその長さ(CSS px)。筆の表情の周期に使う
-out float vSeed;  // 弧ごとの乱数の種
 
 vec2 toPx(vec3 p, mat4 pv){
   vec4 c = pv * vec4(p, 1.0);
@@ -85,7 +73,7 @@ void main(){
   bool below = side < 0.0;
   if (aDyn.y <= 0.002 || (uHalf < -0.5 && !below) || (uHalf > 0.5 && below)) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // 画面の外へ(この Mesh が描かない弧)
-    vEdge = 0.0; vAlpha = 0.0; vDist = 0.0; vDash = 0.0; vT = 0.0; vLenPx = 0.0; vSeed = 0.0;
+    vEdge = 0.0; vAlpha = 0.0; vDist = 0.0; vDash = 0.0;
     return;
   }
   vec3 R;
@@ -116,14 +104,10 @@ void main(){
   vec2 nrm = vec2(-dir.y, dir.x);
 
   float wpx = uWidth * uPixelRatio;      // 実ピクセルでの線幅
-  float hw = max(wpx * ${(1 + BRUSH.PRESSURE).toFixed(2)}, 1.0) * 0.5 + 0.5;  // 肥痩の太いところと、縁のなだらかな部分(0.5px)のぶん
+  float hw = max(wpx, 1.0) * 0.5 + 0.5;  // 縁のなだらかな部分のぶん 0.5px 太らせる
   c.xy += nrm * e * hw / (0.5 * uRes) * c.w;
   vEdge = e * hw;
   vAlpha = aDyn.y;
-  vT = t;
-  // 弧の長さ ≈ 弦の 1.6 倍(弧の高さは弦に比例する)。CSS px
-  vLenPx = 1.6 * length(toPx(B, pv) - toPx(A, pv)) / uPixelRatio;
-  vSeed = aArc.x * 47.0 + aArc.y;
   // 破線: 始点から t までの画面上の長さを、折れ線で測る(B スプラインの t は長さに比例しないため)
   vDash = below ? uDashOn : 0.0;
   vDist = 0.0;
@@ -140,36 +124,24 @@ void main(){
 }`;
 
 const FRAG = /* glsl */ `
-${GLSL_INK_NOISE}
 uniform float uWidth, uPixelRatio, uAlpha, uUseAccent;
 uniform vec3 uInk, uAccent;
 in float vEdge;
 in float vAlpha;
 in float vDist;
 in float vDash;
-in float vT;
-in float vLenPx;
-in float vSeed;
 out vec4 outColor;
 void main(){
-  // 筆の表情: 入りと抜き、肥痩(太さ)と、かすれ(濃さ)
-  float s = vT * vLenPx;                                   // 始点からのおおよその長さ(CSS px)
-  float taper = mix(${BRUSH.IN_MIN.toFixed(2)}, 1.0, smoothstep(0.0, ${BRUSH.IN.toFixed(3)}, vT))
-              * mix(${BRUSH.OUT_MIN.toFixed(2)}, 1.0, smoothstep(1.0, ${(1 - BRUSH.OUT).toFixed(3)}, vT));
-  float press = 1.0 + ${BRUSH.PRESSURE.toFixed(2)} * (2.0 * inkNoise(s / ${BRUSH.PRESSURE_PX.toFixed(1)} + vSeed * 3.1) - 1.0);
-  float wpx = uWidth * uPixelRatio * taper * press;
+  float wpx = uWidth * uPixelRatio;
   float hw = max(wpx, 1.0) * 0.5;
   float a = clamp(hw + 0.5 - abs(vEdge), 0.0, 1.0);
   a *= min(wpx, 1.0) * vAlpha * uAlpha; // 1px 未満の線は、細くせずに薄くする
-  float dry = smoothstep(0.55, 0.85, inkNoise(s / ${BRUSH.KASURE_PX.toFixed(1)} + vSeed * 7.7)) * (0.35 + 0.65 * vT);
-  a *= 1.0 - ${BRUSH.KASURE.toFixed(2)} * dry;
   if (vDash > 0.001) {
     // 破線: 周期 (ON + OFF) の中で、ON の部分だけを残す(縁は 0.5px でなめらかに)
     float period = ${(DASH_ON + DASH_OFF).toFixed(2)} * uPixelRatio;
     float on = ${DASH_ON.toFixed(2)} * uPixelRatio;
     float d = mod(vDist, period);
     float m = clamp(on + 0.5 - d, 0.0, 1.0) * clamp(d + 0.5, 0.0, 1.0);
-    m *= 1.0 - ${BRUSH.DASH_VAR.toFixed(2)} * inkHash(vec2(floor(vDist / period), vSeed)); // 破線ごとの濃さのばらつき
     a *= mix(1.0, m, vDash);
   }
   if (a <= 0.0) discard;
