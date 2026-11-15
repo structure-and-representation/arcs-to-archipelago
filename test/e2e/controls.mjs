@@ -59,7 +59,7 @@ async function test(name, fn) {
 }
 
 await test('年: キーボードで切り替わり、URL に反映され、開き直すと同じ年になる', async () => {
-  const page = await openPage('lang=ja&year=2014');
+  const page = await openPage('lang=ja&ch=0&year=2014');
   await tabTo(page, '#timeline [role="slider"]');
   await page.keyboard.press('ArrowRight');
   assert.equal((await state(page)).year, 2015);
@@ -87,7 +87,7 @@ await test('年: キーボードで切り替わり、URL に反映され、開�
 });
 
 await test('年: ポインタで列を押す、押したまま動かすと年が順に変わる', async () => {
-  const page = await openPage('lang=ja&year=2014');
+  const page = await openPage('lang=ja&ch=0&year=2014');
   const box = await page.locator('#timeline .tl').boundingBox();
   const col = (i) => box.x + (box.width / 14) * (i + 0.5);
   await page.mouse.move(col(10), box.y + 30);
@@ -99,7 +99,7 @@ await test('年: ポインタで列を押す、押したまま動かすと年が
 });
 
 await test('地域: キーボードだけで一覧を開き、絞り込み、選び、解除できる。URL に反映される', async () => {
-  const page = await openPage('lang=ja&year=2014');
+  const page = await openPage('lang=ja&ch=0&year=2014');
   await tabTo(page, '#selector .sel-btn');
   await page.keyboard.press('Enter');
   assert.equal(await page.locator('#selector .sel-btn').getAttribute('aria-expanded'), 'true');
@@ -135,7 +135,7 @@ await test('地域: キーボードだけで一覧を開き、絞り込み、選
 });
 
 await test('地域: ←→ は同じ組の中、Home / End は先頭と末尾を指す', async () => {
-  const page = await openPage('lang=ja&year=2014');
+  const page = await openPage('lang=ja&ch=0&year=2014');
   await tabTo(page, '#selector .sel-btn');
   await page.keyboard.press('Enter');
   const active = () => page.locator('#selector .sel-opt.is-active').textContent();
@@ -156,7 +156,7 @@ await test('地域: ←→ は同じ組の中、Home / End は先頭と末尾を
 });
 
 await test('カメラ: Tab はグループに1回だけ止まり、←→ で移動し、Enter で切り替わる。URL に反映される', async () => {
-  const page = await openPage('lang=ja&year=2014');
+  const page = await openPage('lang=ja&ch=0&year=2014');
   await tabTo(page, '#controls .ctl-cam');
   assert.equal(await page.evaluate(() => document.activeElement.dataset.camera), 'side');
   await page.keyboard.press('ArrowRight');
@@ -178,7 +178,7 @@ await test('カメラ: Tab はグループに1回だけ止まり、←→ で移
 });
 
 await test('言語とテーマ: キーボードで切り替わり、html の属性と URL に反映され、開き直すと同じになる', async () => {
-  const page = await openPage('year=2014', { colorScheme: 'light' });
+  const page = await openPage('ch=0&year=2014', { colorScheme: 'light' });
   await page.evaluate(() => window.__app.store.set({ lang: 'ja' }));
   await tabTo(page, '.ctl-lang [data-value="en"]');
   await page.keyboard.press('Enter');
@@ -227,7 +227,7 @@ await test('縦画面: 言語とテーマは反対側のボタンだけが見え
 });
 
 await test('読み出し: 年を変えると数が変わる(全国は総数、地域は転入・転出・差引)', async () => {
-  const page = await openPage('lang=ja&year=2014');
+  const page = await openPage('lang=ja&ch=0&year=2014');
   assert.equal(await page.locator('.sel-all .sel-big .sel-v').textContent(), '2,259,688');
   await page.evaluate(() => window.__app.store.set({ year: 2025, selection: { type: 'metro', id: 'osaka' } }));
   const dd = await page.locator('.sel-dl dd .sel-v').allTextContents();

@@ -150,6 +150,12 @@
 @media (max-width: 1023.98px) {
   .toc { display: none; }
 
+  /* 基準の線は画面の上から 30% にあるので、ページの末尾まで進んでも、最後の章の最後の場面(高さ 70svh)の先頭にしか届かない。
+     末尾に 20svh の余白を足し、デスクトップ(基準の線 50%)と同じ 0.2 画面ぶん、最後の場面の中へ入れるようにする
+     (自由探索の最後の場面に入ってから、少し戻っても前の場面で読者の操作を上書きしない) */
+  #chapters::after { content: ""; display: block; height: 20vh; }
+  @supports (height: 100svh) { #chapters::after { height: 20svh; } }
+
   .progress {
     position: fixed;
     z-index: var(--z-ui);

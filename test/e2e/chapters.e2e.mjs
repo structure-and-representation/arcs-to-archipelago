@@ -67,7 +67,7 @@ console.log(`[${mode}] 1. スクロールで場面ごとに state が切り替�
       const anchor = g[c].top + ((k + 0.5) / n) * g[c].height;
       await page.evaluate((y) => window.scrollTo(0, y), Math.round(anchor - vh * ANCHOR));
       const want = COPY[c].steps[k];
-      await page.waitForFunction(([c, w]) => { const s = window.__app.store.get(); return s.chapter === c && s.year === w.year && s.camera === w.camera; }, [c, want], { timeout: 4000 }).catch(() => {});
+      await page.waitForFunction(([c, w]) => { const s = window.__app.store.get(); return s.chapter === c && s.year === w.year && s.camera === w.camera && JSON.stringify(s.selection ?? null) === JSON.stringify(w.sel); }, [c, { ...want, sel: sel(want.selection) }], { timeout: 4000 }).catch(() => {});
       const s = await state(page);
       ok(s.chapter === c && s.year === want.year && s.camera === want.camera && JSON.stringify(s.selection) === JSON.stringify(sel(want.selection)),
         `章${c + 1} 場面${k + 1}: ${JSON.stringify(s)} == ${JSON.stringify({ y: want.year, sel: sel(want.selection), cam: want.camera })}`);
