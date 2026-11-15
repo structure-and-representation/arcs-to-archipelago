@@ -81,3 +81,13 @@ describe('URL と state の往復', () => {
     expect(store.get().selection).toEqual({ type: 'metro', id: 'tokyo' });
   });
 });
+
+describe('継承したキーを名前として受け付けない', () => {
+  for (const v of ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf']) {
+    it(`sel=${v} と cam=${v} は無視する`, () => {
+      const { patch } = parseParams(`?sel=${v}&cam=${v}`);
+      expect(patch).toEqual({});
+    });
+  }
+});
+

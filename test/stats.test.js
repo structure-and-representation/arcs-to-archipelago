@@ -117,3 +117,39 @@ describe('書式', () => {
     expect(fill('{a}{b}', { a: 1 })).toBe('1{b}');
   });
 });
+
+describe('読み出し・ツールチップ・表・年の折れ線が、同じ関数から同じ値を出す', async () => {
+  const { partnerFlows, prefFlow, tableRows } = await import('../src/data/stats.js');
+  const sels = [metro('tokyo'), metro('osaka'), metro('nagoya'), pref(13), pref(1), pref(47)];
+  it('選択地域: 読み出し(regionFlows)= 表の合計(tableRows)= 相手先の合計 = 折れ線(netSeries)', () => {
+    for (const sel of sels) {
+      const series = netSeries(data, sel);
+      data.years.forEach((y, k) => {
+        const m = data.matrix(y);
+        const r = regionFlows(m, sel);
+        expect(tableRows(m, sel).total, `${JSON.stringify(sel)} ${y}`).toEqual(r);
+        expect(partnerFlows(m, sel).total).toEqual(r);
+        expect(series[k]).toBe(r.net);
+      });
+    }
+  });
+  it('都道府県: ツールチップ(prefFlow)= 表の行(tableRows 全国)= 1 県の選択の読み出し', () => {
+    for (const y of [2012, 2021, 2025]) {
+      const m = data.matrix(y);
+      const rows = tableRows(m, null).rows;
+      for (let i = 0; i < 47; i++) {
+        const f = prefFlow(m, i);
+        expect({ in: rows[i].in, out: rows[i].out, net: rows[i].net }).toEqual(f);
+        expect(regionFlows(m, pref(i + 1))).toEqual(f);
+      }
+    }
+  });
+  it('圏は圏外との移動だけを数える(章の確定稿の値)', () => {
+    expect(net(2019, metro('tokyo'))).toBe(145576);
+    expect(net(2021, metro('tokyo'))).toBe(80441);
+    expect(net(2025, metro('tokyo'))).toBe(112738);
+    expect(net(2014, metro('osaka'))).toBe(-11722);
+    expect(net(2023, metro('osaka'))).toBe(235);
+    expect(net(2025, metro('osaka'))).toBe(7503);
+  });
+});

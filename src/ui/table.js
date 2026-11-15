@@ -4,29 +4,16 @@
 //
 // `<dialog>` を showModal() で開く。開き方:
 //   - [data-open-table] を持つ要素(上の帯の「数値の表」、代替表示の案内のボタン)を押す
-//   - el が <details>(骨格の仮の置き場)のときは、その <summary> を押す
+//   - 上の帯の「数値の表」(ui/controls.js)が el へ送る CustomEvent('table:open', { detail: { opener } })
 //   - 戻り値の open(opener) を呼ぶ
 // 選択なしのときは 47 都道府県の転入・転出・差引、選択ありのときは選択地域から見た相手先ごとの
 // 転入(相手先 → 選択地域)・転出(選択地域 → 相手先)・差引を出す。
 import { t, prefName, metroName } from '../i18n.js';
-import { sortRows, tableRows } from '../data/tableStats.js';
+import { formatCount, formatSigned, sortRows, tableRows } from '../data/stats.js';
 
 const COLUMNS = ['pref', 'in', 'out', 'net'];
-const MINUS = '−';
 let instances = 0;
 
-/** 12345 → '12,345'(日本語でもカンマ区切り) */
-export function formatCount(n) {
-  return Math.round(n).toLocaleString('en-US');
-}
-
-/** 差引。正は '+'、負は U+2212 の '−'、0 は '0'。 */
-export function formatNet(n) {
-  const v = Math.round(n);
-  if (v > 0) return `+${formatCount(v)}`;
-  if (v < 0) return `${MINUS}${formatCount(-v)}`;
-  return '0';
-}
 
 const fill = (s, vars) => s.replace(/\{(\w+)\}/g, (_, k) => (k in vars ? String(vars[k]) : `{${k}}`));
 
@@ -114,15 +101,13 @@ export function mount(host, store, ctx) {
   heading.id = `table-heading-${++instances}`;
   dlg.setAttribute('aria-labelledby', heading.id);
 
-  // el が <details>(骨格の仮の置き場)のときは、閉じたままの details の中に置くと表示されないので body に置く
-  const dialogParent = host.tagName === 'DETAILS' ? doc.body : host;
-  dialogParent.append(dlg);
+  host.append(dlg);
 
   // --- 描画 ---
   const cell = (tag, text, cls) => el(doc, tag, cls ? { class: cls, text } : { text });
 
   function numberCells(tr, r) {
-    tr.append(cell('td', formatCount(r.in), 'num'), cell('td', formatCount(r.out), 'num'), cell('td', formatNet(r.net), 'num net'));
+    tr.append(cell('td', formatCount(r.in), 'num'), cell('td', formatCount(r.out), 'num'), cell('td', formatSigned(r.net), 'num net'));
   }
 
   function update() {
@@ -178,6 +163,8 @@ export function mount(host, store, ctx) {
     const url = data.source?.url;
     const name = t('source.body', lang);
     source.append(/^https:\/\//.test(url ?? '') ? el(doc, 'a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: name }) : name);
+    // 確定稿の注記(footer.note)と、地図の出典
+    source.append(el(doc, 'span', { class: 'note', text: ` ${t('footer.note', lang)} ${t('footer.mapSource', lang)}` }));
   }
 
   // --- 開閉 ---
@@ -234,15 +221,12 @@ export function mount(host, store, ctx) {
   };
   doc.addEventListener('click', onDocClick);
 
-  let summary = null;
-  const onSummary = (e) => {
+  // 上の帯の「数値の表」から(ui/controls.js が送る)
+  const onOpenEvent = (e) => {
     e.preventDefault();
-    open(summary);
+    open(e.detail?.opener);
   };
-  if (host.tagName === 'DETAILS') {
-    summary = host.querySelector('summary');
-    summary?.addEventListener('click', onSummary);
-  }
+  host.addEventListener('table:open', onOpenEvent);
 
   // --- 状態への追従 ---
   const off = store.subscribe((_s, changed) => {
@@ -257,7 +241,7 @@ export function mount(host, store, ctx) {
     dispose() {
       off();
       doc.removeEventListener('click', onDocClick);
-      summary?.removeEventListener('click', onSummary);
+      host.removeEventListener('table:open', onOpenEvent);
       if (dlg.open) dlg.close();
       dlg.remove();
     },

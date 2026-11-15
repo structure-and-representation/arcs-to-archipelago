@@ -18,7 +18,7 @@
 //   zoom      ワールド 1 単位が画面の高さの何分の一か(画面の大きさに依らない)
 //   center    [x, y, z] 注視点(画面の中心に来る点)
 //   roll      画面の像を時計まわりに回す角度。縦長の画面の真横と斜め俯瞰では π/2(北海道が上)
-import { CAMERA_PRESETS } from '../geometry/constants.js';
+import { CAMERA_PRESETS, isCameraName } from '../geometry/constants.js';
 import { arcPoint } from '../geometry/arc.js';
 import { lineLayout, nodePos } from '../geometry/layout.js';
 import { selectionMask } from '../geometry/flows.js';
@@ -31,10 +31,21 @@ export const VIEWS = CAMERA_PRESETS;
 export const DESKTOP_BREAKPOINT = 1024;
 /** 図を領域に収めるときの四辺の余白(領域の寸法に対する割合)。真横で一直線が領域の幅の 93% になる。 */
 export const FIT_MARGIN = 0.035;
-/** 地域を選んだときの拡大率(選択なしで収めた拡大率に対する倍率)。東京圏で 2.5 倍前後が読みやすい。 */
+/**
+ * 地域を選んだときの拡大率の上限(選択なしで収めた拡大率に対する倍率)。
+ * 拡大率は、選択地域と主要な相手先(opts.partners)、その間の地上・地下の弧が領域に収まる値で、1〜この値の範囲。
+ */
 export const SELECTION_ZOOM = 2.5;
+/**
+ * 地域を選んだときの斜め俯瞰の仰角と弧の倒し。地上(転入)と地下(転出)の弧が水平に倒れて重なると、
+ * 厚みの差が読めなくなるので、倒しを小さくして上下に分け、仰角を少し上げて地図の奥行きを残す。
+ */
+export const SELECTION_OBLIQUE = Object.freeze({ elevation: 0.72, lean: 0.25 });
 /** 選択地域を置く範囲: 領域の四辺からこの割合だけ内側。この外へ出る向きにだけ、図を動かして収める。 */
 export const SELECTION_COMFORT = 0.18;
+/** 斜め俯瞰と真上で、図を置く領域の上端(CSS px)。デスクトップは読み出しの下端、縦画面は図の向きの注記の下。 */
+export const DESKTOP_FIGURE_TOP = 320;
+export const PORTRAIT_FIGURE_TOP = 118;
 /** 縦画面の真横で、都道府県名の索引(図の右側)のために右から空ける幅(CSS px)。 */
 export const PORTRAIT_LABEL_GUTTER = 80;
 /** 遷移の長さ(秒)と、真横から立ち上がるとき morph を動かし始めるまでの回転の割合。 */
@@ -63,9 +74,12 @@ export function figureRegion(width, height) {
   return r;
 }
 
-/** viewFor に渡す opts を、画面の大きさ(CSS px)と state.selection から作る。 */
-export function viewOptions(width, height, selection = null) {
-  return { size: [width, height], region: figureRegion(width, height), portrait: isPortrait(width), selection };
+/**
+ * viewFor に渡す opts を、画面の大きさ(CSS px)と state.selection から作る。
+ * partners は選択地域の主要な相手先の添字(構図に収める。省略すると選択地域だけを基準にする)。
+ */
+export function viewOptions(width, height, selection = null, partners = null) {
+  return { size: [width, height], region: figureRegion(width, height), portrait: isPortrait(width), selection, partners };
 }
 
 // ---- 角度・ベクトルの道具 ----
@@ -184,24 +198,43 @@ function slide(lo, hi, cLo, cHi) {
 }
 
 /**
+ * 定位置ごとに、図を収める領域を整える(docs/design/spec.md 4 節)。
+ *  縦画面の真横: 右に都道府県名の索引の余白を空ける。
+ *  斜め俯瞰と真上: デスクトップでは読み出しの下端より下、縦画面では図の向きの注記(2 行)より下に収める。
+ * fromLayout は region が画面の構成(figureRegion)から来たか(省略して画面いっぱいのときは上端を変えない)。
+ */
+export function presetRegion(preset, region, portrait, fromLayout = true) {
+  let r = region;
+  if (portrait && preset === 'side') r = { ...r, x1: Math.max(r.x0 + 120, r.x1 - PORTRAIT_LABEL_GUTTER) };
+  if (preset !== 'side' && fromLayout) {
+    const top = portrait ? PORTRAIT_FIGURE_TOP : DESKTOP_FIGURE_TOP;
+    if (r.y1 - top >= 200) r = { ...r, y0: Math.max(r.y0, top) };
+  }
+  return r;
+}
+
+/**
  * 定位置 preset の視点。aspect は画面の幅 / 高さ、layout は renderer.layout、opts は先頭のコメントを参照。
  */
 export function viewFor(preset, aspect, layout, opts = {}) {
-  const name = CAMERA_PRESETS[preset] ? preset : 'side';
+  const name = isCameraName(preset) ? preset : 'side';
   const p = CAMERA_PRESETS[name];
   // size を省略したときは、高さ 900px の画面として扱う(幅は aspect から決まる)
   const size = opts.size ?? [aspect * 900, 900];
   const [W, H] = size;
   const portrait = opts.portrait ?? isPortrait(W);
-  let region = opts.region ?? { x0: 0, y0: 0, x1: W, y1: H };
-  if (portrait && name === 'side') region = { ...region, x1: Math.max(region.x0 + 120, region.x1 - PORTRAIT_LABEL_GUTTER) };
+  const region = presetRegion(name, opts.region ?? { x0: 0, y0: 0, x1: W, y1: H }, portrait, !!opts.region);
 
   const azimuth = p.azimuth ?? topAzimuth(layout.northAngle);
   const roll = name !== 'top' && portrait ? Math.PI / 2 : 0;
-  const { right, up } = screenAxes(azimuth, p.elevation, roll);
+  const sel = name === 'side' ? [] : selectedIndices(opts.selection);
+  const tilt = sel.length && name === 'oblique' ? SELECTION_OBLIQUE : null;
+  const elevation = tilt ? tilt.elevation : p.elevation;
+  const lean = tilt ? tilt.lean : p.lean;
+  const { right, up } = screenAxes(azimuth, elevation, roll);
 
   // 図の全体(都道府県と弧)を、領域の余白の内側いっぱいに収める
-  const cloud = figureCloud(layout, p.morph, p.lean);
+  const cloud = figureCloud(layout, p.morph, lean);
   const ext = extent(cloud.points, right, up);
   const rc = (ext.rMin + ext.rMax) / 2, uc = (ext.uMin + ext.uMax) / 2;
   const rw = Math.max(ext.rMax - ext.rMin, 1e-6), uh = Math.max(ext.uMax - ext.uMin, 1e-6);
@@ -211,10 +244,31 @@ export function viewFor(preset, aspect, layout, opts = {}) {
   let target = [(region.x0 + region.x1) / 2, (region.y0 + region.y1) / 2];
   let scale = fit;
 
-  // 地域を選んでいるときは、その地域を拡大して領域の中に置く(正投影のまま拡大するので、量の比は崩れない)
-  const sel = name === 'side' ? [] : selectedIndices(opts.selection);
+  // 地域を選んでいるときは、選択地域と主要な相手先、その間の地上・地下の弧が収まるまで拡大する
+  // (正投影のまま拡大するので、量の比は崩れない)。そのうえで、選択地域を領域の内側に置く
   if (sel.length) {
-    scale = fit * SELECTION_ZOOM;
+    const partners = (opts.partners ?? []).filter((i) => Number.isInteger(i) && i >= 0 && i < 47 && !sel.includes(i));
+    const P = cloud.nodes;
+    const pts = [];
+    const tmp = [0, 0, 0];
+    for (const i of [...sel, ...partners]) pts.push(P[i][0], 0, P[i][1]);
+    for (const m of sel) {
+      for (const q of partners) {
+        for (const t of [0.3, 0.5, 0.7]) {
+          arcPoint(P[q], P[m], 1, lean, t, tmp); // 転入(地上)
+          pts.push(tmp[0], tmp[1], tmp[2]);
+          arcPoint(P[m], P[q], -1, lean, t, tmp); // 転出(地下)
+          pts.push(tmp[0], tmp[1], tmp[2]);
+        }
+      }
+    }
+    const fe = extent(pts, right, up);
+    const fw = Math.max(fe.rMax - fe.rMin, 1e-6), fh = Math.max(fe.uMax - fe.uMin, 1e-6);
+    const focusFit = Math.min((rw0 * (1 - 2 * FIT_MARGIN)) / fw, (rh0 * (1 - 2 * FIT_MARGIN)) / fh);
+    scale = clamp(focusFit, fit, fit * SELECTION_ZOOM);
+    // 収める対象の中心を領域の中心に置く
+    const fc = [(fe.rMin + fe.rMax) / 2, (fe.uMin + fe.uMax) / 2];
+    target = [target[0] - (fc[0] - rc) * scale, target[1] + (fc[1] - uc) * scale];
     // 拡大後の、選択地域の画面上の範囲(図の中心が領域の中心に来る場合)
     let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
     for (const i of sel) {
@@ -233,7 +287,7 @@ export function viewFor(preset, aspect, layout, opts = {}) {
 
   const zoom = scale / H;
   const center = centerFor(anchor, target, size, zoom, right, up);
-  return { azimuth, elevation: p.elevation, zoom, center, roll, morph: p.morph, lean: p.lean, anchor, target, size };
+  return { azimuth, elevation, zoom, center, roll, morph: p.morph, lean, anchor, target, size };
 }
 
 /**

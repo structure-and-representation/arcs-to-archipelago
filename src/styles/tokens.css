@@ -49,6 +49,14 @@
   --gl-particle-size: 2;    /* 粒子の径 CSS px。縦画面 1.8、選択時 2.2 */
   --gl-ground: .30;         /* 地面(bg 色) */
   --gl-border: .22;         /* 境界線(fg 色) */
+  /* 寸法の残り(デザイン仕様 6 節の表。テーマで変わらない)。scene/shared.js がまとめて読む */
+  --gl-line-width-sel: .8;
+  --gl-line-width-hover: 1;
+  --gl-particle-size-sel: 2.2;
+  --gl-particle-size-hover: 2.2;
+  --gl-particle-size-portrait: 1.8;       /* 縦画面(幅 1024px 未満) */
+  --gl-particle-size-portrait-sel: 2;
+  --gl-particle-size-portrait-hover: 2;
 
   --focus: var(--fg-1);
   color-scheme: light;
@@ -136,7 +144,7 @@
   --z-pop: 60;         /* ポップオーバー、ツールチップ、表のダイアログ */
   --z-message: 70;
 }
-@media (max-aspect-ratio: 1/1) {
+@media (max-width: 1023.98px) {
   :root {
     --gutter: 16px;
     --header-h: 52px;

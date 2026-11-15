@@ -11,13 +11,15 @@ import './styles/ui-tooltip.css';
 import './styles/ui-table.css';
 import { loadData } from './data/loader.js';
 import { createStore } from './state.js';
-import { applyParams, syncUrl } from './params.js';
+import { parseParams, syncUrl } from './params.js';
 import { applyStatic, setLang, t } from './i18n.js';
 import { selectionMask } from './geometry/flows.js';
+import { mainPartners } from './data/stats.js';
 import { createRenderer } from './scene/renderer.js';
 import { createCameraRig } from './scene/cameraRig.js';
 import { createFallback } from './scene/fallback2d.js';
 import { createPicker } from './scene/picking.js';
+import { createYearTween, parseDuration, YEAR_SECONDS } from './scene/yearTween.js';
 import * as labels from './ui/labels.js';
 import * as timeline from './ui/timeline.js';
 import * as selector from './ui/selector.js';
@@ -46,8 +48,16 @@ async function main() {
     lang: navigator.language?.startsWith('en') ? 'en' : 'ja',
     reducedMotion: motionQuery.matches,
   });
-  const still = applyParams(store, search);
-  motionQuery.addEventListener?.('change', (e) => store.set({ reducedMotion: e.matches }));
+  // URL の引数と、はじめの章・場面(ui/chapters.js の initialScene)。カメラの配線を作る前に書く
+  const { patch: urlPatch, still } = parseParams(search);
+  const scene = chapters.initialScene(urlPatch);
+  store.set({ ...urlPatch, ...scene.patch, chapter: scene.chapter });
+  const cleanups = []; // dispose で外す登録(イベント、購読)
+  const listen = (target, type, fn, opts) => {
+    target.addEventListener?.(type, fn, opts);
+    cleanups.push(() => target.removeEventListener?.(type, fn, opts));
+  };
+  listen(motionQuery, 'change', (e) => store.set({ reducedMotion: e.matches }));
 
   // 言語とテーマは描画より先に反映する(ちらつきを避ける)
   const applyLangTheme = () => {
@@ -81,8 +91,22 @@ async function main() {
     root.dataset.fallback = '2d';
   }
 
+  renderer.setStill(still);
   const picker = createPicker(data);
-  const rig = createCameraRig({ store, renderer, immediate: still });
+  const partnerCache = new Map();
+  const partners = (sel) => {
+    if (!sel) return null;
+    const key = JSON.stringify(sel);
+    if (!partnerCache.has(key)) partnerCache.set(key, mainPartners(data, sel));
+    return partnerCache.get(key);
+  };
+  const rig = createCameraRig({ store, renderer, immediate: still, partners });
+  // 年の補間(--dur-year)。動きを減らす設定と still=1 では即時
+  const yearSeconds = () => {
+    const v = parseDuration(getComputedStyle(root).getPropertyValue('--dur-year'));
+    return v ?? YEAR_SECONDS;
+  };
+  const years = createYearTween({ renderer, year: store.get().year, duration: yearSeconds() });
 
   // 毎フレーム呼ばれる関数の登録(ラベルなどが使う)
   const frameFns = new Set();
@@ -98,17 +122,17 @@ async function main() {
     if (has('lang') || has('theme')) applyLangTheme();
     if (has('theme')) renderer.setTheme(s.theme);
     if (has('morph')) renderer.setMorph(s.morph);
-    if (has('year')) renderer.setYear(s.year, s.year, 0);
+    if (has('year')) years.set(s.year, { immediate: all || still || s.reducedMotion });
     if (has('selection')) renderer.setSelection(selectionMask(s.selection));
     if (has('hover')) renderer.setHover(s.hover?.type === 'arc' ? { o: s.hover.o, d: s.hover.d } : null);
     if (has('reducedMotion')) renderer.setReducedMotion(s.reducedMotion);
   };
   sync(store.get(), null);
-  store.subscribe(sync);
-  const stopUrl = syncUrl(store, { still });
+  cleanups.push(store.subscribe(sync));
+  cleanups.push(syncUrl(store, { still }));
 
   // UI 部品
-  const ctx = { data, renderer, picker, onFrame };
+  const ctx = { data, renderer, picker, onFrame, initialScene: scene };
   const mounts = [
     [labels, 'labels'],
     [timeline, 'timeline'],
@@ -151,47 +175,79 @@ async function main() {
     const r = canvas.getBoundingClientRect();
     return [e.clientX - r.left, e.clientY - r.top];
   };
-  canvas.addEventListener('pointermove', (e) => {
+  listen(canvas, 'pointermove', (e) => {
     rebuildPicker();
     const [x, y] = localPoint(e);
     const i = picker.pickNode(x, y);
     const arc = i == null ? picker.pickArc(x, y) : null;
     store.set({ hover: i != null ? { type: 'pref', code: i + 1 } : arc ? { type: 'arc', o: arc.o, d: arc.d } : null });
   });
-  canvas.addEventListener('pointerleave', () => store.set({ hover: null }));
-  canvas.addEventListener('click', (e) => {
+  listen(canvas, 'pointerleave', () => store.set({ hover: null }));
+  listen(canvas, 'click', (e) => {
     rebuildPicker();
     const [x, y] = localPoint(e);
     const i = picker.pickNode(x, y);
     if (i != null) store.set({ selection: { type: 'pref', code: i + 1 } });
   });
 
-  // 描画ループ
+  // 描画ループ。1 フレームの中で例外が出ても、次のフレームの予約は失わない(先に予約する)。
+  // 描画器と UI 部品の毎フレームの処理は、それぞれ例外を受け止める(同じ例外は 1 回だけ記録する)。
+  const reported = new Set();
+  const guard = (name, fn) => {
+    try {
+      fn();
+    } catch (err) {
+      const key = `${name}:${err?.message}`;
+      if (!reported.has(key)) {
+        reported.add(key);
+        console.error(`[frame:${name}]`, err);
+      }
+    }
+  };
   let last = performance.now();
   const t0 = last;
   let first = true;
+  let raf = 0;
+  let running = true;
   const frame = (now) => {
-    const dt = Math.min(0.1, (now - last) / 1000);
+    if (!running) return;
+    raf = requestAnimationFrame(frame);
+    const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
     last = now;
-    rig.update(dt);
     const time = still ? 0 : (now - t0) / 1000;
-    rebuildPicker();
-    renderer.render(time);
-    for (const fn of frameFns) fn(time);
+    guard('camera', () => rig.update(dt));
+    guard('year', () => years.update(dt));
+    guard('picker', rebuildPicker);
+    guard('render', () => renderer.render(time));
+    for (const fn of frameFns) guard(fn.name || 'ui', () => fn(time));
     if (first) {
       first = false;
       root.dataset.ready = '1';
     }
-    requestAnimationFrame(frame);
   };
-  requestAnimationFrame(frame);
+  raf = requestAnimationFrame(frame);
 
   // 撮影・デバッグ用の取っ手
-  window.__app = { store, renderer, data, picker, dispose() {
+  window.__app = { store, renderer, data, picker, rig, years,
+    /** 次のフレームを描いてから描画ループを止める(撮影用。止めた後も最後の画は残る)。 */
+    pause() {
+      return new Promise((done) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          running = false;
+          cancelAnimationFrame(raf);
+          done();
+        }));
+      });
+    },
+    dispose() {
+    running = false;
+    cancelAnimationFrame(raf);
     ro.disconnect();
-    stopUrl();
+    cleanups.splice(0).forEach((off) => off());
     mounts.forEach((m) => m.dispose());
+    frameFns.clear();
     rig.dispose();
+    years.dispose();
     renderer.dispose();
   } };
 }

@@ -12,6 +12,7 @@ import { t } from '../i18n.js';
 import { shortName } from '../i18n/tooltip.js';
 import { PREF_EN, PREF_JA } from '../i18n/common.js';
 import { createInteraction } from '../scene/picking.js';
+import { fill, formatCount as fmtInt, formatSigned as fmtSigned, prefFlow } from '../data/stats.js';
 import { collectFixedRects, rectsOverlap } from './avoid.js';
 
 const OFFSET = 12; // ポインタから右下へずらす距離(px)
@@ -20,37 +21,7 @@ const TAP_SLOP = 10; // タップとみなす移動量の上限(px)
 const TAP_MS = 600;
 
 // ---------------------------------------------------------------------------------------------
-// 書式(桁区切りはカンマ、差引には符号。マイナスは U+2212)
-
-export function fmtInt(n) {
-  return Math.round(n).toLocaleString('en-US');
-}
-
-export function fmtSigned(n) {
-  const v = Math.round(n);
-  if (v > 0) return `+${fmtInt(v)}`;
-  if (v < 0) return `−${fmtInt(-v)}`;
-  return '0';
-}
-
-function fill(text, vars) {
-  return text.replace(/\{(\w+)\}/g, (_, k) => (k in vars ? String(vars[k]) : `{${k}}`));
-}
-
-// ---------------------------------------------------------------------------------------------
-// 数値(ctx.data から)
-
-/** 都道府県 i の、year 年の転入・転出・差引(ほかの都道府県との移動だけ)。 */
-export function prefFlows(matrix, i) {
-  let inn = 0;
-  let out = 0;
-  for (let j = 0; j < 47; j++) {
-    if (j === i) continue;
-    inn += matrix[j * 47 + i];
-    out += matrix[i * 47 + j];
-  }
-  return { in: inn, out, net: inn - out };
-}
+// 数値と書式は data/stats.js(読み出し・表・折れ線と同じ関数)
 
 /**
  * ツールチップの中身(表示用の値と、読み上げ用の 1 文)。hover が null なら null。
@@ -75,7 +46,7 @@ export function tooltipContent(hover, { matrix, year, lang }) {
   }
   if (hover.type === 'pref') {
     const i = hover.code - 1;
-    const f = prefFlows(matrix, i);
+    const f = prefFlow(matrix, i);
     const name = shortName(i, names);
     const label = fill(t('tooltip.pref', lang), { pref: name, in: fmtInt(f.in), out: fmtInt(f.out), net: fmtSigned(f.net) });
     return { kind: 'pref', name, code: hover.code, ...f, label };

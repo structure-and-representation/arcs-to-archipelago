@@ -26,3 +26,10 @@ export const CAMERA_PRESETS = {
 export const CAMERA_NAMES = Object.keys(CAMERA_PRESETS);
 export const YEAR_MIN = 2012;
 export const YEAR_MAX = 2025;
+
+// 名前の判定は自身のキーだけを認める(`in` だと 'constructor' や 'toString' のような継承したキーも通ってしまう)
+const own = (obj, key) => typeof key === 'string' && Object.prototype.hasOwnProperty.call(obj, key);
+/** 圏の id('tokyo' | 'nagoya' | 'osaka')か。 */
+export const isMetroId = (id) => own(METRO_CODES, id);
+/** カメラの定位置の名前('side' | 'oblique' | 'top')か。 */
+export const isCameraName = (name) => own(CAMERA_PRESETS, name);

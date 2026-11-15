@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { parseData } from '../src/data/loader.js';
 import { STEP } from '../src/geometry/constants.js';
 import { selectionMask, sideOf } from '../src/geometry/flows.js';
-import { arcT, createFallback, endFade, hash, sideOfMask, slotWeight, stillS } from '../src/scene/fallback2d.js';
+import { createFallback } from '../src/scene/fallback2d.js';
+import { arcT, endFade, hash, sideOfMask, slotS, slotWeight } from '../src/geometry/particles.js';
+
+const stillS = (o, d, k) => slotS(o, d, k, 0, true);
 
 const read = (name) => JSON.parse(readFileSync(new URL(`../public/data/${name}`, import.meta.url), 'utf8'));
 const data = parseData({ od: read('od.json'), prefectures: read('prefectures.json'), topology: read('japan.topojson') });

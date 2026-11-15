@@ -1,25 +1,6 @@
 /* 数値の表(ui/table.js)と、WebGL2 が使えないときの案内(scene/fallback2d.js)。
    色・書体・寸法は tokens.css のトークンから読む(デザイン仕様 5.6)。 */
 
-/* ---- 開くボタンの仮の置き場(骨格の index.html の <details id="table">)。
-        本来のボタンは上の帯(ui/controls.js)にあり、[data-open-table] を付ける ---- */
-#table {
-  position: fixed;
-  z-index: 2;
-  right: var(--gutter, 16px);
-  bottom: 48px;
-}
-#table > summary {
-  list-style: none;
-  cursor: pointer;
-  color: var(--fg-2);
-  font: var(--fs-caption) / var(--lh-ui, 1.5) var(--font-sans);
-  letter-spacing: var(--ls-ui, .02em);
-}
-#table > summary::-webkit-details-marker { display: none; }
-#table > summary:hover { color: var(--fg-1); }
-#table > summary:focus-visible { outline: 1.5px solid var(--focus); outline-offset: 3px; }
-
 /* ---- ダイアログ ---- */
 .table-dialog {
   --tap-y: 7px; /* 押せる範囲を、見た目の行の高さより上下に広げる量(行の高さ 28px → 32px) */
@@ -209,7 +190,7 @@ table.data tr.sel th.name { color: var(--accent); font-weight: 500; }
 /* ---- WebGL2 が使えないときの案内(scene/fallback2d.js が作る) ---- */
 .fallback-notice {
   position: fixed;
-  z-index: 4;
+  z-index: var(--z-ui); /* キャンバス(--z-stage)より上 */
   top: 88px;
   left: 424px;
   width: clamp(240px, calc(100vw - 764px), 520px);

@@ -7,9 +7,11 @@
 // ・自由探索の章は場面が 1 つなので、章の中をスクロールしている間は state を書かない(読者の操作を上書きしない)。
 //   ほかの章でも、同じ場面の中にいる間は上書きしない。
 // ・目次を押すとその章の先頭へ動く。動いている途中の章の場面は通り過ぎるだけで、state には書かない。
-// ・URL に year / sel / cam / morph があるときは、はじめの場面を書かない(URL が正)。
+// ・はじめの章と場面は initialScene(URL の引数)で決める(main.js が state へ書き、ここはその位置へスクロールする)。
+//   URL に ch がなくても、URL の年・選択・カメラに合う章を選ぶので、本文と画面が矛盾しない。
 // ・日本語と英語(i18n の言語)、縦画面用の本文、動きを減らす設定(state.reducedMotion)に追従する。
 import { CHAPTERS } from '../content/chapters.js';
+import { CAMERA_PRESETS, isCameraName } from '../geometry/constants.js';
 import { onLangChange, t } from '../i18n.js';
 import { isPortrait, onPortraitChange } from './portrait.js';
 
@@ -38,6 +40,47 @@ export function sceneToPatch(chapter, step) {
   return { chapter, year: s.year, selection: s.selection ? { ...s.selection } : null, camera: s.camera };
 }
 
+const sameSelection = (a, b) =>
+  (a == null && b == null) ||
+  (a != null && b != null && a.type === b.type && (a.type === 'metro' ? a.id === b.id : a.code === b.code));
+
+/** 自由探索の章(場面が 1 つで、読者が年・地域・カメラを動かす)。 */
+export const EXPLORE = CHAPTERS.findIndex((c) => c.explore);
+
+/**
+ * URL の引数(params.js の parseParams の patch)から、はじめの章と場面と、state へ書く patch を決める純関数。
+ *  - ch があるとき: その章の最初の場面の年・選択・カメラ。URL に year / sel / cam / morph があれば、そちらを優先する。
+ *  - ch がなく、year / sel / cam のどれかがあるとき: それらがすべて一致する最初の場面の章(本文と画面が矛盾しない)。
+ *    一致する場面がなければ自由探索の章にし、URL にない値は自由探索の場面の値にする。
+ *  - どれもないとき: 0 章の最初の場面(開幕)。
+ * morph は、URL になければカメラの定位置の値。戻り値: { chapter, step, patch }
+ */
+export function initialScene(urlPatch = {}) {
+  const has = (k) => urlPatch[k] !== undefined;
+  const fromUrl = {};
+  for (const k of ['year', 'selection', 'camera', 'morph']) if (has(k)) fromUrl[k] = urlPatch[k];
+  let chapter = 0;
+  let step = 0;
+  if (has('chapter')) {
+    chapter = Math.min(Math.max(0, urlPatch.chapter), CHAPTERS.length - 1);
+  } else if (has('year') || has('selection') || has('camera')) {
+    let found = null;
+    CHAPTERS.forEach((c, i) =>
+      c.steps.forEach((s, k) => {
+        if (found) return;
+        if (has('year') && s.year !== urlPatch.year) return;
+        if (has('selection') && !sameSelection(s.selection, urlPatch.selection)) return;
+        if (has('camera') && s.camera !== urlPatch.camera) return;
+        found = [i, k];
+      }),
+    );
+    [chapter, step] = found ?? [EXPLORE, 0];
+  }
+  const patch = { ...sceneToPatch(chapter, step), ...fromUrl };
+  if (!has('morph') && isCameraName(patch.camera)) patch.morph = CAMERA_PRESETS[patch.camera].morph;
+  return { chapter, step, patch };
+}
+
 const pad = (n) => String(n + 1).padStart(2, '0');
 const el = (tag, className, attrs = {}) => {
   const node = document.createElement(tag);
@@ -46,7 +89,7 @@ const el = (tag, className, attrs = {}) => {
   return node;
 };
 
-export function mount(root, store) {
+export function mount(root, store, ctx = {}) {
   // ---- DOM ----
   const toc = el('nav', 'toc');
   const tocList = el('ol');
@@ -87,6 +130,7 @@ export function mount(root, store) {
 
   const footer = el('footer', 'footnote');
   const footerNote = footer.appendChild(el('p'));
+  const footerMap = footer.appendChild(el('p', 'map-source'));
   root.replaceChildren(toc, progress, ...sections.map((s) => s.section), footer);
 
   // 目次と章の位置の表示(いま見せる章)
@@ -114,6 +158,7 @@ export function mount(root, store) {
     });
     toc.setAttribute('aria-label', t('ch.nav'));
     footerNote.textContent = t('footer.note');
+    footerMap.textContent = t('footer.mapSource');
     renderCurrent(shown);
   };
 
@@ -206,13 +251,22 @@ export function mount(root, store) {
   const offPortrait = onPortraitChange(renderTexts);
 
   // ---- はじめの章と場面 ----
+  // main.js が initialScene(URL)で決めた章・場面の state を書いてから mount する。ここでは、その場面の位置へ
+  // スクロールするだけで、state は書かない(URL の値を上書きしない)。読者がスクロールして場面を越えたときから書く。
   renderTexts();
   measure();
-  const q = new URLSearchParams(location.search);
-  const ch = q.has('ch') && /^\d+$/.test(q.get('ch')) ? Math.min(Number(q.get('ch')), CHAPTERS.length - 1) : null;
-  if (ch != null && ch > 0 && window.scrollY < 4) window.scrollTo({ top: geometry[ch].top, behavior: 'auto' });
-  const explicit = ['year', 'sel', 'cam', 'morph'].some((k) => q.has(k));
-  enter(here(), !explicit);
+  const start = ctx.initialScene ?? { chapter: store.get().chapter, step: 0 };
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  const g = geometry[start.chapter];
+  if (g && (start.chapter > 0 || start.step > 0)) {
+    // 場面の範囲の少し内側(画面の高さの中央の線が、その場面の中に来る位置)
+    const y = g.top + (g.height / g.steps) * (start.step + 0.05) - window.innerHeight * ANCHOR;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+  } else if (window.scrollY > 0) {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+  current = { chapter: start.chapter, step: start.step };
+  if (store.get().chapter !== start.chapter) store.set({ chapter: start.chapter });
   renderCurrent(store.get().chapter);
 
   return {

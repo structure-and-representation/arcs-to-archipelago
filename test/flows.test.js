@@ -108,3 +108,22 @@ describe('arcList', () => {
     expect(arcList()).toBe(list);
   });
 });
+
+describe('selectionMask と sideOf は不明な選択を空として扱う', () => {
+  const bad = [
+    { type: 'metro', id: 'constructor' },
+    { type: 'metro', id: 'toString' },
+    { type: 'metro', id: 'kyoto' },
+    { type: 'pref', code: 0 },
+    { type: 'pref', code: 48 },
+    { type: 'pref', code: 1.5 },
+    { type: 'other' },
+  ];
+  for (const sel of bad) {
+    it(JSON.stringify(sel), () => {
+      expect([...selectionMask(sel)].every((v) => v === 0)).toBe(true);
+      expect(sideOf(12, 0, sel)).toBe(0);
+    });
+  }
+});
+

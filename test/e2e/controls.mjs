@@ -22,13 +22,17 @@ const browser = await chromium.launch({
 
 let failures = 0;
 const problems = [];
+const opened = [];
 async function openPage(query, { colorScheme = 'light', viewport = { width: 1440, height: 900 } } = {}) {
+  // 前に開いたページの描画ループを止める(走り続けると、SwiftShader の描画を奪い合って読み込みが時間切れになる)
+  for (const old of opened.splice(0)) await old.evaluate(() => window.__app?.pause?.()).catch(() => {});
   const ctx = await browser.newContext({ viewport, colorScheme, locale: 'ja-JP' });
   const page = await ctx.newPage();
   page.on('console', (m) => (m.type() === 'error' || m.type() === 'warning') && problems.push(`console.${m.type()}: ${m.text()}`));
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   await page.goto(`${base}?${query}&still=1`);
   await page.waitForSelector('html[data-ready="1"]', { timeout: 60000 });
+  opened.push(page);
   return page;
 }
 const state = (page) => page.evaluate(() => window.__app.store.get());

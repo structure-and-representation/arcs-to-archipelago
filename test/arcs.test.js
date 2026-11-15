@@ -171,19 +171,21 @@ describe('見た目の値(デザイン仕様 §6)', () => {
   });
 
   it('全国・墨: 不透明度 0.085', () => {
-    const { layer, below } = make();
+    const { shared, layer, below } = make();
+    shared.setTheme('ink'); // renderer は shared.setTheme の後に各層の setTheme を呼ぶ
     layer.setTheme('ink');
     layer.update(still);
     expect(style(below)[1]).toBeCloseTo(0.085, 10);
   });
 
   it('地域を選んでいるとき: 線幅 0.8px、不透明度 紙 0.30 / 墨 0.26', () => {
-    const { layer, below } = make();
+    const { shared, layer, below } = make();
     layer.setSelection(new Uint8Array(47));
     layer.setSelection(selectionMask(sels[1]));
     layer.update(still);
     expect(style(below)[0]).toBeCloseTo(0.8, 10);
     expect(style(below)[1]).toBeCloseTo(0.3, 10);
+    shared.setTheme('ink');
     layer.setTheme('ink');
     expect(style(below)[1]).toBeCloseTo(0.26, 10);
   });

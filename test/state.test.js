@@ -45,3 +45,45 @@ describe('createStore', () => {
     expect(fn).not.toHaveBeenCalled();
   });
 });
+
+describe('createStore の通知の順序', () => {
+  it('購読関数の中で set しても、どの購読関数も set された順に通知を受け取る', () => {
+    const s = createStore();
+    const log = [];
+    // 章の切り替えのように、chapter が変わったら年・選択・カメラを書く購読関数
+    s.subscribe((st, keys) => {
+      log.push(['A', keys.join(','), st.year]);
+      if (keys.includes('chapter')) s.set({ year: 2019, camera: 'oblique' });
+    });
+    s.subscribe((st, keys) => log.push(['B', keys.join(','), st.year]));
+    s.set({ chapter: 1 });
+    expect(log).toEqual([
+      ['A', 'chapter', 2025],
+      ['B', 'chapter', 2025],
+      ['A', 'year,camera', 2019],
+      ['B', 'year,camera', 2019],
+    ]);
+    expect(s.get()).toMatchObject({ chapter: 1, year: 2019, camera: 'oblique' });
+  });
+
+  it('通知の途中で購読を解除された関数には、それ以降の通知を配らない', () => {
+    const s = createStore();
+    const b = vi.fn();
+    let offB;
+    s.subscribe(() => offB());
+    offB = s.subscribe(b);
+    s.set({ year: 2014 });
+    expect(b).not.toHaveBeenCalled();
+  });
+
+  it('購読関数が例外を投げても、次の set は通知される', () => {
+    const s = createStore();
+    const fn = vi.fn(() => {
+      throw new Error('x');
+    });
+    s.subscribe(fn);
+    expect(() => s.set({ year: 2014 })).toThrow('x');
+    expect(() => s.set({ year: 2015 })).toThrow('x');
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+});

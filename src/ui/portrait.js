@@ -1,6 +1,6 @@
-// 縦画面かどうか。CSS の縦画面の構成(styles/base.css の @media (max-aspect-ratio: 1/1))と同じ条件で、幅 ≦ 高さのとき真。
+// 縦画面の構成かどうか。CSS の @media (max-width: 1023.98px) と scene/camera.js の isPortrait(幅 1024px 未満)と同じ条件。
 // 縦画面用の文言(章の本文、凡例)を選ぶときに使う。
-export const PORTRAIT_QUERY = '(max-aspect-ratio: 1/1)';
+export const PORTRAIT_QUERY = '(max-width: 1023.98px)';
 
 const mq = () => (typeof matchMedia === 'function' ? matchMedia(PORTRAIT_QUERY) : null);
 

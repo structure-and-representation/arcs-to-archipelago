@@ -1,6 +1,6 @@
 // WebGL2 が使えない環境の代替表示。Canvas 2D で、真横の定位置の arc diagram と、静止した点描の粒子を描く(設計 §8)。
 //   createFallback(canvas, data) → renderer(scene/renderer.js)と同じメソッドを持つオブジェクト
-//     setView、setMorph、setLean、setSelection、setYear、setTheme、setReducedMotion、setHover、
+//     setView、setMorph、setLean、setSelection、setYear、setTheme、setReducedMotion、setStill、setHover、
 //     resize、render、project、dispose、layout、getState、screenMatrix
 //
 // 描くもの(描く順序は設計 §5 のとおり: 地下の弧 → 地下の粒子 → 地上の弧 → 地上の粒子 → 都道府県の点)
@@ -16,102 +16,22 @@ import { arcPoint } from '../geometry/arc.js';
 import { arcList } from '../geometry/flows.js';
 import { screenAxes, viewFor } from './camera.js';
 import { getLang, onLangChange, t } from '../i18n.js';
+import { arcT, endFade, sideOfMask, slotS, slotWeight } from '../geometry/particles.js';
+import { DESKTOP_BREAKPOINT } from './camera.js';
+import { readStyle } from './shared.js';
 
 const N = 47;
 const SEGMENTS = 48; // 弧の折れ線の区間数(描画器の弧の区間数と同じ)
 const MAX_DPR = 2;
 const TWO_PI = Math.PI * 2;
 
-// ---- 粒子の計算(docs/particles/reference.js の JS 版。統合のとき geometry/particles.js にまとめる) ----
-const PHI = 0.618034;
-const FADE = 0.04; // 端の薄めの幅(弧の長さの割合)
-
-/** lowbias32 の整数ハッシュ(GLSL のハッシュと同じ式) */
-export function hash(x) {
-  x >>>= 0;
-  x ^= x >>> 16; x = Math.imul(x, 0x7feb352d) >>> 0;
-  x ^= x >>> 15; x = Math.imul(x, 0x846ca68b) >>> 0;
-  x ^= x >>> 16;
-  return x >>> 0;
-}
-export const u01 = (x) => (hash(x) >>> 8) / 16777216;
-
-// 弧の長さの割合 s → 一様 B スプラインの媒介変数 t(docs/particles/arclen.py)
-const ARC_C = 5.510779;
-const ARC_S0 = 0.0861059;
-export function arcT(s) {
-  if (s < ARC_S0) return Math.cbrt(Math.max(s, 0) / ARC_C);
-  if (s > 1 - ARC_S0) return 1 - Math.cbrt(Math.max(1 - s, 0) / ARC_C);
-  const x = s - 0.5;
-  const x2 = x * x;
-  return 0.5 + x * (0.52318546 + x2 * (0.0844248 + x2 * 2.19156312));
-}
-
-/** 弧 (o, d) の k 番目の枠の、静止した配置での弧の長さの割合(0.04〜0.96) */
-export function stillS(o, d, k) {
-  const g = (k * PHI + u01(o * N + d)) % 1;
-  return FADE + (1 - 2 * FADE) * g;
-}
-/** k 番目の粒子の濃さの重み。人数 v なら clamp(v / 100 − k, 0, 1)。重みの合計は v / 100 になる。 */
-export const slotWeight = (people, k) => Math.min(Math.max(people / 100 - k, 0), 1);
-const smooth = (a, b, x) => {
-  const u = Math.min(Math.max((x - a) / (b - a), 0), 1);
-  return u * u * (3 - 2 * u);
+// 粒子の計算(ハッシュ、弧の長さ→t、静止の配置、重み、端の薄め、側)は geometry/particles.js にある(シェーダと同じ式)。
+// 色・不透明度・線幅・粒子径は scene/shared.js の readStyle(tokens.css の --gl-*)から読む。
+const stillS = (o, d, k) => slotS(o, d, k, 0, true);
+const rgba = (hex, a) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 };
-export const endFade = (s) => smooth(0, FADE, s) * smooth(1, 1 - FADE, s);
-
-/** 弧の側。+1 が地上、−1 が地下、0 は描かない(geometry/flows.js の sideOf と同じ規則を、マスクで書いたもの)。 */
-export function sideOfMask(o, d, mask) {
-  if (o === d) return 0;
-  let any = false;
-  for (let i = 0; i < N; i++) if (mask[i]) { any = true; break; }
-  if (!any) return o > d ? 1 : -1;
-  if (!mask[o] === !mask[d]) return 0;
-  return mask[d] ? 1 : -1;
-}
-
-// ---- 色(styles/tokens.css の --gl-*。なければデザイン仕様の既定値) ----
-const DEFAULTS = {
-  paper: { fg: '#1C1B18', accent: '#C23B22', bg: '#F3F0E8', arcAll: 0.10, arcSel: 0.30, hover: 0.95, particle: 0.60, particleSel: 0.75 },
-  ink: { fg: '#F3F0E8', accent: '#E5603F', bg: '#1C1B18', arcAll: 0.085, arcSel: 0.26, hover: 0.95, particle: 0.50, particleSel: 0.65 },
-};
-
-function parseColor(text, fallback) {
-  const s = (text || '').trim();
-  let m = /^#([0-9a-f]{6})$/i.exec(s);
-  if (m) return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
-  m = /^#([0-9a-f]{3})$/i.exec(s);
-  if (m) return [0, 1, 2].map((i) => parseInt(m[1][i] + m[1][i], 16));
-  m = /^rgba?\(\s*([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)/i.exec(s);
-  if (m) return [Number(m[1]), Number(m[2]), Number(m[3])];
-  return fallback === undefined ? null : parseColor(fallback);
-}
-
-function readColors(theme) {
-  const d = DEFAULTS[theme] ?? DEFAULTS.paper;
-  let cs = null;
-  try {
-    if (typeof document !== 'undefined') cs = getComputedStyle(document.documentElement);
-  } catch {
-    cs = null;
-  }
-  const get = (name) => cs?.getPropertyValue(name) ?? '';
-  const num = (name, dflt) => {
-    const v = parseFloat(get(name));
-    return Number.isFinite(v) ? v : dflt;
-  };
-  return {
-    fg: parseColor(get('--gl-fg'), d.fg),
-    accent: parseColor(get('--gl-accent'), d.accent),
-    bg: parseColor(get('--bg'), d.bg),
-    arcAll: num('--gl-arc-all', d.arcAll),
-    arcSel: num('--gl-arc-sel', d.arcSel),
-    hover: num('--gl-arc-hover', d.hover),
-    particle: num('--gl-particle', d.particle),
-    particleSel: num('--gl-particle-sel', d.particleSel),
-  };
-}
-const rgba = (c, a) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a})`;
 
 // ---- 案内文 ----
 function createNotice(canvas) {
@@ -251,12 +171,10 @@ export function createFallback(canvas, data) {
     dirty = false;
     const c = ctx2d;
     if (!c) return;
-    const colors = readColors(st.theme);
+    const colors = readStyle(st.theme, { portrait: st.width < DESKTOP_BREAKPOINT });
     const selecting = st.mask.some(Boolean);
-    const portrait = st.width < st.height;
-    const lineWidth = selecting ? 0.8 : 0.7;
-    const diameter = selecting ? (portrait ? 2.0 : 2.2) : (portrait ? 1.8 : 2.0);
-    const radius = diameter / 2;
+    const lineWidth = selecting ? colors.lineWidthSel : colors.lineWidth;
+    const radius = (selecting ? colors.particleSizeSel : colors.particleSize) / 2;
     const arcAlpha = selecting ? colors.arcSel : colors.arcAll;
     const partAlpha = selecting ? colors.particleSel : colors.particle;
     fillPeople();
@@ -291,8 +209,8 @@ export function createFallback(canvas, data) {
       const v = people[h.o * N + h.d];
       if (side !== 0 && v > 0) {
         arcPath(h.o, h.d, side, xs, ys);
-        drawArcLine(c, colors.accent, colors.hover, 1.0, xs, ys);
-        drawParticles(c, h.o, h.d, side, v, colors.accent, colors.hover, radius);
+        drawArcLine(c, colors.accent, colors.arcHover, colors.lineWidthHover, xs, ys);
+        drawParticles(c, h.o, h.d, side, v, colors.accent, partAlpha, colors.particleSizeHover / 2);
       }
     }
 
@@ -301,7 +219,7 @@ export function createFallback(canvas, data) {
     for (let i = 0; i < N; i++) {
       nodeXY(i, p);
       if (st.mask[i]) continue;
-      c.fillStyle = rgba(colors.fg, 0.85);
+      c.fillStyle = rgba(colors.fg, 1);
       c.beginPath();
       c.arc(p[0], p[1], 1.5, 0, TWO_PI);
       c.fill();
@@ -348,6 +266,7 @@ export function createFallback(canvas, data) {
     setReducedMotion(on) {
       st.reducedMotion = !!on;
     },
+    setStill() {}, // 粒子はもともと静止の配置で描く
     setHover(arc) {
       st.hover = arc;
       touch();

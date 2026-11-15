@@ -9,7 +9,7 @@
 //     shared    scene/shared.js の createShared の結果(uniforms、layout、GLSL_COMMON、RENDER_ORDER)
 //     data      loadData() の結果(matrix(year)、prefectures、topology …)
 //     arcList   geometry/flows.js の arcList()(弧の固定の順序。弧・粒子・当たり判定・表で共有)
-//   frame = { time(秒)、dt(秒)、reducedMotion }。毎フレーム update(frame) が呼ばれる。
+//   frame = { time(秒)、dt(秒)、reducedMotion、still }。毎フレーム update(frame) が呼ばれる。
 //   setYear(a, b, mix): a、b は西暦。setSelection(mask): Uint8Array(47)。setHover: { o, d } | null。
 //   層に関係のないメソッドは何もしない実装でよい。
 //   描く順序: object3D の中の Mesh / Points(葉のオブジェクト)に shared.js の RENDER_ORDER を renderOrder として付ける。
@@ -23,32 +23,12 @@
 //   - side = 0 の弧(選択地域の内部どうしと、選択に関わらない移動)は、side を保ったまま alpha を 0 へ落とす。
 //   - ホバー中の弧は、専用の 1 インスタンスの Mesh を朱で最前面に描く。
 //   - 線幅は CSS px で、DPR に依らない(シェーダが uPixelRatio を掛けて実ピクセルにする)。
-//   - 色は shared.setTheme が読んだ uInk / uAccent(three.js の作業色空間の値)を、出力色空間へ戻して使う。
+//   - 色は shared の uInk / uAccent(トークンの sRGB の値)をそのまま出す。不透明度と線幅は shared.style(tokens.css の --gl-*)から読む。
 import * as THREE from 'three';
 import { GLSL_COMMON, RENDER_ORDER } from './shared.js';
 
 const SEG = 48; // 1 本の弧の区間数(設計 §5)
 const TRANSITION_SEC = 0.6; // side と選択の見た目の切り替えの時間(--dur-year と同じ)
-
-// デザイン仕様 §6 の寸法(CSS px)。不透明度は tokens.css の --gl-* を読み、読めないときはこの値を使う。
-const WIDTH = { all: 0.7, sel: 0.8, hover: 1.0 };
-const OPACITY = {
-  paper: { all: 0.1, sel: 0.3, hover: 0.95 },
-  ink: { all: 0.085, sel: 0.26, hover: 0.95 },
-};
-const CSS_VARS = { all: '--gl-arc-all', sel: '--gl-arc-sel', hover: '--gl-arc-hover' };
-
-function readOpacity(theme) {
-  const out = { ...(OPACITY[theme] ?? OPACITY.paper) };
-  if (typeof document !== 'undefined') {
-    const cs = getComputedStyle(document.documentElement);
-    for (const [key, name] of Object.entries(CSS_VARS)) {
-      const v = parseFloat(cs.getPropertyValue(name));
-      if (Number.isFinite(v)) out[key] = v;
-    }
-  }
-  return out;
-}
 
 const VERT = /* glsl */ `
 ${GLSL_COMMON}
@@ -126,7 +106,7 @@ void main(){
   a *= min(wpx, 1.0) * vAlpha * uAlpha; // 1px 未満の線は、細くせずに薄くする
   if (a <= 0.0) discard;
   vec3 col = uUseAccent > 0.5 ? uAccent : uInk;
-  outColor = linearToOutputTexel(vec4(col, a));
+  outColor = vec4(col, a); // uInk / uAccent はトークンの sRGB の値。色空間は変換しない
 }`;
 
 const smooth01 = (x) => x * x * (3 - 2 * x);
@@ -188,7 +168,7 @@ export function createArcsLayer(ctx) {
       uniforms: {
         ...shared.uniforms,
         uHalf: { value: half },
-        uWidth: { value: WIDTH.all },
+        uWidth: { value: shared.style.lineWidth },
         uAlpha: { value: 0 },
         uUseAccent: { value: accent ? 1 : 0 },
       },
@@ -209,8 +189,6 @@ export function createArcsLayer(ctx) {
   hoverMesh.visible = false;
 
   // ---- 状態 ----
-  let theme = 'paper';
-  let opacity = readOpacity(theme);
   // 検証用: 比較の画像を撮るときだけ、外から線幅と不透明度を固定できる(tools/verify/arcs-parity.mjs)
   const debug = globalThis.__ARCS_DEBUG;
   const debugStyle = debug && Number.isFinite(debug.width) && Number.isFinite(debug.alpha) ? debug : null;
@@ -252,14 +230,15 @@ export function createArcsLayer(ctx) {
   let selCur = 0;
 
   function applyStyle() {
-    const w = debugStyle ? debugStyle.width : WIDTH.all + (WIDTH.sel - WIDTH.all) * selCur;
-    const a = debugStyle ? debugStyle.alpha : opacity.all + (opacity.sel - opacity.all) * selCur;
+    const st = shared.style;
+    const w = debugStyle ? debugStyle.width : st.lineWidth + (st.lineWidthSel - st.lineWidth) * selCur;
+    const a = debugStyle ? debugStyle.alpha : st.arcAll + (st.arcSel - st.arcAll) * selCur;
     for (const m of [below, above]) {
       m.material.uniforms.uWidth.value = w;
       m.material.uniforms.uAlpha.value = a;
     }
-    hoverMesh.material.uniforms.uWidth.value = debugStyle ? debugStyle.width : WIDTH.hover;
-    hoverMesh.material.uniforms.uAlpha.value = debugStyle ? debugStyle.alpha : opacity.hover;
+    hoverMesh.material.uniforms.uWidth.value = debugStyle ? debugStyle.width : st.lineWidthHover;
+    hoverMesh.material.uniforms.uAlpha.value = debugStyle ? debugStyle.alpha : st.arcHover;
   }
 
   function updateHover() {
@@ -332,7 +311,7 @@ export function createArcsLayer(ctx) {
       lastWall = null;
     }
     if (progress < 1) {
-      if (frame && frame.reducedMotion) {
+      if (frame && (frame.reducedMotion || frame.still)) {
         snap();
       } else {
         progress = Math.min(1, progress + dt / TRANSITION_SEC);
@@ -357,10 +336,8 @@ export function createArcsLayer(ctx) {
     update,
     setYear() {},
     setSelection,
-    setTheme(name) {
-      theme = name;
-      opacity = readOpacity(theme);
-      applyStyle();
+    setTheme() {
+      applyStyle(); // 値は shared.style(renderer が先に shared.setTheme を呼ぶ)
     },
     setHover(arc) {
       hover = arc ? { o: arc.o, d: arc.d } : null;

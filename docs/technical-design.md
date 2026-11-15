@@ -98,15 +98,16 @@ Y は上向きの単位ベクトル、R は弦に垂直な水平の単位ベク�
 
 - 都道府県の2つの配置は 47×1 の浮動小数テクスチャ(RGBA32F、`NearestFilter`)に入れ、頂点シェーダで補間します。変形はシェーダの中で完結し、CPU 側は uniform を更新します。
 - 弧は、1本ぶんのリボン(48区間)を `InstancedBufferGeometry` で全弧ぶんインスタンス描画します。頂点シェーダで画面上の法線方向へ指定ピクセル幅だけ押し出します。線幅は 0.6〜1.0 CSS px で、解像度の uniform には描画バッファの実ピクセル数を渡します。素材は `DoubleSide` です。
-- 粒子は `THREE.Points` で、1粒が1頂点です。大きさは画面上で一定(2〜2.5 CSS px)です。
-  - すべての弧で、粒子が端から端まで流れる時間を一定(約14秒)にします。弧の上にある粒子の数が常に「人数 ÷ 100」になります。
-  - 人数 v の弧の k 番目(0始まり)の粒子の不透明度は `clamp(v / 100 - k, 0, 1)` です。インクの総量が人数に比例し、100人に満たない流れも薄い1粒として残ります。
-  - 弧ごとに、全年の最大粒数ぶんの枠を確保します。年ごとの人数は「弧 × 年」のテクスチャに持ち、2つの年を補間します。
-  - 粒子ごとの流れの位相は `fract(k * 0.618034 + 弧ごとの乱数)` です。
-  - 端点の近く(t が 0〜0.04 と 0.96〜1)では粒子を薄くします。
-  - 動きを減らす設定では時間を 0 に固定し、位相を `(k + 0.5) / n` に並べた静止した点描にします。
+- 粒子は `THREE.Points` で、1粒が1頂点です。確定仕様は `docs/particles/spec.md` で、この文書と食い違うところはそちらが正です。要点:
+  - 粒子は弧の曲線の上に置き、位置は**弧の長さの割合 s** で決めます。s を B スプラインの媒介変数 t へ変換する `arcT(s)`(すべての弧が相似なので 1 つの式)を、シェーダと `geometry/particles.js` の両方に持ちます。t を一様に進めると粒子が両端に溜まるためです。
+  - すべての弧で、端から端まで流れる時間は 14 秒です。位相は `s = fract(fract(k * 0.618034 + r_arc) + uPhase)`、`uPhase = fract(timeSec / 14)` は CPU で倍精度で計算して渡します。`r_arc` は (o, d) の整数ハッシュ(lowbias32)から作る弧ごとの乱数です。
+  - 人数 v の弧の k 番目(0始まり)の粒子の重みは `clamp(v / 100 - k, 0, 1)` で、Σk がちょうど v / 100 です。不透明度は「重み × 上限 × 端の薄め」で、端の薄めは s が 0〜0.04 と 0.96〜1 の smoothstep です。
+  - 弧ごとに全年の `ceil(v / 100)` の最大を枠とします(計 26,206 枠)。属性は `aSlot = (o, d, k)` だけです。年ごとの人数は R32F のテクスチャ(幅 47、高さ 47 × 年数、texel `(d, 年の添字 * 47 + o)`)に持ち、`texelFetch` で 2 つの年を読んで補間します。
+  - **静止の配置**(動きを減らす設定と `still=1`)は、黄金比の並び `s = 0.04 + 0.92 * fract(k * 0.618034 + r_arc)` です。年を切り替えても既にある点は動かず、新しい点は最大の隙間に入ります(`(k + 0.5) / n` の並べ方は使いません)。
+  - 地上と地下を 2 つの `Points` で描き、選択が変わるたびに CPU で枠を [地下 | 地上] に並べ直して `drawRange` で分けます。
+  - 粒子の径と不透明度の上限は `tokens.css` の値(後述)で、ホバー中の弧の粒子は朱にします。
 - 描く順序は、地下の弧と粒子、地面(紙の色の半透明、不透明度 0.35 以下)と境界線、地上の弧と粒子です。
-- 重なりは通常のアルファ合成です。弧の線の不透明度の目安は、全国表示で 0.08〜0.12、地域を選んだときで 0.3 前後です。
+- 重なりは通常のアルファ合成です。不透明度・線幅・粒子径は `docs/design/spec.md` 6 節の値で、`styles/tokens.css` の `--gl-*` を `scene/shared.js` がまとめて読みます(§10)。
 - 紙の質感は CSS の背景で作り、キャンバスは透明にします。
 - 都道府県名のラベルは HTML の要素で、毎フレーム射影した位置へ動かします。
 - 負荷が高いときは、DPR(上限2)と弧の区間数を段階的に下げます。粒子の数は量そのものなので変えません。
@@ -121,7 +122,7 @@ Y は上向きの単位ベクトル、R は弦に垂直な水平の単位ベク�
 | `oblique`(斜め俯瞰) | −0.35 | 0.6 | 1 | 0.5〜0.9 |
 | `top`(真上) | — | π/2 | 1 | 0.5〜0.9 |
 
-真上では北が画面の上になるようにカメラを回します。縦長の画面では、真横の定位置でカメラを90度回し、一直線の並びを縦(北が上)にします。定位置の間は滑らかに補間し、動きを減らす設定では即座に切り替えます。
+真上では北が画面の上になるようにカメラを回します。縦画面の構成(幅 1024px 未満)では、真横と斜め俯瞰でカメラを90度回し、北海道を上にします。定位置の間は滑らかに補間し、動きを減らす設定では即座に切り替えます。実装の値(lean 0.7、地域を選んだときの斜め俯瞰の値、図の領域)は §10 にあります。
 
 ## 7. モジュールの約束
 
@@ -131,7 +132,9 @@ src/
   state.js                createStore(initial) → { get(), set(patch), subscribe(fn) }
   params.js               URL の引数と state の相互変換
   i18n.js                 t(key) と文言の辞書(ja / en)。辞書は i18n/ に部品ごとに分かれる
-  i18n/                   common.js、timeline.js、selector.js、tooltip.js、table.js、controls.js、chapters.js
+  i18n/                   common.js、timeline.js、selector.js、tooltip.js、table.js、controls.js、chapters.js、legend.js
+  data/stats.js           集計と書式(読み出し・ツールチップ・表・年の折れ線・ラベル・カメラの構図が共有する。§10)
+  geometry/particles.js   粒子の計算の JS 版(ハッシュ、arcT、静止の配置、重み、枠の予算と並べ替え)
   content/chapters.js     章の中身(各章の見出し・本文のキー、選択、カメラ)
   data/loader.js          loadData() → { years, totals, matrix(year) → Int32Array(2209), prefectures, topology }
   geometry/constants.js   W, H, N, STEP, K, CX
@@ -148,12 +151,13 @@ src/
   scene/renderer.js       createRenderer(canvas, data) → {
                             setView({ azimuth, elevation, zoom, center, roll }), setMorph(m), setLean(l),
                             setSelection(Uint8Array(47)), setYear(a, b, mix), setTheme('paper' | 'ink'),
-                            setReducedMotion(bool), setHover(arc | null), resize(), render(timeSec),
+                            setReducedMotion(bool), setStill(bool), setHover(arc | null), resize(), render(timeSec),
                             project(i) → [x, y](CSS px), dispose() }
   scene/arcs.js           createArcsLayer(ctx) 弧の層
   scene/particles.js      createParticlesLayer(ctx) 粒子の層
   scene/ground.js         createGroundLayer(ctx) 地面と境界線の層
-  scene/camera.js         viewFor(preset, aspect, layout)、tween(a, b, s)(純関数)
+  scene/camera.js         viewFor(preset, aspect, layout, opts)、tween(a, b, s)、figureRegion(w, h)(純関数)
+  scene/yearTween.js      年の補間の持ち主。renderer.setYear(a, b, mix) を呼ぶ(§10)
   scene/cameraRig.js      state.camera の変化を renderer へつなぐ配線
   scene/fallback2d.js     createFallback(canvas, data) WebGL2 が使えない環境の Canvas 2D 代替(renderer と同じメソッド)
   scene/picking.js        createPicker(data) → { rebuild(state), pickNode(x, y) → i | null, pickArc(x, y) → { o, d } | null }
@@ -221,9 +225,9 @@ src/
 - **層**: renderer が自分で描くのは 47 都道府県の点だけです。弧・粒子・地面は層で、`createArcsLayer(ctx)`、`createParticlesLayer(ctx)`、`createGroundLayer(ctx)` が `{ object3D, update(frame), setYear(a, b, mix), setSelection(mask), setTheme(theme), setHover(arc | null), dispose() }` を返します(関係のないメソッドは何もしない)。`ctx = { shared, data, arcList }`、`frame = { time, dt, reducedMotion }`。後続の担当は自分の層のファイルだけを書き換えます。
 - **`scene/shared.js`**: 全層が共有する uniform(`uNodes`、`uMorph`、`uLean`、`uK`、`uRes`(描画バッファの実ピクセル)、`uPixelRatio`、`uTime`、`uInk`、`uPaper`、`uAccent`。各 `{ value }`)を `createShared(data)` が作ります。GLSL 断片は `GLSL_NODES`(`uNodes`、`uMorph`、`nodePos(i)`)と `geometry/arc.js` の `GLSL_ARC`(弧の式。`nodePos` が必要)で、`GLSL_COMMON` が両方をつなげたものです。
 - **描く順序**: `RENDER_ORDER`(地下の弧 0、地下の粒子 1、地面 2、地上の弧 3、地上の粒子 4、都道府県の点 5)を、各層が自分の Mesh / Points(葉のオブジェクト)の `renderOrder` に付けます。Group に付けると three.js が層をまたいだ並べ替えをしなくなるので付けません。
-- 色は `styles/tokens.css` の `--bg`、`--fg`、`--accent`(ダークテーマで入れ替わる別名)を `shared.setTheme` が読みます。
+- 色と描画の値は `styles/tokens.css` から `shared.js` が読みます(統合で改めた取り決めは §10)。
 - **`scene/camera.js`** は純関数です。`viewFor(preset, aspect, layout) → { azimuth, elevation, zoom, center, roll, morph, lean }`(`aspect` は幅 / 高さ、`layout` は `renderer.layout`。真上の azimuth と収める範囲に使う)と、`tween(a, b, s)`(角度は短い側へ、zoom は対数で補間)。縦長の真横は `roll = π/2` で北海道が上、真上は北が画面の上になる azimuth を使います。store と renderer をつなぐ `scene/cameraRig.js` が、`state.camera` の変化で視点と `state.morph` を補間します(動きを減らす設定では即時)。
-- `scene/picking.js`: `createPicker(data)` は `rebuild({ matrix, mask, selection, morph, lean, screen })`、`pickNode(x, y)`、`pickArc(x, y)` を持ちます。`pickNode` は実装済み(半径 14 CSS px)、`pickArc` は未実装です。弧は `arcList()` の添字で扱います。
+- `scene/picking.js`: `createPicker(data)` は `rebuild({ matrix, mask, selection, morph, lean, screen })`、`pickNode(x, y)`、`pickArc(x, y)` を持ちます。`pickNode` は半径 14 CSS px、`pickArc` は弧の当たり判定です。弧は `arcList()` の添字で扱います。
 - UI 部品は `mount(el, store, ctx)`、`ctx = { data, renderer, picker, onFrame(fn(timeSec)) → off }`。要素の id は `labels`、`timeline`、`selector`、`tooltip`、`table`、`chapters`、`controls`(キャンバスは `stage`)。
 
 ### 文言・CSS・章
@@ -232,6 +236,77 @@ src/
 - CSS は `main.js` が `tokens.css`、`base.css`、`ui-<部品名>.css` を読み込みます。UI 部品の配置と見た目は、その部品のファイルに書きます。
 - 章は、仕組み(`ui/chapters.js`)と中身(`content/chapters.js` の `CHAPTERS`: 見出し・本文のキー、選択、カメラ)に分かれます。いまの選択とカメラは仮の値です。
 
-### 未実装(後続)
+## 10. 統合で確定した取り決め
 
-弧・粒子・地面の層、`pickArc`、各 UI 部品、章のスクロール連動、Canvas 2D の代替表示(`scene/fallback2d.js` は位置の射影だけ)の中身。
+部品を統合したときに、部品をまたぐ取り決めを次のように揃えました。§9 と食い違うところは、こちらが正です。
+
+### 色と描画の値
+
+- **色空間**: `shared.js` は色の uniform(`uInk`、`uPaper`、`uAccent`)に、トークンの **sRGB の値をそのまま** 入れます(`setSrgbColor`: `#rrggbb` を 255 で割った値を、線形への変換をせずに `THREE.Color` に入れる)。各層の `ShaderMaterial` は出力時に色空間を変換しません(`linearToOutputTexel` を使わない)。そのため、画面の画素の値がトークンの値と一致します(朱の点の中心は紙で `#C23B22`、墨で `#E5603F`。`test/e2e/integration.check.mjs` で確かめる)。
+- **描画の値の一元化**: `shared.style`(`readStyle(theme, { portrait })`)が、`tokens.css` の次の値をまとめて持ちます。各層と Canvas 2D の代替表示は、ここからだけ読みます。
+  - 色: `--bg`、`--gl-fg`、`--gl-accent`
+  - 不透明度: `--gl-arc-all`、`--gl-arc-sel`、`--gl-arc-hover`、`--gl-particle`、`--gl-particle-sel`、`--gl-ground`、`--gl-border`(テーマごと)
+  - 寸法(CSS px): `--gl-line-width`(.7)、`--gl-line-width-sel`(.8)、`--gl-line-width-hover`(1)、`--gl-particle-size`(2)、`--gl-particle-size-sel`(2.2)、`--gl-particle-size-hover`(2.2)、縦画面の `--gl-particle-size-portrait*`(1.8 / 2 / 2)
+  - `shared.setTheme(theme)` と、描画バッファの CSS 幅が 1024px をまたいだときの `shared.setSize` で読み直します。renderer は `shared.setTheme` の後に各層の `setTheme` を呼びます。
+  - 粒子の径と不透明度は、`docs/particles/spec.md` の 2.5 px・0.5 ではなく、デザイン仕様 6 節(上の値)を使います。
+- 都道府県の点は、墨の直径 3 CSS px、選択中は朱の直径 6 CSS px に紙色の 1.5 CSS px の輪です。
+
+### 縦画面の判定
+
+縦画面の構成は **幅 1024px 未満** で、CSS(`@media (max-width: 1023.98px)`)、`ui/portrait.js`、`scene/camera.js` の `isPortrait`、`shared.js`、ラベルが同じ条件を使います(縦横比では判定しない)。
+
+### 描画ループと frame
+
+- `frame = { time, dt, reducedMotion, still }`。`still` は `renderer.setStill(bool)` で渡し、層は URL を読みません。粒子は `still || reducedMotion` で静止の配置にし、弧の選択の切り替えも `still` では即時です。
+- `main.js` の描画ループは、次のフレームを先に予約し、カメラ・年・当たり判定・描画・UI 部品の毎フレームの処理を個別に `try/catch` で受け止めます(同じ例外は 1 回だけ `console.error`)。1 つの部品の例外で画面全体が凍ることはありません。
+- `window.__app.dispose()` は、描画ループ、store の購読、URL の同期、イベントの登録、UI 部品、カメラ、描画器(WebGL の文脈を含む)を解放します。`window.__app.pause()` は次のフレームを描いてからループを止めます(撮影用)。
+
+### 年の補間
+
+- 年の補間の持ち主は `scene/yearTween.js` の `createYearTween` です。`renderer.setYear(a, b, mix)` を呼ぶのはここだけで、`main.js` が `state.year` の変化を `set(year, { immediate })` へ渡し、毎フレーム `update(dt)` を呼びます。
+- 時間は `--dur-year`(600ms。CSS の圧縮で `.6s` になるので単位ごと読む)、緩急は ease-in-out です。動きを減らす設定と `still=1` では即時です。補間の途中で次の年が来たら、見た目が近いほうの年から向かい直します。
+- 読み出し・ツールチップ・表・年の折れ線は `state.year`(切り替え先の年)の値を出します。
+
+### 集計
+
+集計の関数は `data/stats.js` に一本化しました(`tableStats.js` は廃止)。読み出し(`regionFlows`)、ツールチップ(`prefFlow`)、表(`tableRows`、`partnerFlows`、`sortRows`)、年の折れ線(`timelineSeries`)、ラベルの相手先(`topPartners`)、カメラの構図の相手先(`mainPartners`)が同じ関数から同じ値を出します。圏を選んだときは、どこでも **圏外との移動だけ** を数えます。書式(`formatCount`、`formatSigned`、`formatShort`)もここにあります。
+
+### store と URL
+
+- `store.set` を購読関数の中で呼んだときは、通知を待ち行列に積み、いまの通知を全員に配ってから配ります。どの購読関数も、`set` された順に `(その時点の state, 変わったキー)` を受け取ります。
+- URL の `sel`(圏の id)と `cam` は、自身のキーだけを認めます(`isMetroId`、`isCameraName`。`'constructor'` などは無視)。`selectionMask` は不明な選択を空のマスクにします。
+- **はじめの章と場面**は `ui/chapters.js` の `initialScene(parseParams(search).patch)` が決め、`main.js` がカメラの配線を作る前に state へ書きます。
+  - `ch` があるとき: その章の最初の場面の年・選択・カメラ。URL に `year` / `sel` / `cam` / `morph` があれば、そちらを優先します。
+  - `ch` がなく `year` / `sel` / `cam` のどれかがあるとき: それらがすべて一致する最初の場面の章。なければ自由探索の章(URL にない値は自由探索の場面の値)。本文と画面の状態が矛盾しないようにするためです。
+  - どれもないとき: 0 章の最初の場面(2014 年、真横)。
+  - `ui/chapters.js` はその場面の位置へスクロールするだけで、読者がスクロールして場面を越えたときから state を書きます。
+
+### 図の領域とカメラの契約
+
+- `scene/camera.js` の `figureRegion(width, height)` が、固定の UI に覆われない図の領域(CSS px)を返し、`viewFor` は図をその領域に収めます(`renderer` 側では `setViewOffset` を使わず、注視点 `center` と `zoom` で領域の中心へずらす)。
+  - デスクトップ: x 424〜(幅 − 40)、y 96〜(高さ − 100)。斜め俯瞰と真上は、上端を読み出しの下端(y 320)まで下げます(`presetRegion`)。
+  - 縦画面: x 16〜(幅 − 16)、y 72〜(高さ − 166)。真横は右に索引の余白 80px、斜め俯瞰と真上は上端を図の向きの注記の下(y 118)まで下げます。
+- 地域を選んだとき(真横以外)は、選択地域と **主要な相手先**(`mainPartners`: 全年の合計で、選択地域との移動の 75% に届くまで、最大 10 県)と、その間の地上・地下の弧が収まる拡大率にします(選択なしの 1〜2.5 倍)。そのうえで選択地域を領域の内側(四辺から 18%)に置きます。相手先は `createCameraRig({ partners })` で渡します。
+- 地域を選んだときの斜め俯瞰は、`SELECTION_OBLIQUE = { elevation: 0.72, lean: 0.25 }` にします。弧の倒しが大きいと地上(転入)と地下(転出)の弧が水平に倒れて重なり、厚みの差が読めなくなるためです。
+
+### 文言のキー体系
+
+- `docs/copy/strings.md` のキーと文言が正です。辞書は `src/i18n/<部品>.js` に分かれ、`test/i18n.test.js` が strings.md の全キーの一致を確かめます。
+- 接頭辞: `meta.`、`app.`、`source.`、`footer.`(common)、`legend.`、`readout.`、`region.`(圏の名前は `region.metro.<id>`)、`selector.`、`year.`、`camera.`、`settings.`、`table.`、`fallback.`、`tooltip.`、`ch.`(章)。章の本文は `ch.<n>.body` と縦画面用の `ch.<n>.body.portrait`。
+- テーマの選択肢は「紙 / 墨」(`settings.theme.paper` / `settings.theme.ink`)の 2 つです。
+- 出典の注記はページの末尾と表のダイアログに出し、確定稿の `footer.note` と地図の出典 `footer.mapSource`(地球地図日本(© 国土地理院)を加工して作成)を使います。凡例には短い出典(`source.*`)と `legend.encoding` を出します。
+
+### UI の配置
+
+- `#controls` は画面全体を覆う透明な入れ物(押せない)で、中の部品を画面を基準に置きます。上の帯の右に「数値の表」「日本語 / EN」「紙 / 墨」、デスクトップの右下と縦画面のドックの 3 段目にカメラの 3 ボタンです。ドックの地と高さは `base.css` と `tokens.css`(`--dock-h`)が持ちます。
+- 数値の表の入口は上の帯のボタンだけです。ボタンは `#table` へ `table:open` を送り、`ui/table.js` が `<dialog>` を `showModal()` で開きます(代替表示の案内のボタンは `[data-open-table]`)。
+
+### 配信と撮影
+
+- 末尾スラッシュなしの URL でも資産を解決できるよう、ビルドした `index.html` の資産のタグ(module script、stylesheet)は、`<base>` を補った後に `document.write` で書き出します(`vite.config.js`。ブラウザの先読みが補う前の URL で取りに行かないように)。`test/e2e/base-path.check.mjs` で確かめます。
+- `tools/shot.mjs` は、ソースが `dist` より新しいときに作り直します。1 枚ごとに新しいブラウザの文脈で開き、撮る前に描画ループを止め、撮り終えたら `__app.dispose()` で WebGL の文脈を解放します。前のページの描画ループが走り続けると、ソフトウェア描画(SwiftShader)を奪い合って次のページの読み込みが時間切れになるためです。1 枚の失敗では止めず、1 回撮り直します。
+
+### 確認の手段
+
+- `npm run test`(Vitest)
+- `npm run build` のあと: `node test/e2e/controls.mjs`、`node test/e2e/chapters.e2e.mjs desktop|mobile`、`node test/e2e/table-fallback.check.mjs`、`node test/e2e/base-path.check.mjs`、`node test/e2e/integration.check.mjs`

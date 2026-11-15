@@ -6,7 +6,7 @@
 //   選んでいるとき(「地上の弧:東京圏への転入」など)。
 // ・縦画面では、「1粒=100人」と「弧の高さ=距離」がドックの 3 段目の右、向きの意味が図の左上(縦に 2 行)に分かれて出る。
 //   出典の注記は縦画面では出さない(表のダイアログの末尾に置く)。配置は ui-legend.css。
-import { getLang, onLangChange, prefName, t } from '../i18n.js';
+import { getLang, metroName, onLangChange, prefName, t } from '../i18n.js';
 import { isPortrait, onPortraitChange } from './portrait.js';
 
 const FALLBACK_SOURCE_URL = 'https://www.stat.go.jp/data/idou/index.html';
@@ -43,7 +43,7 @@ function glyph(kind) {
 /** 選択中の地域の名前。選択がなければ null。 */
 export function regionName(selection) {
   if (!selection) return null;
-  if (selection.type === 'metro') return t(`metro.${selection.id}`);
+  if (selection.type === 'metro') return metroName(selection.id);
   return prefName(selection.code - 1);
 }
 
