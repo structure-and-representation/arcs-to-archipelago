@@ -1,9 +1,11 @@
 // 5 chapters of "弧が列島になる / Arcs Become an Archipelago".
 // Every number in the text was checked against Table 11 of the long-term series of the
 // Report on Internal Migration in Japan (Japanese nationals, moves between prefectures, 2012-2025).
-// Metro-area figures count only moves to and from outside the area.
+// Metro-area figures count only moves to and from outside the area, and match the official
+// 東京圏 / 名古屋圏 / 大阪圏 rows and columns of the same table for all 14 years.
+// Nagoya area = Gifu (21), Aichi (23), Mie (24).
 //
-// selection: null | { type: 'metro', id: 'tokyo' | 'osaka' | 'nagoya' } | { type: 'pref', code: '01'..'47' } (two-digit JIS code string)
+// selection: null | { type: 'metro', id: 'tokyo' | 'osaka' | 'nagoya' } | { type: 'pref', code: 1..47 } (JIS code as a number)
 // camera:    'side' | 'oblique' | 'top'
 
 export const chapters = [
@@ -45,8 +47,8 @@ export const chapters = [
     id: 'osaka',
     heading: { ja: '大阪圏の反転', en: 'Osaka Turns Around' },
     body: {
-      ja: '2014年、大阪圏は圏外へ1万1,722人の転出超過だった。2023年に転入超過へ転じ、2025年は7,503人の転入超過。東京圏への流出は今も約1万8千人の超過だが、三大都市圏の外からの転入超過は2万3,164人と、2014年の約2倍になった。',
-      en: 'In 2014, the Osaka area lost 11,722 more people than it gained. In 2023 the balance turned, and by 2025 it showed a gain of 7,503. It still loses about 18,000 to the Tokyo area each year. But its net gain from the rest of Japan has doubled, to 23,164.',
+      ja: '2014年、大阪圏は圏外へ1万1,722人の転出超過だった。2023年に転入超過へ転じ、2025年は7,503人の転入超過。東京圏への流出は今も約1万8千人の超過だが、三大都市圏の外からの転入超過は2万2,547人と、2014年の約2倍になった。',
+      en: 'In 2014, the Osaka area lost 11,722 more people than it gained. In 2023 the balance turned, and by 2025 it showed a gain of 7,503. It still loses about 18,000 to the Tokyo area each year. But its net gain from the rest of Japan has doubled, to 22,547.',
     },
     steps: [
       { year: 2014, selection: { type: 'metro', id: 'osaka' }, camera: 'oblique' },
@@ -58,13 +60,13 @@ export const chapters = [
     id: 'nagoya',
     heading: { ja: '名古屋圏の静かな流出', en: "Nagoya's Quiet Outflow" },
     body: {
-      ja: '名古屋圏は14年間、一度も転入超過にならなかった。2012年に276人だった転出超過は2022年に1万5,872人まで広がり、2025年は1万1,542人。東京圏への転出超過は8,453人から1万7,005人へ倍増し、2018年からは大阪圏に対しても転出超過が続く。',
-      en: 'In 14 years, the Nagoya area never once gained more people than it lost. Its net loss grew from 276 in 2012 to 15,872 in 2022, then eased to 11,542 in 2025. Its loss to the Tokyo area doubled over the period, and since 2018 it has lost people to Osaka too.',
+      ja: '2012年、名古屋圏は圏外から1,567人の転入超過だった。翌年に転出超過へ転じ、その幅は2022年の1万3,709人まで広がった。2025年は9,561人。転出がほぼ横ばいのまま、転入が1割あまり減った。2017年からは大阪圏に対しても転出超過が続く。',
+      en: 'In 2012, the Nagoya area gained 1,567 people from the rest of Japan. The next year it began to lose them, and by 2022 the net loss had grown to 13,709. In 2025 it was 9,561. Outflow barely changed, while inflow fell by more than a tenth. Since 2017, Nagoya has lost people to Osaka too.',
     },
     steps: [
-      { year: 2012, selection: { type: 'metro', id: 'nagoya' }, camera: 'oblique' },
-      { year: 2022, selection: { type: 'metro', id: 'nagoya' }, camera: 'oblique' },
-      { year: 2025, selection: { type: 'metro', id: 'nagoya' }, camera: 'oblique' },
+      { year: 2012, selection: { type: 'metro', id: 'nagoya' }, camera: 'oblique' }, // the only year of net gain (+1,567)
+      { year: 2022, selection: { type: 'metro', id: 'nagoya' }, camera: 'oblique' }, // largest net loss (−13,709)
+      { year: 2025, selection: { type: 'metro', id: 'nagoya' }, camera: 'oblique' }, // latest (−9,561)
     ],
   },
   {
