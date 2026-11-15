@@ -36,6 +36,8 @@ export const FIT_MARGIN = 0.035;
  * 拡大率は、選択地域と主要な相手先(opts.partners)、その間の地上・地下の弧が領域に収まる値で、1〜この値の範囲。
  */
 export const SELECTION_ZOOM = 2.5;
+/** 地域を選んだときの拡大率の下限(同じ領域に全体を収めた拡大率に対する倍率)。 */
+export const SELECTION_ZOOM_MIN = 0.75;
 /**
  * 地域を選んだときの斜め俯瞰の仰角と弧の倒し。地上(転入)と地下(転出)の弧が水平に倒れて重なると、
  * 厚みの差が読めなくなるので、倒しを小さくして上下に分け、仰角を少し上げて地図の奥行きを残す。
@@ -45,6 +47,8 @@ export const SELECTION_OBLIQUE = Object.freeze({ elevation: 0.72, lean: 0.25 });
 export const SELECTION_COMFORT = 0.18;
 /** 斜め俯瞰と真上で、図を置く領域の上端(CSS px)。デスクトップは読み出しの下端、縦画面は図の向きの注記の下。 */
 export const DESKTOP_FIGURE_TOP = 320;
+/** デスクトップで地域を選んでいるとき、右の読み出しの列(幅 300 + 右の余白 40 + 間 24)を図の領域から外す幅。 */
+export const DESKTOP_READOUT_COLUMN = 324;
 export const PORTRAIT_FIGURE_TOP = 118;
 /** 縦画面の真横で、都道府県名の索引(図の右側)のために右から空ける幅(CSS px)。 */
 export const PORTRAIT_LABEL_GUTTER = 80;
@@ -54,20 +58,28 @@ export const MORPH_DELAY = 0.15;
 /** 利用者が動かせる範囲。 */
 export const USER_LIMITS = { azimuth: 1.4, elevationMin: 0, elevationMax: Math.PI / 2, zoomMin: 0.6, zoomMax: 8 };
 
-/** 縦画面の構成か。判定は幅だけ(縦横比では判定しない)。 */
-export function isPortrait(width) {
+/** CSS と同じ縦画面の条件(ui/portrait.js と同じ)。 */
+export const PORTRAIT_MEDIA = '(max-width: 1023.98px)';
+
+/**
+ * 縦画面の構成か。判定は幅だけ(縦横比では判定しない)。
+ * ブラウザでは、CSS の @media と同じ幅(スクロールバーを含む innerWidth)で判定するため matchMedia を使う
+ * (キャンバスの幅はスクロールバーを含まないので、幅 1024px 前後で CSS と食い違う)。width はブラウザの外(テスト)で使う。
+ */
+export function isPortrait(width, { media = true } = {}) {
+  if (media && typeof globalThis.matchMedia === 'function') return globalThis.matchMedia(PORTRAIT_MEDIA).matches;
   return width < DESKTOP_BREAKPOINT;
 }
 
 /**
  * 固定の UI に覆われない図の領域(CSS px、画面の左上が原点)。
  *  デスクトップ: 左の柱(目次と章の本文、424px まで)と右 40px、上の帯(96px まで)と下の年・凡例の帯を除く。
- *  縦画面: 上の帯(72px まで)と、下のドック(高さ 150px)+ 余白 16px の間。左右は 16px。
+ *  縦画面: 上の帯(72px まで)と、下のドック(高さ 164px)+ 余白 16px の間。左右は 16px。
  */
 export function figureRegion(width, height) {
   const r = isPortrait(width)
-    ? { x0: 16, y0: 72, x1: width - 16, y1: height - 166 }
-    : { x0: 424, y0: 96, x1: width - 40, y1: height - 100 };
+    ? { x0: 16, y0: 72, x1: width - 16, y1: height - 180 }
+    : { x0: 424, y0: 96, x1: width - 40, y1: height - 136 }; // 下端は年の切り替え(見出しの行を含む)の上
   // 小さな画面でも領域が潰れないようにする
   if (r.x1 - r.x0 < 120) { const c = (r.x0 + r.x1) / 2; r.x0 = c - 60; r.x1 = c + 60; }
   if (r.y1 - r.y0 < 120) { const c = (r.y0 + r.y1) / 2; r.y0 = c - 60; r.y1 = c + 60; }
@@ -201,11 +213,16 @@ function slide(lo, hi, cLo, cHi) {
  * 定位置ごとに、図を収める領域を整える(docs/design/spec.md 4 節)。
  *  縦画面の真横: 右に都道府県名の索引の余白を空ける。
  *  斜め俯瞰と真上: デスクトップでは読み出しの下端より下、縦画面では図の向きの注記(2 行)より下に収める。
+ *  デスクトップで地域を選んでいるとき(斜め俯瞰と真上): 読み出しが縦に伸びるので、右の読み出しの列を外し、
+ *  上端は上の帯の下(y 96)のままにする。図・相手先・弧が読み出しの文字の下を通らないようにするため。
  * fromLayout は region が画面の構成(figureRegion)から来たか(省略して画面いっぱいのときは上端を変えない)。
  */
-export function presetRegion(preset, region, portrait, fromLayout = true) {
+export function presetRegion(preset, region, portrait, fromLayout = true, selected = false) {
   let r = region;
   if (portrait && preset === 'side') r = { ...r, x1: Math.max(r.x0 + 120, r.x1 - PORTRAIT_LABEL_GUTTER) };
+  if (preset !== 'side' && fromLayout && selected && !portrait && r.x1 - DESKTOP_READOUT_COLUMN - r.x0 >= 300) {
+    return { ...r, x1: r.x1 - DESKTOP_READOUT_COLUMN };
+  }
   if (preset !== 'side' && fromLayout) {
     const top = portrait ? PORTRAIT_FIGURE_TOP : DESKTOP_FIGURE_TOP;
     if (r.y1 - top >= 200) r = { ...r, y0: Math.max(r.y0, top) };
@@ -223,7 +240,8 @@ export function viewFor(preset, aspect, layout, opts = {}) {
   const size = opts.size ?? [aspect * 900, 900];
   const [W, H] = size;
   const portrait = opts.portrait ?? isPortrait(W);
-  const region = presetRegion(name, opts.region ?? { x0: 0, y0: 0, x1: W, y1: H }, portrait, !!opts.region);
+  const selectedNow = name !== 'side' && selectedIndices(opts.selection).length > 0;
+  const region = presetRegion(name, opts.region ?? { x0: 0, y0: 0, x1: W, y1: H }, portrait, !!opts.region, selectedNow);
 
   const azimuth = p.azimuth ?? topAzimuth(layout.northAngle);
   const roll = name !== 'top' && portrait ? Math.PI / 2 : 0;
@@ -247,14 +265,16 @@ export function viewFor(preset, aspect, layout, opts = {}) {
   // 地域を選んでいるときは、選択地域と主要な相手先、その間の地上・地下の弧が収まるまで拡大する
   // (正投影のまま拡大するので、量の比は崩れない)。そのうえで、選択地域を領域の内側に置く
   if (sel.length) {
-    const partners = (opts.partners ?? []).filter((i) => Number.isInteger(i) && i >= 0 && i < 47 && !sel.includes(i));
+    // 真上は全体を見渡す視点なので、すべての相手先を収める。斜め俯瞰は主要な相手先(opts.partners)だけを収める
+    const wanted = name === 'top' ? Array.from({ length: 47 }, (_, i) => i) : opts.partners ?? [];
+    const partners = wanted.filter((i) => Number.isInteger(i) && i >= 0 && i < 47 && !sel.includes(i));
     const P = cloud.nodes;
     const pts = [];
     const tmp = [0, 0, 0];
     for (const i of [...sel, ...partners]) pts.push(P[i][0], 0, P[i][1]);
     for (const m of sel) {
       for (const q of partners) {
-        for (const t of [0.3, 0.5, 0.7]) {
+        for (const t of [0.15, 0.3, 0.5, 0.7, 0.85]) {
           arcPoint(P[q], P[m], 1, lean, t, tmp); // 転入(地上)
           pts.push(tmp[0], tmp[1], tmp[2]);
           arcPoint(P[m], P[q], -1, lean, t, tmp); // 転出(地下)
@@ -265,7 +285,8 @@ export function viewFor(preset, aspect, layout, opts = {}) {
     const fe = extent(pts, right, up);
     const fw = Math.max(fe.rMax - fe.rMin, 1e-6), fh = Math.max(fe.uMax - fe.uMin, 1e-6);
     const focusFit = Math.min((rw0 * (1 - 2 * FIT_MARGIN)) / fw, (rh0 * (1 - 2 * FIT_MARGIN)) / fh);
-    scale = clamp(focusFit, fit, fit * SELECTION_ZOOM);
+    // 全体を収める拡大率より少し引いてもよい(真上では、倒した弧が全体の枠より外へ広がるため)
+    scale = clamp(focusFit, fit * SELECTION_ZOOM_MIN, fit * SELECTION_ZOOM);
     // 収める対象の中心を領域の中心に置く
     const fc = [(fe.rMin + fe.rMax) / 2, (fe.uMin + fe.uMax) / 2];
     target = [target[0] - (fc[0] - rc) * scale, target[1] + (fc[1] - uc) * scale];
@@ -279,9 +300,11 @@ export function viewFor(preset, aspect, layout, opts = {}) {
       by0 = Math.min(by0, sy); by1 = Math.max(by1, sy);
     }
     const mx = rw0 * SELECTION_COMFORT, my = rh0 * SELECTION_COMFORT;
+    // 選択地域を内側へ寄せる移動は、相手先と弧の範囲(focus)が領域からはみ出さない範囲に限る
+    const roomX = Math.max(0, (rw0 - fw * scale) / 2), roomY = Math.max(0, (rh0 - fh * scale) / 2);
     target = [
-      target[0] + slide(bx0, bx1, region.x0 + mx, region.x1 - mx),
-      target[1] + slide(by0, by1, region.y0 + my, region.y1 - my),
+      target[0] + clamp(slide(bx0, bx1, region.x0 + mx, region.x1 - mx), -roomX, roomX),
+      target[1] + clamp(slide(by0, by1, region.y0 + my, region.y1 - my), -roomY, roomY),
     ];
   }
 

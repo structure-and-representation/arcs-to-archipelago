@@ -234,31 +234,16 @@ export function mount(el, store, ctx) {
     listen(canvas, 'pointercancel', () => {
       touchDown = null;
     });
-    // main.js の pointerleave(hover を消す)と click(1 回目で選ぶ)より先に、window の capture で受ける
-    listen(
-      win,
-      'pointerleave',
-      (e) => {
-        if (!isCanvas(e)) return;
-        if (e.pointerType === 'touch') e.stopImmediatePropagation();
-        else interaction.leave();
-      },
-      true,
-    );
-    listen(
-      win,
-      'click',
-      (e) => {
-        if (!isCanvas(e)) return;
-        if (lastType === 'touch') {
-          e.stopImmediatePropagation();
-          return;
-        }
-        const [x, y] = local(e);
-        interaction.click(x, y);
-      },
-      true,
-    );
+    // 図の上のホバーと選択の入力は、ここだけが受ける(main.js は受けない)。
+    // click はキャンバスの bubble で受けるので、ドラッグの終わりの click は scene/cameraRig.js が捕捉の段階で止める
+    listen(canvas, 'pointerleave', (e) => {
+      if (e.pointerType !== 'touch') interaction.leave();
+    });
+    listen(canvas, 'click', (e) => {
+      if (!isCanvas(e) || lastType === 'touch') return;
+      const [x, y] = local(e);
+      interaction.click(x, y);
+    });
     listen(doc, 'keydown', (e) => {
       if (e.key === 'Escape' && store.get().hover && !doc.activeElement?.closest?.('#labels')) store.set({ hover: null });
     });

@@ -129,7 +129,21 @@ export function createShared(data) {
   nodeTex.minFilter = nodeTex.magFilter = THREE.NearestFilter;
   nodeTex.needsUpdate = true;
 
+  // 弧ごとの見た目の状態(側 −1〜+1、濃さ 0〜1)。弧の層が選択の切り替えの補間に合わせて書き、粒子の層が読む
+  // (選択を切り替えている間も、粒子が弧と同じ側・同じ濃さで動くように)。texel (d, o) = (side, alpha)
+  const arcStateData = new Float32Array(47 * 47 * 2);
+  for (let o = 0; o < 47; o++) {
+    for (let d = 0; d < 47; d++) {
+      arcStateData[(o * 47 + d) * 2] = o === d ? 0 : o > d ? 1 : -1;
+      arcStateData[(o * 47 + d) * 2 + 1] = o === d ? 0 : 1;
+    }
+  }
+  const arcStateTex = new THREE.DataTexture(arcStateData, 47, 47, THREE.RGFormat, THREE.FloatType);
+  arcStateTex.minFilter = arcStateTex.magFilter = THREE.NearestFilter;
+  arcStateTex.needsUpdate = true;
+
   const uniforms = {
+    uArcState: { value: arcStateTex },
     uNodes: { value: nodeTex },
     uMorph: { value: 0 },
     uLean: { value: 0 },
@@ -147,6 +161,18 @@ export function createShared(data) {
   const api = {
     uniforms,
     layout,
+    /**
+     * 弧ごとの見た目の状態。data[(o * 47 + d) * 2] = side、+1 = alpha。書いたら commit() を呼ぶ。
+     * transitioning: 選択の切り替えの補間中か。selMix: 全国 0 〜 地域を選んでいる 1 の見た目の補間。
+     */
+    arcState: {
+      data: arcStateData,
+      transitioning: false,
+      selMix: 0,
+      commit() {
+        arcStateTex.needsUpdate = true;
+      },
+    },
     /** 描画の値(readStyle の結果)。テーマと画面の構成が変わると読み直す。各層は毎フレームここから読む。 */
     style: readStyle(theme),
     /** 縦画面の構成か(描画バッファの CSS 幅が 1024px 未満)。 */
@@ -175,7 +201,10 @@ export function createShared(data) {
     setSize(bufferWidth, bufferHeight, pixelRatio) {
       uniforms.uRes.value.set(bufferWidth, bufferHeight);
       uniforms.uPixelRatio.value = pixelRatio;
-      const next = bufferWidth / (pixelRatio || 1) < PORTRAIT_BELOW;
+      // CSS の @media と同じ条件(スクロールバーを含む幅)。ブラウザの外では描画バッファの CSS 幅で判定する
+      const next = typeof globalThis.matchMedia === 'function'
+        ? globalThis.matchMedia('(max-width: 1023.98px)').matches
+        : bufferWidth / (pixelRatio || 1) < PORTRAIT_BELOW;
       if (next !== portrait) {
         portrait = next;
         api.refreshStyle();
@@ -187,6 +216,7 @@ export function createShared(data) {
     },
     dispose() {
       nodeTex.dispose();
+      arcStateTex.dispose();
     },
   });
   api.refreshStyle();

@@ -17,7 +17,8 @@
 //   - 1 枚ごとに新しいブラウザのコンテキストを作り、撮り終えたら描画ループを止め、WebGL の文脈を解放してから閉じる。
 //   - 読み込みは DOMContentLoaded までを待ち(Web フォントの読み込みの遅れで goto が時間切れにならないように)、
 //     準備の合図(data-ready)と document.fonts.ready を待つ。撮る前に描画ループを止めて、重い描画が撮影を妨げないようにする。
-//   - 1 枚の撮影で例外が出ても、そこで止めずに 1 回だけ撮り直し、残りを撮り続ける(問題として数える)。
+//   - 1 枚の撮影で例外が出ても、そこで止めずに 1 回だけ撮り直し、残りを撮り続ける(撮り直せても問題として数える)。
+//   - dist を自動で作り直すので、同じ作業ツリーで 2 本を同時に起動しない(作り直しの間、もう一方の読み込みが失敗する)。
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -123,11 +124,11 @@ try {
     try {
       found = await takeShot(shot);
     } catch (e) {
-      console.error(`[${shot.out}] 撮影に失敗しました(撮り直します): ${e.message}`);
+      const first = `[${shot.out}] 撮影に失敗しました(撮り直します): ${e.message}`;
       try {
-        found = await takeShot(shot);
+        found = [first, ...(await takeShot(shot))];
       } catch (e2) {
-        found = [`[${shot.out}] 撮影に失敗しました: ${e2.message}`];
+        found = [first, `[${shot.out}] 撮り直しにも失敗しました: ${e2.message}`];
       }
     }
     for (const line of found) console.error(line);
