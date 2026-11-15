@@ -1,5 +1,5 @@
 // 章の本文の見せ方の撮影と検算(Playwright)。vite preview を立てて、ページを上から下までスクロールして撮る。
-//   node docs/screenshots/chapters-one-card/shoot.mjs [--out DIR] [--only 1440x900,390x844] [--variants] [--no-shots]
+//   node docs/screenshots/chapters-one-card/shoot.mjs [--out DIR] [--only 1440x900,390x844] [--variants] [--all] [--no-shots]
 // 位置(章ごと): start(章の先頭)/ switch(場面の切り替わりの途中)/ mid(章の途中)/ bound(次の章との境の手前)/ xfade(境を越えて 0.25 秒後)/ end(ページの最後)。
 // 各位置で、見えているカードの数と、カードが上の帯・目次・凡例・ドックと重なっていないかを数える。
 import { createRequire } from 'node:module';
@@ -105,16 +105,22 @@ async function run({ w, h, lang, theme, positions }) {
   await page.close();
 }
 
+// 撮る位置は、直ったことを確かめるのに必要な枚数にとどめる(--all で全位置)
+const FOCUS = {
+  '1440x900': ['c1-start', 'c1-xfade', 'c2-start', 'c2-mid', 'c5-start', 'c5-switch', 'end'],
+  '1024x768': ['c2-start', 'c3-start', 'c5-mid'],
+  '390x844': ['c1-start', 'c2-start', 'c2-bound', 'c5-switch', 'end'],
+  '360x640': ['c2-start', 'c2-mid'],
+};
+const pick = (vp) => (args.includes('--all') ? null : (c, k) => FOCUS[vp].includes(k === 'end' ? 'end' : `c${c + 1}-${k}`));
 for (const vp of only) {
   const [w, h] = vp.split('x').map(Number);
-  await run({ w, h, lang: 'ja', theme: 'paper' });
+  await run({ w, h, lang: 'ja', theme: 'paper', positions: pick(vp) });
 }
 if (variants) {
-  const keep = (c, k) => (c === 0 && k === 'start') || (c === 1 && k === 'start') || (c === 4 && (k === 'mid' || k === 'end'));
   for (const [w, h] of [[1440, 900], [390, 844]]) {
-    await run({ w, h, lang: 'en', theme: 'paper', positions: keep });
-    await run({ w, h, lang: 'ja', theme: 'ink', positions: keep });
-    await run({ w, h, lang: 'en', theme: 'ink', positions: (c, k) => c === 1 && k === 'mid' });
+    await run({ w, h, lang: 'en', theme: 'paper', positions: (c, k) => (c === 0 || c === 1) && k === 'start' });
+    await run({ w, h, lang: 'ja', theme: 'ink', positions: (c, k) => c === 1 && k === 'start' });
   }
 }
 await browser.close();
