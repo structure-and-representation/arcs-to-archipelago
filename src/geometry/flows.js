@@ -1,15 +1,18 @@
 // 流れ(o → d)の向きと、粒子の枠の数。
-import { METRO_CODES } from './constants.js';
+import { METRO_CODES, isMetroId } from './constants.js';
 
-/** 選択から、選択中の都道府県の 0/1 マスク Uint8Array(47)(添字は JIS コード − 1)を作る。 */
+/**
+ * 選択から、選択中の都道府県の 0/1 マスク Uint8Array(47)(添字は JIS コード − 1)を作る。
+ * 不明な選択(範囲外のコード、圏でない id、'constructor' のような継承したキー)は空のマスクにする。
+ */
 export function selectionMask(selection) {
   const mask = new Uint8Array(47);
   if (!selection) return mask;
   if (selection.type === 'pref') {
     const i = selection.code - 1;
-    if (i >= 0 && i < 47) mask[i] = 1;
-  } else if (selection.type === 'metro') {
-    for (const code of METRO_CODES[selection.id] || []) mask[code - 1] = 1;
+    if (Number.isInteger(i) && i >= 0 && i < 47) mask[i] = 1;
+  } else if (selection.type === 'metro' && isMetroId(selection.id)) {
+    for (const code of METRO_CODES[selection.id]) mask[code - 1] = 1;
   }
   return mask;
 }

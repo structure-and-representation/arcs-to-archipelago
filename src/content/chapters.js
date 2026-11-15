@@ -5,7 +5,7 @@
 // 各章は複数の場面(steps)を持つ。章の中をスクロールで進み、場面の境を越えたときに、その場面の
 //   year(西暦)、selection(null | { type: 'pref', code: 1〜47 } | { type: 'metro', id })、camera('side' | 'oblique' | 'top')
 // を state へ一度だけ書く。自由探索の章(explore: true)は、読者が年・地域・カメラを動かせる。
-import { CAMERA_NAMES, METRO_CODES, YEAR_MAX, YEAR_MIN } from '../geometry/constants.js';
+import { CAMERA_NAMES, YEAR_MAX, YEAR_MIN, isMetroId } from '../geometry/constants.js';
 
 /** 確定稿の selection(都道府県コードは 2 桁の文字列)を、state の形(数値の JIS コード)にする。 */
 export function toStateSelection(sel) {
@@ -62,7 +62,7 @@ export function isValidStep(s) {
   const sel = s.selection;
   const selOk =
     sel === null ||
-    (sel.type === 'metro' && sel.id in METRO_CODES) ||
+    (sel.type === 'metro' && isMetroId(sel.id)) ||
     (sel.type === 'pref' && Number.isInteger(sel.code) && sel.code >= 1 && sel.code <= 47);
   return Number.isInteger(s.year) && s.year >= YEAR_MIN && s.year <= YEAR_MAX && selOk && CAMERA_NAMES.includes(s.camera);
 }

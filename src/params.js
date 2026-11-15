@@ -3,13 +3,13 @@
 //   &cam=side|oblique|top &morph=0〜1 &theme=paper|ink &lang=ja|en &still=1
 // still=1 は時間と乱数を固定して、撮影の結果を再現できるようにする(state には入れない)。
 import { DEFAULT_STATE } from './state.js';
-import { CAMERA_PRESETS, METRO_CODES, YEAR_MIN, YEAR_MAX } from './geometry/constants.js';
+import { CAMERA_PRESETS, YEAR_MIN, YEAR_MAX, isCameraName, isMetroId } from './geometry/constants.js';
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 function parseSelection(v) {
   if (v == null || v === '') return undefined;
-  if (v in METRO_CODES) return { type: 'metro', id: v };
+  if (isMetroId(v)) return { type: 'metro', id: v };
   if (/^\d+$/.test(v)) {
     const code = Number(v);
     if (code >= 1 && code <= 47) return { type: 'pref', code };
@@ -43,7 +43,7 @@ export function parseParams(search = '') {
     const sel = parseSelection(q.get('sel'));
     if (sel) patch.selection = sel;
   }
-  if (q.has('cam') && q.get('cam') in CAMERA_PRESETS) {
+  if (q.has('cam') && isCameraName(q.get('cam'))) {
     patch.camera = q.get('cam');
     patch.morph = CAMERA_PRESETS[patch.camera].morph;
   }
@@ -69,7 +69,7 @@ export function toSearch(state, { still = false } = {}) {
   if (sel) q.set('sel', sel);
   if (state.camera !== d.camera) q.set('cam', state.camera);
   // morph は、定位置の値と違うときだけ書く
-  const presetMorph = CAMERA_PRESETS[state.camera]?.morph ?? 0;
+  const presetMorph = isCameraName(state.camera) ? CAMERA_PRESETS[state.camera].morph : 0;
   const explicitMorph = state.camera === d.camera ? state.morph !== d.morph : state.morph !== presetMorph;
   if (explicitMorph) q.set('morph', String(Math.round(state.morph * 1000) / 1000));
   if (state.theme !== d.theme) q.set('theme', state.theme);

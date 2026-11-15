@@ -18,7 +18,7 @@
 //   zoom      ワールド 1 単位が画面の高さの何分の一か(画面の大きさに依らない)
 //   center    [x, y, z] 注視点(画面の中心に来る点)
 //   roll      画面の像を時計まわりに回す角度。縦長の画面の真横と斜め俯瞰では π/2(北海道が上)
-import { CAMERA_PRESETS } from '../geometry/constants.js';
+import { CAMERA_PRESETS, isCameraName } from '../geometry/constants.js';
 import { arcPoint } from '../geometry/arc.js';
 import { lineLayout, nodePos } from '../geometry/layout.js';
 import { selectionMask } from '../geometry/flows.js';
@@ -187,7 +187,7 @@ function slide(lo, hi, cLo, cHi) {
  * 定位置 preset の視点。aspect は画面の幅 / 高さ、layout は renderer.layout、opts は先頭のコメントを参照。
  */
 export function viewFor(preset, aspect, layout, opts = {}) {
-  const name = CAMERA_PRESETS[preset] ? preset : 'side';
+  const name = isCameraName(preset) ? preset : 'side';
   const p = CAMERA_PRESETS[name];
   // size を省略したときは、高さ 900px の画面として扱う(幅は aspect から決まる)
   const size = opts.size ?? [aspect * 900, 900];

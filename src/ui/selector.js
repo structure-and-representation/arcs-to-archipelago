@@ -286,7 +286,7 @@ export function mount(el, store, ctx) {
     const f = regionFlows(data.matrix(year), selection);
     const metro = selection.type === 'metro';
     members.hidden = !metro;
-    members.textContent = metro ? METRO_CODES[selection.id].map((c) => shortPrefName(c - 1, L)).join(t('selector.memberSep', L)) : '';
+    members.textContent = metro && METRO_CODES[selection.id] ? METRO_CODES[selection.id].map((c) => shortPrefName(c - 1, L)).join(t('selector.memberSep', L)) : '';
     put(scope, fill(t(metro ? 'readout.captionMetro' : 'readout.captionPref', L), { year }));
     put(sIn.v, formatCount(f.in));
     put(sOut.v, formatCount(f.out));
