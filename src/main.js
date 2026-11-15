@@ -30,6 +30,7 @@ import * as chapters from './ui/chapters.js';
 import * as controls from './ui/controls.js';
 import * as legend from './ui/legend.js';
 import * as hints from './ui/hints.js';
+import { installPaperFibers } from './ui/paper.js';
 
 const $ = (id) => document.getElementById(id);
 const root = document.documentElement;
@@ -69,6 +70,7 @@ async function main() {
     applyStatic(document);
   };
   applyLangTheme();
+  cleanups.push(installPaperFibers(root)); // 紙の繊維(base.css の body::before のマスク)。データの読み込みを待たずに描く
 
   let data;
   try {
