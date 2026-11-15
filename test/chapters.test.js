@@ -130,6 +130,12 @@ describe('initialScene(URL の引数 → はじめの章と場面)', async () =>
     expect(scene('?ch=2&sel=13').patch.selection).toEqual({ type: 'pref', code: 13 });
   });
 
+  it('ch と URL の値が章の中の場面に合えば、その場面から始める(再読み込みで場面を戻さない)', () => {
+    expect(scene('?ch=1&year=2025&sel=tokyo&cam=oblique')).toMatchObject({ chapter: 1, step: 2 });
+    expect(scene('?ch=0&cam=oblique&year=2025')).toMatchObject({ chapter: 0, step: 2 });
+    expect(scene('?ch=1&year=2014')).toMatchObject({ chapter: 1, step: 0 });
+  });
+
   it('ch がなければ、URL の値に合う場面の章を選ぶ(本文と画面が矛盾しない)', () => {
     expect(scene('?sel=tokyo')).toMatchObject({ chapter: 1, step: 0 });
     expect(scene('?sel=tokyo&year=2021&cam=oblique')).toMatchObject({ chapter: 1, step: 1, patch: { year: 2021 } });

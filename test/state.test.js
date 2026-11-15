@@ -87,3 +87,21 @@ describe('createStore の通知の順序', () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('createStore: 購読関数の例外', () => {
+  it('ある購読関数が例外を投げても、ほかの購読関数と、その中で積まれた通知は配られる', () => {
+    const s = createStore();
+    const got = [];
+    s.subscribe((st, keys) => {
+      if (keys.includes('camera')) s.set({ morph: 1 });
+    });
+    s.subscribe(() => {
+      throw new Error('ui');
+    });
+    s.subscribe((st, keys) => got.push(keys.join(',')));
+    expect(() => s.set({ camera: 'oblique' })).toThrow('ui');
+    expect(got).toEqual(['camera', 'morph']);
+    expect(s.get().morph).toBe(1);
+  });
+});
+

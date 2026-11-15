@@ -54,8 +54,16 @@ export const MORPH_DELAY = 0.15;
 /** 利用者が動かせる範囲。 */
 export const USER_LIMITS = { azimuth: 1.4, elevationMin: 0, elevationMax: Math.PI / 2, zoomMin: 0.6, zoomMax: 8 };
 
-/** 縦画面の構成か。判定は幅だけ(縦横比では判定しない)。 */
-export function isPortrait(width) {
+/** CSS と同じ縦画面の条件(ui/portrait.js と同じ)。 */
+export const PORTRAIT_MEDIA = '(max-width: 1023.98px)';
+
+/**
+ * 縦画面の構成か。判定は幅だけ(縦横比では判定しない)。
+ * ブラウザでは、CSS の @media と同じ幅(スクロールバーを含む innerWidth)で判定するため matchMedia を使う
+ * (キャンバスの幅はスクロールバーを含まないので、幅 1024px 前後で CSS と食い違う)。width はブラウザの外(テスト)で使う。
+ */
+export function isPortrait(width, { media = true } = {}) {
+  if (media && typeof globalThis.matchMedia === 'function') return globalThis.matchMedia(PORTRAIT_MEDIA).matches;
   return width < DESKTOP_BREAKPOINT;
 }
 

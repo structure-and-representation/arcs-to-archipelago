@@ -175,7 +175,10 @@ export function createShared(data) {
     setSize(bufferWidth, bufferHeight, pixelRatio) {
       uniforms.uRes.value.set(bufferWidth, bufferHeight);
       uniforms.uPixelRatio.value = pixelRatio;
-      const next = bufferWidth / (pixelRatio || 1) < PORTRAIT_BELOW;
+      // CSS の @media と同じ条件(スクロールバーを含む幅)。ブラウザの外では描画バッファの CSS 幅で判定する
+      const next = typeof globalThis.matchMedia === 'function'
+        ? globalThis.matchMedia('(max-width: 1023.98px)').matches
+        : bufferWidth / (pixelRatio || 1) < PORTRAIT_BELOW;
       if (next !== portrait) {
         portrait = next;
         api.refreshStyle();

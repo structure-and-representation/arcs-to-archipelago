@@ -106,7 +106,7 @@ async function main() {
     const v = parseDuration(getComputedStyle(root).getPropertyValue('--dur-year'));
     return v ?? YEAR_SECONDS;
   };
-  const years = createYearTween({ renderer, year: store.get().year, duration: yearSeconds() });
+  const years = createYearTween({ renderer, year: store.get().year, duration: yearSeconds });
 
   // 毎フレーム呼ばれる関数の登録(ラベルなどが使う)
   const frameFns = new Set();
@@ -125,7 +125,10 @@ async function main() {
     if (has('year')) years.set(s.year, { immediate: all || still || s.reducedMotion });
     if (has('selection')) renderer.setSelection(selectionMask(s.selection));
     if (has('hover')) renderer.setHover(s.hover?.type === 'arc' ? { o: s.hover.o, d: s.hover.d } : null);
-    if (has('reducedMotion')) renderer.setReducedMotion(s.reducedMotion);
+    if (has('reducedMotion')) {
+      renderer.setReducedMotion(s.reducedMotion);
+      if (s.reducedMotion) years.set(s.year, { immediate: true }); // 補間の途中なら止めて、切り替え先の年にする
+    }
   };
   sync(store.get(), null);
   cleanups.push(store.subscribe(sync));
