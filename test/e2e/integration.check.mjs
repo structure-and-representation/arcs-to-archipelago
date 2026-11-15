@@ -66,7 +66,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
   const tag = `${viewport.width}x${viewport.height}`;
   const { page, problems, close } = await open('lang=ja&still=1', { viewport });
   const first = await state(page);
-  ok(first.chapter === 0 && first.year === 2014 && first.camera === 'side' && first.selection === null, `[${tag}] 開幕は 0 章の最初の場面 ${JSON.stringify(first)}`);
+  const open0 = CHAPTERS[0].steps[0];
+  ok(first.chapter === 0 && first.year === open0.year && first.camera === open0.camera && first.selection === null, `[${tag}] 開幕は 0 章の最初の場面 ${JSON.stringify(first)}`);
   let all = true;
   for (let c = 0; c < CHAPTERS.length; c++) {
     const steps = CHAPTERS[c].steps;
@@ -88,8 +89,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
   ok(all, `[${tag}] 5 章のすべての場面で、年・選択・カメラが確定稿どおり`);
   // 上へ戻ると、前の章の場面に戻る
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'auto' }));
-  const back = await waitState(page, (s) => s.chapter === 0 && s.year === 2014);
-  ok(back.chapter === 0 && back.year === 2014 && back.camera === 'side', `[${tag}] 先頭へ戻ると開幕の場面 ${JSON.stringify(back)}`);
+  const back = await waitState(page, (s) => s.chapter === 0 && s.year === open0.year && s.camera === open0.camera);
+  ok(back.chapter === 0 && back.year === open0.year && back.camera === open0.camera, `[${tag}] 先頭へ戻ると開幕の場面 ${JSON.stringify(back)}`);
   ok(problems.length === 0, `[${tag}] スクロールのあいだ、コンソールにエラーがない ${problems.join(' | ')}`);
   await close();
 }

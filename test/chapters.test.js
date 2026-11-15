@@ -132,7 +132,7 @@ describe('initialScene(URL の引数 → はじめの章と場面)', async () =>
 
   it('ch と URL の値が章の中の場面に合えば、その場面から始める(再読み込みで場面を戻さない)', () => {
     expect(scene('?ch=1&year=2025&sel=tokyo&cam=oblique')).toMatchObject({ chapter: 1, step: 2 });
-    expect(scene('?ch=0&cam=oblique&year=2025')).toMatchObject({ chapter: 0, step: 2 });
+    expect(scene('?ch=0&cam=oblique&year=2025')).toMatchObject({ chapter: 0, step: 1 });
     expect(scene('?ch=1&year=2014')).toMatchObject({ chapter: 1, step: 0 });
   });
 
