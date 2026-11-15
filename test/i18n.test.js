@@ -27,7 +27,7 @@ describe('辞書', () => {
 
   it('各部品のキーは、その部品の接頭辞で始まる', () => {
     const prefixes = {
-      timeline: ['year.'], selector: ['selector.', 'metro.'], tooltip: ['tooltip.'], table: ['table.'],
+      timeline: ['year.'], selector: ['selector.', 'metro.'], tooltip: ['tooltip.'], table: ['table.', 'fallback.'],
       controls: ['cam.', 'theme.', 'lang.', 'motion.'], chapters: ['ch.'],
     };
     for (const [name, pre] of Object.entries(prefixes)) {
