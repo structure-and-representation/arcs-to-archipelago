@@ -1,0 +1,40 @@
+/* 色は紙・墨・朱の3つと、その不透明度違いだけ。 */
+:root {
+  --paper: #f6f3ec;
+  --ink: #1b1a17;
+  --vermilion: #c9331f;
+
+  /* 意味のある別名。ライトテーマは紙の地に墨、朱は選択中とホバー中だけ。 */
+  --bg: var(--paper);
+  --fg: var(--ink);
+  --accent: var(--vermilion);
+
+  --fg-70: color-mix(in srgb, var(--fg) 70%, transparent);
+  --fg-45: color-mix(in srgb, var(--fg) 45%, transparent);
+  --fg-20: color-mix(in srgb, var(--fg) 20%, transparent);
+  --fg-08: color-mix(in srgb, var(--fg) 8%, transparent);
+  --bg-85: color-mix(in srgb, var(--bg) 85%, transparent);
+
+  --font: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", system-ui, sans-serif;
+  --font-serif: "Hiragino Mincho ProN", "Noto Serif JP", "Yu Mincho", serif;
+  --gutter: 16px;
+  color-scheme: light;
+}
+
+/* ダークテーマ: 墨の地に紙の色。朱は暗い地でも読める明るさに寄せる */
+:root[data-theme="ink"] {
+  --bg: var(--ink);
+  --fg: var(--paper);
+  --accent: #e5533b;
+  color-scheme: dark;
+}
+
+/* JS が data-theme を付ける前の見た目 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: var(--ink);
+    --fg: var(--paper);
+    --accent: #e5533b;
+    color-scheme: dark;
+  }
+}

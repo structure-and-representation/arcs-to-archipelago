@@ -1,0 +1,89 @@
+/* 基本のレイアウト。各 UI 部品の見た目は、担当が自分の部品のぶんだけ追記する。 */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; min-height: 100%; }
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.7;
+  /* 紙の質感: 細かなノイズを地に重ねる */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.4  0 0 0 .06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  transition: background-color .3s, color .3s;
+}
+
+#app { position: relative; }
+
+/* 描画は画面に固定し、章の本文がその上をスクロールする */
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: pan-y;
+}
+
+#labels {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#chapters {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+.chapter {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 var(--gutter) 22vh;
+  max-width: 32em;
+}
+.chapter > * { pointer-events: auto; }
+.chapter h2 { margin: 0 0 .4em; font-family: var(--font-serif); font-weight: 600; font-size: 1.6rem; }
+.chapter p { margin: 0; }
+
+#timeline, #selector, #controls, #table {
+  position: fixed;
+  z-index: 2;
+}
+#timeline { left: var(--gutter); right: var(--gutter); bottom: max(var(--gutter), env(safe-area-inset-bottom)); }
+#selector { left: var(--gutter); top: var(--gutter); }
+#controls { right: var(--gutter); top: var(--gutter); display: flex; gap: 8px; }
+#table { right: var(--gutter); bottom: calc(var(--gutter) + 48px); max-width: calc(100vw - 2 * var(--gutter)); }
+#table .table-body { max-height: 40vh; overflow: auto; background: var(--bg-85); }
+
+#tooltip {
+  position: fixed;
+  z-index: 3;
+  pointer-events: none;
+  padding: 4px 8px;
+  background: var(--bg-85);
+  border: 1px solid var(--fg-20);
+  font-size: 12px;
+}
+#tooltip[hidden], #message[hidden] { display: none; }
+
+#message {
+  position: fixed;
+  z-index: 4;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: var(--gutter);
+  text-align: center;
+  background: var(--bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body { transition: none; }
+}
