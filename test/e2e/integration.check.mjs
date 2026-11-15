@@ -125,6 +125,9 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
   const doneAt = samples.find((s) => s.a === 2012 && s.b === 2012)?.t;
   // 1 フレームの dt は 0.1 秒で打ち切るので、描画の遅い環境では実時間で 600ms より長くかかる
   ok(doneAt >= 500, `補間に 600ms 程度以上かかる(${doneAt}ms で終わった、${samples.length} フレーム)`);
+  // 自由探索の章は選択つきの場面(補間の速さは、弧の少ないこの状態で測る)。読み出しは全国の総数で確かめる
+  await page.evaluate(() => window.__app.store.set({ selection: null }));
+  await page.waitForTimeout(300);
   const readout = await page.evaluate(() => document.querySelector('#selector').innerText);
   ok(/2012/.test(readout) && /2,317,856/.test(readout), '読み出しは切り替え先の年(2012 年の総数)');
   // still=1 と動きを減らす設定では即時

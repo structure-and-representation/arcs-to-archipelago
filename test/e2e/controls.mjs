@@ -32,6 +32,8 @@ async function openPage(query, { colorScheme = 'light', viewport = { width: 1440
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   await page.goto(`${base}?${query}&still=1`);
   await page.waitForSelector('html[data-ready="1"]', { timeout: 60000 });
+  // URL の year だけを指定すると、はじめの章・場面(ui/chapters.js)が選択つきの場面になる。選択を指定していない検査は、全国で確かめる
+  if (!/(^|&)sel=/.test(query)) await page.evaluate(() => window.__app.store.set({ selection: null }));
   opened.push(page);
   return page;
 }
@@ -157,6 +159,7 @@ await test('地域: ←→ は同じ組の中、Home / End は先頭と末尾を
 
 await test('カメラ: Tab はグループに1回だけ止まり、←→ で移動し、Enter で切り替わる。URL に反映される', async () => {
   const page = await openPage('lang=ja&year=2014');
+  await page.evaluate(() => window.__app.store.set({ camera: 'side' })); // はじめの場面は斜め俯瞰。真横から始める
   await tabTo(page, '#controls .ctl-cam');
   assert.equal(await page.evaluate(() => document.activeElement.dataset.camera), 'side');
   await page.keyboard.press('ArrowRight');
