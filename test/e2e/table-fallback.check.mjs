@@ -254,9 +254,9 @@ for (const theme of ['paper', 'ink']) {
   // 行を押すと選択して閉じる
   await page.click('tbody.table-rows button.pref-btn[data-code="27"]');
   await page.waitForTimeout(100);
-  const after = await page.evaluate(() => ({ sel: window.__app.store.get().selection, open: document.querySelector('dialog.table-dialog').open, focus: document.activeElement.tagName }));
+  const after = await page.evaluate(() => ({ sel: window.__app.store.get().selection, open: document.querySelector('dialog.table-dialog').open, focus: document.activeElement.className }));
   ok(after.sel?.type === 'pref' && after.sel.code === 27 && !after.open, `行を押すと大阪府を選んで閉じる ${JSON.stringify(after)}`);
-  ok(after.focus === 'SUMMARY', '閉じたら、開いたボタンへフォーカスが戻る');
+  ok(after.focus === 'ctl-table', `閉じたら、開いたボタン(上の帯の「数値の表」)へフォーカスが戻る ${after.focus}`);
   // Esc で閉じて、フォーカスが戻る
   await page.focus('#controls .ctl-table');
   await page.keyboard.press('Enter');
@@ -264,8 +264,8 @@ for (const theme of ['paper', 'ink']) {
   await page.keyboard.press('Tab');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(100);
-  const esc = await page.evaluate(() => ({ open: document.querySelector('dialog.table-dialog').open, focus: document.activeElement.tagName }));
-  ok(!esc.open && esc.focus === 'SUMMARY', `Esc で閉じて、フォーカスが戻る ${JSON.stringify(esc)}`);
+  const esc = await page.evaluate(() => ({ open: document.querySelector('dialog.table-dialog').open, focus: document.activeElement.className }));
+  ok(!esc.open && esc.focus === 'ctl-table', `Esc で閉じて、フォーカスが戻る ${JSON.stringify(esc)}`);
   ok(problems.length === 0, `操作のあいだ、コンソールにエラーがない ${problems.join(' | ')}`);
   await page.close();
 }

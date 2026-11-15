@@ -190,7 +190,7 @@ table.data tr.sel th.name { color: var(--accent); font-weight: 500; }
 /* ---- WebGL2 が使えないときの案内(scene/fallback2d.js が作る) ---- */
 .fallback-notice {
   position: fixed;
-  z-index: 4;
+  z-index: var(--z-ui); /* キャンバス(--z-stage)より上 */
   top: 88px;
   left: 424px;
   width: clamp(240px, calc(100vw - 764px), 520px);
