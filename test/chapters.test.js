@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { chapters as COPY } from '../docs/copy/chapters.js';
 import { CHAPTERS, isValidStep, toStateSelection } from '../src/content/chapters.js';
@@ -35,7 +37,16 @@ describe('章の定義', () => {
       }
       expect(Boolean(ch.bodyPortrait)).toBe(Boolean(copy.bodyPortrait));
       expect(Boolean(ch.note)).toBe(Boolean(copy.note));
-      expect(ch.steps).toEqual(copy.steps.map((s) => ({ year: s.year, selection: toStateSelection(s.selection), camera: s.camera })));
+      expect(ch.steps.map((s) => ({ year: s.year, selection: s.selection, camera: s.camera }))).toEqual(
+        copy.steps.map((s) => ({ year: s.year, selection: toStateSelection(s.selection), camera: s.camera })),
+      );
+      // 場面ごとの本文と、強調する弧
+      copy.steps.forEach((cs, k) => {
+        const st = ch.steps[k];
+        expect(Boolean(st.body), `${copy.id} step ${k} body`).toBe(Boolean(cs.body));
+        if (cs.body) for (const lang of ['ja', 'en']) expect(DICT[lang][st.body], `${copy.id} step ${k} ${lang}`).toBe(cs.body[lang]);
+        expect(st.hover ?? null).toEqual(cs.hover ? { type: 'arc', o: cs.hover.o, d: cs.hover.d } : null);
+      });
     });
   });
 
@@ -46,11 +57,11 @@ describe('章の定義', () => {
 
   it('自由探索の章は、本文の例(大阪府、千葉県の 2012 年と 2025 年)を見せてから、全国の 2025 年で読者に渡す', () => {
     expect(CHAPTERS.filter((c) => c.explore).map((c) => c.id)).toEqual(['explore']);
-    expect(CHAPTERS[4].steps).toEqual([
-      { year: 2025, selection: { type: 'pref', code: 27 }, camera: 'oblique' },
-      { year: 2012, selection: { type: 'pref', code: 12 }, camera: 'oblique' },
-      { year: 2025, selection: { type: 'pref', code: 12 }, camera: 'oblique' },
-      { year: 2025, selection: null, camera: 'oblique' },
+    expect(CHAPTERS[4].steps.map(({ year, selection, camera, hover }) => ({ year, selection, camera, hover }))).toEqual([
+      { year: 2025, selection: { type: 'pref', code: 27 }, camera: 'oblique', hover: { type: 'arc', o: 26, d: 27 } }, // 大阪府 → 兵庫県
+      { year: 2012, selection: { type: 'pref', code: 12 }, camera: 'oblique', hover: { type: 'arc', o: 11, d: 12 } }, // 千葉県 → 東京都
+      { year: 2025, selection: { type: 'pref', code: 12 }, camera: 'oblique', hover: { type: 'arc', o: 11, d: 12 } },
+      { year: 2025, selection: null, camera: 'oblique', hover: undefined },
     ]);
   });
 
@@ -183,5 +194,37 @@ describe('initialScene(URL の引数 → はじめの章と場面)', async () =>
   it('morph は URL になければカメラの定位置の値、あればその値', () => {
     expect(scene('?cam=top').patch.morph).toBe(1);
     expect(scene('?cam=side&morph=0.5').patch.morph).toBe(0.5);
+  });
+});
+
+describe('場面ごとの本文の人数が、データ(public/data/od.json)と一致する', () => {
+  const od = JSON.parse(readFileSync(resolve(__dirname, '../public/data/od.json'), 'utf8'));
+  const flow = (y, o, d) => od.matrices[String(y)][o * 47 + d];
+  const fmt = (n) => n.toLocaleString('en-US');
+  const ja = (n) => (n >= 10000 ? `${Math.floor(n / 10000)}万${n % 10000 ? (n % 10000).toLocaleString('en-US') : ''}` : n.toLocaleString('en-US'));
+  const body = (k, lang) => DICT[lang][CHAPTERS[4].steps[k].body];
+
+  it('大阪府 → 兵庫県は、14 年間毎年 2 万 6 千〜2 万 7 千人台', () => {
+    for (const y of od.years) {
+      const v = flow(y, 26, 27);
+      expect(v, String(y)).toBeGreaterThanOrEqual(26000);
+      expect(v, String(y)).toBeLessThan(28000);
+    }
+    expect(body(0, 'ja')).toContain('2万6千〜2万7千人台');
+    expect(body(0, 'en')).toContain('26,000 to 27,000');
+  });
+
+  it('2012 年: 千葉県 → 東京都 50,189 人、逆向きより 9,427 人多い', () => {
+    const a = flow(2012, 11, 12), b = flow(2012, 12, 11);
+    expect(body(1, 'ja')).toContain(`${ja(a)}人`);
+    expect(body(1, 'ja')).toContain(`${fmt(a - b)}人多かった`);
+    expect(body(1, 'en')).toContain(`${fmt(a)} people moved from Chiba to Tokyo, ${fmt(a - b)} more`);
+  });
+
+  it('2025 年: 東京都 → 千葉県 45,333 人、逆向きより 783 人多い', () => {
+    const a = flow(2025, 12, 11), b = flow(2025, 11, 12);
+    expect(body(2, 'ja')).toContain(`${ja(a)}人`);
+    expect(body(2, 'ja')).toContain(`${fmt(a - b)}人多い`);
+    expect(body(2, 'en')).toContain(`${fmt(a)} people moved from Tokyo to Chiba, ${fmt(a - b)} more`);
   });
 });

@@ -1,6 +1,7 @@
 // 章の見出しと本文(content/chapters.js が参照する)。確定稿 docs/copy/chapters.js の文を、そのまま辞書にしたもの。
 // 辞書は { ja, en }。キーは `ch.<番号>.<名前>`。
 //   name: 目次の章名(spec 5.2)  heading: 章の見出し  body: 本文  body.portrait: 縦画面用の本文(あるときだけ)  note: 補足(あるときだけ)
+//   step<k>.body: 場面 k の本文(あるときだけ。その場面にいる間、章の本文の代わりに出す)
 // src/i18n.js がまとめて t(key) を提供する。
 export default {
   ja: {
@@ -22,6 +23,11 @@ export default {
     'ch.4.name': '自由探索',
     'ch.4.heading': '14年間、ほとんど変わらなかった流れ',
     'ch.4.body': '14年間でほとんど変わらない流れもある。大阪府から兵庫県へは毎年2万6千〜2万7千人台。移動の平均距離は283〜290kmに収まり、約4割は100km未満だ。一方、千葉と東京の間では流れの向きが逆転した。地域と年を選んで確かめてほしい。',
+    'ch.0.step1.body': 'カメラが回り込むと、47の点は地図の上の位置へ移る。弧は、県庁所在地のあいだに立ち上がる。地面より上の弧は北へ、地面より下の破線の弧は南へ向かう移動で、弧が通る場所は経路を表さない。',
+    'ch.4.step0.body': '14年間でほとんど変わらない流れもある。大阪府から兵庫県へは、毎年2万6千〜2万7千人台が移った。',
+    'ch.4.step1.body': '変わった流れもある。2012年、千葉県から東京都へ移った人は5万189人で、東京都から千葉県へ移った人より9,427人多かった。',
+    'ch.4.step2.body': '2025年には向きが逆転した。東京都から千葉県へ移った人が4万5,333人で、逆向きより783人多い。',
+    'ch.4.step3.body': '移動の平均距離は283〜290kmに収まり、約4割は100km未満だ。地域と年を選んで確かめてほしい。',
   },
   en: {
     'ch.nav': 'Chapters',
@@ -42,5 +48,10 @@ export default {
     'ch.4.name': 'Explore',
     'ch.4.heading': 'Flows That Barely Changed in 14 Years',
     'ch.4.body': 'Some flows barely moved in 14 years. Every year, 26,000 to 27,000 people moved from Osaka to Hyogo. The average move stayed between 283 and 290 km, and about 4 in 10 were under 100 km. Between Chiba and Tokyo, though, the net flow reversed. Pick a region and a year, and see for yourself.',
+    'ch.0.step1.body': 'As the camera turns, the 47 points move to their places on the map, and the arcs rise between prefectural capitals. Arcs above the ground head north; dashed arcs below it head south. Where an arc passes says nothing about the route.',
+    'ch.4.step0.body': 'Some flows barely moved in 14 years. Every year, 26,000 to 27,000 people moved from Osaka to Hyogo.',
+    'ch.4.step1.body': 'Other flows changed. In 2012, 50,189 people moved from Chiba to Tokyo, 9,427 more than moved the other way.',
+    'ch.4.step2.body': 'By 2025 the balance had reversed: 45,333 people moved from Tokyo to Chiba, 783 more than the other way.',
+    'ch.4.step3.body': 'The average move stayed between 283 and 290 km, and about 4 in 10 were under 100 km. Pick a region and a year, and see for yourself.',
   },
 };

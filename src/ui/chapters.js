@@ -168,7 +168,14 @@ export function mount(root, store, ctx = {}) {
     progressLabel.textContent = `${pad(i)} ${t(CHAPTERS[i].name)}`;
   }
 
-  // ---- 文言(言語と縦画面で変わる) ----
+  // ---- 文言(言語と縦画面と場面で変わる) ----
+  // 章ごとの、いま本文を出している場面(場面の本文があれば章の本文の代わりに出す)
+  const stepOf = CHAPTERS.map(() => 0);
+  const bodyKey = (i) => CHAPTERS[i].steps[stepOf[i]]?.body ?? CHAPTERS[i].body;
+  const renderBody = (i) => {
+    const text = t(bodyKey(i));
+    if (sections[i].body.textContent !== text) sections[i].body.textContent = text;
+  };
   const renderTexts = () => {
     const portrait = isPortrait();
     CHAPTERS.forEach((c, i) => {
@@ -177,7 +184,7 @@ export function mount(root, store, ctx = {}) {
       s.h2.textContent = t(c.heading);
       // 縦画面の真横も回さずに横長の並びで描く(scene/camera.js)ので、縦画面用の本文(「線より右は北へ」)は使わない
       void portrait;
-      s.body.textContent = t(c.body);
+      renderBody(i);
       if (s.note) s.note.textContent = t(c.note);
       tocLinks[i].name.textContent = t(c.name);
     });
@@ -199,10 +206,20 @@ export function mount(root, store, ctx = {}) {
   const here = () => locate(window.scrollY + window.innerHeight * anchorRatio(), geometry);
 
   let current = { chapter: -1, step: -1 };
+  // 場面の本文と、場面が強調する弧(ホバー中と同じ朱。読者が図に触れてホバーが変われば、通常のホバーに戻る)
+  const showScene = (loc) => {
+    stepOf[loc.chapter] = loc.step;
+    renderBody(loc.chapter);
+    const h = CHAPTERS[loc.chapter].steps[loc.step]?.hover;
+    const sh = store.get().hover;
+    const arc = h ? { o: h.o, d: h.d } : sh?.type === 'arc' ? { o: sh.o, d: sh.d } : null;
+    ctx.renderer?.setHover?.(arc);
+  };
   const enter = (loc, write = true) => {
     current = loc;
     if (write) store.set(sceneToPatch(loc.chapter, loc.step));
     else store.set({ chapter: loc.chapter });
+    showScene(loc);
   };
   // 縦画面: 本文がカードの領域に収まらないときは、章の中のスクロールの進みに合わせて本文をカードの中で流す
   // (章の最初は冒頭を見せ、章の 8%〜70% の間に末尾まで流す。図の上へは出ない)
@@ -322,6 +339,7 @@ export function mount(root, store, ctx = {}) {
   current = { chapter: start.chapter, step: start.step };
   if (store.get().chapter !== start.chapter) store.set({ chapter: start.chapter });
   renderCurrent(store.get().chapter);
+  showScene(current);
 
   return {
     dispose() {

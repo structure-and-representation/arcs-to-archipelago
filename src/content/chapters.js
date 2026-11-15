@@ -15,7 +15,10 @@ export function toStateSelection(sel) {
   throw new Error(`不明な selection: ${JSON.stringify(sel)}`);
 }
 
-const step = (year, selection, camera) => ({ year, selection: toStateSelection(selection), camera });
+// extra: { body: 場面の本文のキー(あるときだけ。その場面にいる間、章の本文の代わりに出す)、
+//          hover: { type: 'arc', o, d }(場面に入ったとき、朱で強調する弧。都道府県の添字 0〜46) }
+const step = (year, selection, camera, extra = {}) => ({ year, selection: toStateSelection(selection), camera, ...extra });
+const arc = (o, d) => ({ type: 'arc', o, d });
 const tokyo = { type: 'metro', id: 'tokyo' };
 const osaka = { type: 'metro', id: 'osaka' };
 const nagoya = { type: 'metro', id: 'nagoya' };
@@ -32,7 +35,7 @@ const ch = (i, id, steps, extra = {}) => ({
 export const CHAPTERS = [
   ch(0, 'nation', [
     step(2025, null, 'side'), // 開幕: 最新年を、2015 年の原作と同じ姿(真横)で見せる
-    step(2025, null, 'oblique'), // カメラが回り込み、都道府県が地図の上へ移る
+    step(2025, null, 'oblique', { body: 'ch.0.step1.body' }), // カメラが回り込み、都道府県が地図の上へ移る(地上と地下の意味を本文で教える)
   ], { bodyPortrait: 'ch.0.body.portrait' }),
   ch(1, 'tokyo', [
     step(2019, tokyo, 'oblique'),
@@ -50,10 +53,10 @@ export const CHAPTERS = [
     step(2025, nagoya, 'oblique'),
   ]),
   ch(4, 'explore', [
-    step(2025, { type: 'pref', code: 27 }, 'oblique'), // 大阪府(兵庫県への流れが毎年 2 万 6 千〜2 万 7 千人台)
-    step(2012, { type: 'pref', code: 12 }, 'oblique'), // 千葉県、流れの向きが逆転する前
-    step(2025, { type: 'pref', code: 12 }, 'oblique'), // 千葉県、逆転した後
-    step(2025, null, 'oblique'), // 自由探索の出発点(この場面に入ってからは、読者の操作を上書きしない)
+    step(2025, { type: 'pref', code: 27 }, 'oblique', { body: 'ch.4.step0.body', hover: arc(26, 27) }), // 大阪府(兵庫県への流れが毎年 2 万 6 千〜2 万 7 千人台)
+    step(2012, { type: 'pref', code: 12 }, 'oblique', { body: 'ch.4.step1.body', hover: arc(11, 12) }), // 千葉県、流れの向きが逆転する前(千葉→東京)
+    step(2025, { type: 'pref', code: 12 }, 'oblique', { body: 'ch.4.step2.body', hover: arc(11, 12) }), // 千葉県、逆転した後
+    step(2025, null, 'oblique', { body: 'ch.4.step3.body' }), // 自由探索の出発点(この場面に入ってからは、読者の操作を上書きしない)
   ], { explore: true }),
 ];
 
