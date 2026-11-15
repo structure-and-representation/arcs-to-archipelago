@@ -106,6 +106,8 @@ export function createParticlesLayer(ctx) {
 
   const object3D = new THREE.Group();
   object3D.name = 'particles';
+  // 検証用(tools/verify/arcs-parity.mjs): 弧の線だけを撮るときに粒子を隠す。開発サーバ(と Vitest)でだけ有効
+  if (import.meta.env?.DEV && globalThis.__ARCS_DEBUG?.hideParticles) object3D.visible = false;
 
   // 枠の予算と属性(年や負荷で変えない)
   const { per, total } = slotBudget(years, matrixOf);

@@ -189,8 +189,9 @@ export function createArcsLayer(ctx) {
   hoverMesh.visible = false;
 
   // ---- 状態 ----
-  // 検証用: 比較の画像を撮るときだけ、外から線幅と不透明度を固定できる(tools/verify/arcs-parity.mjs)
-  const debug = globalThis.__ARCS_DEBUG;
+  // 検証用: 比較の画像を撮るときだけ、外から線幅と不透明度を固定できる(tools/verify/arcs-parity.mjs)。
+  // 開発サーバ(と Vitest)でだけ有効で、ビルドした出荷物からは取り除かれる
+  const debug = import.meta.env?.DEV ? globalThis.__ARCS_DEBUG : undefined;
   const debugStyle = debug && Number.isFinite(debug.width) && Number.isFinite(debug.alpha) ? debug : null;
 
   const targetSide = new Int8Array(count); // いまの選択での side(-1 / 0 / +1)
