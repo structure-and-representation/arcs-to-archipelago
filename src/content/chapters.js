@@ -50,7 +50,10 @@ export const CHAPTERS = [
     step(2025, nagoya, 'oblique'),
   ]),
   ch(4, 'explore', [
-    step(2025, null, 'oblique'), // 自由探索の出発点
+    step(2025, { type: 'pref', code: 27 }, 'oblique'), // 大阪府(兵庫県への流れが毎年 2 万 6 千〜2 万 7 千人台)
+    step(2012, { type: 'pref', code: 12 }, 'oblique'), // 千葉県、流れの向きが逆転する前
+    step(2025, { type: 'pref', code: 12 }, 'oblique'), // 千葉県、逆転した後
+    step(2025, null, 'oblique'), // 自由探索の出発点(この場面に入ってからは、読者の操作を上書きしない)
   ], { explore: true }),
 ];
 

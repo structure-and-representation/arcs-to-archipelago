@@ -4,8 +4,10 @@
 // ・5 章の本文はページのスクロールで流れ、キャンバスは画面に固定されている。各章は複数の場面(年・選択・カメラ)を持つ。
 // ・画面の高さの中央の線(ANCHOR)がどの章のどの場面にあるかを locate() で求め、(章, 場面)が変わったときだけ
 //   state の chapter / year / selection / camera を一度に書く。カメラはスクロールの量に連動させず、場面の境で一度だけ動く。
-// ・自由探索の章は場面が 1 つなので、章の中をスクロールしている間は state を書かない(読者の操作を上書きしない)。
-//   ほかの章でも、同じ場面の中にいる間は上書きしない。
+// ・同じ場面の中にいる間は state を書かない(読者の操作を上書きしない)。自由探索の章の最後の場面は、そこに入ってからは
+//   ページの終わりまで何も書かない。
+// ・本文のカードは一度に 1 枚だけ見せる。現在の章の section に data-current を付け、ほかの章のカードは消す(CSS)。
+//   デスクトップではカードを画面に固定し、縦画面では章の先頭に置いてページと一緒に流す(図を覆い続けない)。
 // ・目次を押すとその章の先頭へ動く。動いている途中の章の場面は通り過ぎるだけで、state には書かない。
 // ・はじめの章と場面は initialScene(URL の引数)で決める(main.js が state へ書き、ここはその位置へスクロールする)。
 //   URL に ch がなくても、URL の年・選択・カメラに合う章を選ぶので、本文と画面が矛盾しない。
@@ -15,8 +17,11 @@ import { CAMERA_PRESETS, isCameraName } from '../geometry/constants.js';
 import { onLangChange, t } from '../i18n.js';
 import { isPortrait, onPortraitChange } from './portrait.js';
 
-/** 画面の高さのどこにある線で、いまの章と場面を決めるか(0 = 上端、1 = 下端)。 */
+/** 画面の高さのどこにある線で、いまの章と場面を決めるか(0 = 上端、1 = 下端)。デスクトップ。 */
 export const ANCHOR = 0.5;
+/** 縦画面。章の先頭に置いたカードが、ドックの上に収まる位置で現れるように、デスクトップより上にする。 */
+export const ANCHOR_PORTRAIT = 0.3;
+const anchorRatio = () => (isPortrait() ? ANCHOR_PORTRAIT : ANCHOR);
 
 /**
  * スクロールの位置から、章と場面を求める純関数。
@@ -51,7 +56,7 @@ export const EXPLORE = CHAPTERS.findIndex((c) => c.explore);
  * URL の引数(params.js の parseParams の patch)から、はじめの章と場面と、state へ書く patch を決める純関数。
  *  - ch があるとき: その章の最初の場面の年・選択・カメラ。URL に year / sel / cam / morph があれば、そちらを優先する。
  *  - ch がなく、year / sel / cam のどれかがあるとき: それらがすべて一致する最初の場面の章(本文と画面が矛盾しない)。
- *    一致する場面がなければ自由探索の章にし、URL にない値は自由探索の場面の値にする。
+ *    一致する場面がなければ自由探索の章の最後の場面にし、URL にない値はその場面の値にする。
  *  - どれもないとき: 0 章の最初の場面(開幕)。
  * morph は、URL になければカメラの定位置の値。戻り値: { chapter, step, patch }
  */
@@ -74,7 +79,8 @@ export function initialScene(urlPatch = {}) {
         found = [i, k];
       }),
     );
-    [chapter, step] = found ?? [EXPLORE, 0];
+    // 合う場面がなければ、自由探索の最後の場面(読者が操作する場面)
+    [chapter, step] = found ?? [EXPLORE, CHAPTERS[EXPLORE].steps.length - 1];
   }
   const patch = { ...sceneToPatch(chapter, step), ...fromUrl };
   if (!has('morph') && isCameraName(patch.camera)) patch.morph = CAMERA_PRESETS[patch.camera].morph;
@@ -128,10 +134,7 @@ export function mount(root, store, ctx = {}) {
     return { section, kicker, h2, body, note };
   });
 
-  const footer = el('footer', 'footnote');
-  const footerNote = footer.appendChild(el('p'));
-  const footerMap = footer.appendChild(el('p', 'map-source'));
-  root.replaceChildren(toc, progress, ...sections.map((s) => s.section), footer);
+  root.replaceChildren(toc, progress, ...sections.map((s) => s.section));
 
   // 目次と章の位置の表示(いま見せる章)
   let shown = store.get().chapter;
@@ -142,6 +145,8 @@ export function mount(root, store, ctx = {}) {
       else l.a.removeAttribute('aria-current');
     });
     bars.forEach((b, k) => b.classList.toggle('on', k === i));
+    // 本文のカードは現在の章の 1 枚だけ(ほかは CSS で消える)
+    sections.forEach((s, k) => s.section.toggleAttribute('data-current', k === i));
     progressLabel.textContent = `${pad(i)} ${t(CHAPTERS[i].name)}`;
   }
 
@@ -157,8 +162,6 @@ export function mount(root, store, ctx = {}) {
       tocLinks[i].name.textContent = t(c.name);
     });
     toc.setAttribute('aria-label', t('ch.nav'));
-    footerNote.textContent = t('footer.note');
-    footerMap.textContent = t('footer.mapSource');
     renderCurrent(shown);
   };
 
@@ -171,7 +174,7 @@ export function mount(root, store, ctx = {}) {
       return { top: r.top + y, height: r.height, steps: CHAPTERS[i].steps.length };
     });
   };
-  const here = () => locate(window.scrollY + window.innerHeight * ANCHOR, geometry);
+  const here = () => locate(window.scrollY + window.innerHeight * anchorRatio(), geometry);
 
   let current = { chapter: -1, step: -1 };
   const enter = (loc, write = true) => {
@@ -248,7 +251,11 @@ export function mount(root, store, ctx = {}) {
     if (changed.includes('chapter') && !navigating) renderCurrent(s.chapter);
   });
   const offLang = onLangChange(renderTexts);
-  const offPortrait = onPortraitChange(renderTexts);
+  const offPortrait = onPortraitChange(() => {
+    renderTexts();
+    measure();
+    if (!navigating) update();
+  });
 
   // ---- はじめの章と場面 ----
   // main.js が initialScene(URL)で決めた章・場面の state を書いてから mount する。ここでは、その場面の位置へ
@@ -259,8 +266,9 @@ export function mount(root, store, ctx = {}) {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   const g = geometry[start.chapter];
   if (g && (start.chapter > 0 || start.step > 0)) {
-    // 場面の範囲の少し内側(画面の高さの中央の線が、その場面の中に来る位置)
-    const y = g.top + (g.height / g.steps) * (start.step + 0.05) - window.innerHeight * ANCHOR;
+    // 場面の範囲の内側(基準の線が、その場面の中に来る位置)。章の最初の場面は先頭の少し内側(縦画面で、章の先頭のカードが見える位置)、
+    // ほかは場面の中ほど(境の近くで、再計測のわずかなずれで隣の場面に入らないように)
+    const y = g.top + (g.height / g.steps) * (start.step + (start.step === 0 ? 0.05 : 0.5)) - window.innerHeight * anchorRatio();
     window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
   } else if (window.scrollY > 0) {
     window.scrollTo({ top: 0, behavior: 'auto' });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { chapters as COPY } from '../docs/copy/chapters.js';
 import { CHAPTERS, isValidStep, toStateSelection } from '../src/content/chapters.js';
 import { DICT } from '../src/i18n.js';
-import { ANCHOR, locate, sceneToPatch } from '../src/ui/chapters.js';
+import { ANCHOR, ANCHOR_PORTRAIT, locate, sceneToPatch } from '../src/ui/chapters.js';
 
 describe('章の定義', () => {
   it('5章で、各章の場面の年・選択・カメラが有効な値', () => {
@@ -44,20 +44,36 @@ describe('章の定義', () => {
     expect(CHAPTERS.map((c) => DICT.en[c.name])).toEqual(['Japan', 'Tokyo', 'Osaka', 'Nagoya', 'Explore']);
   });
 
-  it('自由探索は最後の 1 場面だけ', () => {
+  it('自由探索の章は、本文の例(大阪府、千葉県の 2012 年と 2025 年)を見せてから、全国の 2025 年で読者に渡す', () => {
     expect(CHAPTERS.filter((c) => c.explore).map((c) => c.id)).toEqual(['explore']);
-    expect(CHAPTERS[4].steps).toHaveLength(1);
+    expect(CHAPTERS[4].steps).toEqual([
+      { year: 2025, selection: { type: 'pref', code: 27 }, camera: 'oblique' },
+      { year: 2012, selection: { type: 'pref', code: 12 }, camera: 'oblique' },
+      { year: 2025, selection: { type: 'pref', code: 12 }, camera: 'oblique' },
+      { year: 2025, selection: null, camera: 'oblique' },
+    ]);
+  });
+
+  it('1 章の見出しは作品名ではなく、その章が述べる事実', () => {
+    expect(DICT.ja[CHAPTERS[0].heading]).toBe('2025年、214万人が都道府県の境を越えた');
+    expect(DICT.en[CHAPTERS[0].heading]).toBe('In 2025, 2.1 Million People Moved Across Prefectures');
+    for (const lang of ['ja', 'en']) expect(DICT[lang][CHAPTERS[0].heading]).not.toBe(DICT[lang].title);
+  });
+
+  it('縦画面の基準の線は、デスクトップより上(章の先頭のカードがドックの上に収まる)', () => {
+    expect(ANCHOR).toBe(0.5);
+    expect(ANCHOR_PORTRAIT).toBeLessThan(ANCHOR);
   });
 });
 
 describe('locate: スクロールの位置から章と場面を求める', () => {
-  // 画面の高さ 1000 として、3 場面の章は 2100(場面ごと 700)、自由探索は 1000
+  // 画面の高さ 1000 として、3 場面の章は 2100(場面ごと 700)、自由探索(4 場面)は 2800
   const sections = [
     { top: 0, height: 2100, steps: 3 },
     { top: 2100, height: 2100, steps: 3 },
     { top: 4200, height: 2100, steps: 3 },
     { top: 6300, height: 2100, steps: 3 },
-    { top: 8400, height: 1000, steps: 1 },
+    { top: 8400, height: 2800, steps: 4 },
   ];
 
   it('章の中は高さを場面の数で等分する(境の位置は次の場面に入る)', () => {
@@ -78,15 +94,16 @@ describe('locate: スクロールの位置から章と場面を求める', () =>
 
   it('先頭より上は 0 章 0 場面、最後の章より下は最後の章の最後の場面', () => {
     expect(locate(-50, sections)).toEqual({ chapter: 0, step: 0 });
-    expect(locate(9400, sections)).toEqual({ chapter: 4, step: 0 });
-    expect(locate(99999, sections)).toEqual({ chapter: 4, step: 0 });
+    expect(locate(9400, sections)).toEqual({ chapter: 4, step: 1 });
+    expect(locate(99999, sections)).toEqual({ chapter: 4, step: 3 });
     const last3 = [{ top: 0, height: 900, steps: 3 }];
     expect(locate(99999, last3)).toEqual({ chapter: 0, step: 2 });
   });
 
-  it('自由探索の章の中では、どこにいても同じ(章,場面)なので、state を書き直さない', () => {
-    const a = locate(8400, sections);
-    for (const y of [8500, 9000, 9399, 12000]) expect(locate(y, sections)).toEqual(a);
+  it('自由探索の最後の場面に入ってからは、どこにいても同じ(章,場面)なので、state を書き直さない', () => {
+    const a = locate(8400 + 2100, sections); // 4 場面の章の最後(場面ごと 700)
+    expect(a).toEqual({ chapter: 4, step: 3 });
+    for (const y of [10600, 11000, 11199, 12000, 99999]) expect(locate(y, sections)).toEqual(a);
   });
 
   it('章の先頭までスクロールすると、その章の 0 場面になる(目次から移る位置)', () => {
@@ -99,7 +116,9 @@ describe('sceneToPatch', () => {
   it('章と場面の値を state の patch にする', () => {
     expect(sceneToPatch(0, 0)).toEqual({ chapter: 0, year: 2025, selection: null, camera: 'side' });
     expect(sceneToPatch(2, 1)).toEqual({ chapter: 2, year: 2023, selection: { type: 'metro', id: 'osaka' }, camera: 'oblique' });
-    expect(sceneToPatch(4, 0)).toEqual({ chapter: 4, year: 2025, selection: null, camera: 'oblique' });
+    expect(sceneToPatch(4, 0)).toEqual({ chapter: 4, year: 2025, selection: { type: 'pref', code: 27 }, camera: 'oblique' });
+    expect(sceneToPatch(4, 1)).toEqual({ chapter: 4, year: 2012, selection: { type: 'pref', code: 12 }, camera: 'oblique' });
+    expect(sceneToPatch(4, 3)).toEqual({ chapter: 4, year: 2025, selection: null, camera: 'oblique' });
   });
 
   it('selection は場面の定義と別のオブジェクト', () => {
@@ -138,11 +157,21 @@ describe('initialScene(URL の引数 → はじめの章と場面)', async () =>
     expect(scene('?cam=oblique&year=2025')).toMatchObject({ chapter: 0, step: 1 });
   });
 
-  it('合う場面がなければ自由探索の章にし、URL にない値は自由探索の場面の値にする', () => {
+  it('合う場面がなければ自由探索の章の最後の場面にし、URL にない値はその場面の値にする', () => {
+    const last = CHAPTERS[EXPLORE].steps.length - 1;
     const s = scene('?sel=13&cam=oblique');
     expect(s.chapter).toBe(EXPLORE);
+    expect(s.step).toBe(last);
     expect(s.patch).toMatchObject({ chapter: EXPLORE, selection: { type: 'pref', code: 13 }, camera: 'oblique', year: 2025 });
-    expect(scene('?cam=top').chapter).toBe(EXPLORE);
+    expect(scene('?cam=top')).toMatchObject({ chapter: EXPLORE, step: last });
+    expect(scene('?year=2018')).toMatchObject({ chapter: EXPLORE, step: last });
+  });
+
+  it('URL が自由探索の章の本文の例に合うときは、その場面', () => {
+    expect(scene('?sel=27&year=2025')).toMatchObject({ chapter: EXPLORE, step: 0 });
+    expect(scene('?sel=12&year=2012&cam=oblique')).toMatchObject({ chapter: EXPLORE, step: 1 });
+    expect(scene('?sel=12&year=2025')).toMatchObject({ chapter: EXPLORE, step: 2 });
+    expect(scene('?ch=4').patch).toMatchObject({ selection: { type: 'pref', code: 27 } });
   });
 
   it('morph は URL になければカメラの定位置の値、あればその値', () => {

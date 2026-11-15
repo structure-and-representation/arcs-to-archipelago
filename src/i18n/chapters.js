@@ -6,7 +6,7 @@ export default {
   ja: {
     'ch.nav': '章',
     'ch.0.name': '全国',
-    'ch.0.heading': '弧が列島になる',
+    'ch.0.heading': '2025年、214万人が都道府県の境を越えた',
     'ch.0.body': '2025年、都道府県の境を越えて住まいを移した日本人は214万8,329人。2012年より7%少ない。転入が転出を上回ったのは47都道府県のうち7都府県だけで、移動の57%は東京圏を出発点か到着点にしている。線より上の弧は北へ、下の弧は南へ向かう移動。',
     'ch.0.body.portrait': '2025年、都道府県の境を越えて住まいを移した日本人は214万8,329人。2012年より7%少ない。転入が転出を上回ったのは47都道府県のうち7都府県だけで、移動の57%は東京圏を出発点か到着点にしている。線より右の弧は北へ、左の弧は南へ向かう移動。',
     'ch.1.name': '東京一極',
@@ -26,7 +26,7 @@ export default {
   en: {
     'ch.nav': 'Chapters',
     'ch.0.name': 'Japan',
-    'ch.0.heading': 'Arcs Become an Archipelago',
+    'ch.0.heading': 'In 2025, 2.1 Million People Moved Across Prefectures',
     'ch.0.body': 'In 2025, 2,148,329 Japanese residents moved to another prefecture, 7% fewer than in 2012. Only 7 of the 47 prefectures gained more people than they lost. And 57% of all moves started or ended in the Tokyo area. Arcs above the line head north; arcs below head south.',
     'ch.0.body.portrait': 'In 2025, 2,148,329 Japanese residents moved to another prefecture, 7% fewer than in 2012. Only 7 of the 47 prefectures gained more people than they lost. And 57% of all moves started or ended in the Tokyo area. Arcs right of the line head north; arcs to the left head south.',
     'ch.1.name': 'Tokyo',

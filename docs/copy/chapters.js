@@ -11,7 +11,7 @@
 export const chapters = [
   {
     id: 'nation',
-    heading: { ja: '弧が列島になる', en: 'Arcs Become an Archipelago' },
+    heading: { ja: '2025年、214万人が都道府県の境を越えた', en: 'In 2025, 2.1 Million People Moved Across Prefectures' },
     body: {
       ja: '2025年、都道府県の境を越えて住まいを移した日本人は214万8,329人。2012年より7%少ない。転入が転出を上回ったのは47都道府県のうち7都府県だけで、移動の57%は東京圏を出発点か到着点にしている。線より上の弧は北へ、下の弧は南へ向かう移動。',
       en: 'In 2025, 2,148,329 Japanese residents moved to another prefecture, 7% fewer than in 2012. Only 7 of the 47 prefectures gained more people than they lost. And 57% of all moves started or ended in the Tokyo area. Arcs above the line head north; arcs below head south.',
@@ -76,7 +76,10 @@ export const chapters = [
       en: 'Some flows barely moved in 14 years. Every year, 26,000 to 27,000 people moved from Osaka to Hyogo. The average move stayed between 283 and 290 km, and about 4 in 10 were under 100 km. Between Chiba and Tokyo, though, the net flow reversed. Pick a region and a year, and see for yourself.',
     },
     steps: [
-      { year: 2025, selection: null, camera: 'oblique' }, // free exploration starts here
+      { year: 2025, selection: { type: 'pref', code: 27 }, camera: 'oblique' }, // Osaka: Hyogo takes 26,000-27,000 a year
+      { year: 2012, selection: { type: 'pref', code: 12 }, camera: 'oblique' }, // Chiba, before the flow with Tokyo reversed
+      { year: 2025, selection: { type: 'pref', code: 12 }, camera: 'oblique' }, // Chiba, after the reversal
+      { year: 2025, selection: null, camera: 'oblique' }, // free exploration starts here: the reader's choices are not overwritten from this scene on
     ],
   },
 ];
