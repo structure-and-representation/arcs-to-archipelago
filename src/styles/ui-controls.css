@@ -1,9 +1,161 @@
-/* 操作ボタン(ui/controls.js) */
+/* カメラ・言語・テーマ・数値の表(ui/controls.js)。デザイン仕様 5.1、5.7 節。 */
+:root { --dock-h: 154px; } /* 縦画面のドックの高さ。読み出し、年、カメラがこの中に積まれる */
+
 #controls {
   position: fixed;
-  z-index: 2;
-  right: var(--gutter);
-  top: var(--gutter);
+  z-index: 4;
+  inset: 0;
+  display: block;
+  pointer-events: none; /* 子のボタンだけを押せるようにする(図の操作を妨げない) */
+  font-family: var(--font-sans);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-ui);
+  letter-spacing: var(--ls-ui);
+}
+:where(#controls) button {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#controls button:focus { outline: none; }
+#controls button:focus-visible { outline: 1.5px solid var(--focus); outline-offset: 3px; border-radius: 1px; }
+
+/* ---- 上の帯の右側(高さ 72px)。作品名は別の部品 ---- */
+.ctl-tools {
+  position: absolute;
+  top: 0;
+  right: 40px;
+  height: 72px;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 22px;
+  pointer-events: auto;
+}
+.ctl-table {
+  position: relative;
+  color: var(--fg-2);
+  padding-bottom: 1px;
+  border-bottom: 1px solid var(--line-2);
+  transition: color var(--dur-1) var(--ease-out);
+}
+.ctl-table::before { content: ""; position: absolute; inset: -8px -6px; } /* 押せる範囲を 32px 以上にする */
+.ctl-table:hover { color: var(--fg-1); }
+.ctl-short { display: none; }
+
+.ctl-toggle { display: inline-flex; align-items: center; gap: 2px; }
+.ctl-tbtn {
+  position: relative;
+  padding: 6px 4px;
+  color: var(--fg-3);
+  transition: color var(--dur-1) var(--ease-out);
+}
+.ctl-tbtn:hover { color: var(--fg-1); }
+.ctl-tbtn[aria-pressed="true"] { color: var(--fg-1); }
+.ctl-tbtn::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 2px;
+  height: 1px;
+  background: var(--fg-1);
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+.ctl-tbtn[aria-pressed="true"]::after { opacity: 1; }
+.ctl-sep { color: var(--line-1); }
+
+/* ---- カメラの定位置(右下) ---- */
+.ctl-camera {
+  position: absolute;
+  right: 40px;
+  bottom: 36px;
+  display: flex;
+  gap: 2px;
+  font-size: var(--fs-ui);
+  pointer-events: auto;
+}
+.ctl-cam {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: 52px;
+  padding: 6px 8px 8px;
+  color: var(--fg-2);
+  transition: color var(--dur-1) var(--ease-out);
+}
+.ctl-cam svg { width: 28px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1; }
+.ctl-lbl { font-size: var(--fs-caption); }
+.ctl-cam:hover { color: var(--fg-1); }
+.ctl-cam[aria-pressed="true"] { color: var(--fg-1); }
+.ctl-cam::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 20px;
+  height: 1.5px;
+  margin-left: -10px;
+  background: var(--fg-1);
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+.ctl-cam[aria-pressed="true"]::after { opacity: 1; }
+
+/* ---- 縦画面(幅 1024px 未満) ---- */
+@media (max-width: 1023.98px) {
+  /* ドックの地。読み出し(selector)と年(timeline)はこの上に、それぞれの要素が置かれる */
+  #controls::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--dock-h);
+    background: var(--veil-solid);
+    pointer-events: none;
+  }
+  #controls::after {
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: calc(var(--dock-h) - 1px);
+    height: 1px;
+    background: var(--line-2);
+    pointer-events: none;
+  }
+
+  /* 上の帯(高さ 52px): 「表」「EN」「墨」。言語とテーマは、選ばれていないほうだけを出す(押すと切り替わる) */
+  .ctl-tools { right: 16px; height: 52px; gap: 6px; }
+  .ctl-long { display: none; }
+  .ctl-short { display: inline; }
+  .ctl-table,
+  .ctl-tbtn {
+    display: inline-grid;
+    place-items: center;
+    min-width: 36px;
+    height: 44px;
+    padding: 0 4px;
+    border: 0;
+    color: var(--fg-2);
+  }
+  .ctl-table::before { display: none; }
+  .ctl-tbtn::after { display: none; }
+  .ctl-tbtn[aria-pressed="true"],
+  .ctl-sep { display: none; }
+
+  /* ドックの3段目の左: カメラ */
+  .ctl-camera { left: 16px; right: auto; bottom: 10px; gap: 0; }
+  .ctl-cam { min-width: 48px; min-height: 44px; padding: 4px 6px 8px; gap: 3px; }
+  .ctl-cam svg { width: 22px; height: 12px; }
+  .ctl-lbl { font-size: 11px; }
+  .ctl-cam::after { width: 14px; margin-left: -7px; }
 }

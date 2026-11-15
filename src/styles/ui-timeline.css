@@ -1,8 +1,110 @@
-/* 年の切り替え(ui/timeline.js) */
+/* 年の切り替え(ui/timeline.js)。デザイン仕様 5.3 節。色・文字・時間は tokens.css から読む。 */
 #timeline {
   position: fixed;
-  z-index: 2;
-  left: var(--gutter);
-  right: var(--gutter);
-  bottom: max(var(--gutter), env(safe-area-inset-bottom));
+  z-index: 5;
+  left: 424px;
+  bottom: 36px;
+  /* 幅 658px。狭い画面では、右下のカメラ(右 40px、幅 160px 強)とぶつからない幅まで縮める */
+  width: min(658px, calc(100vw - 424px - 40px - 184px));
+  min-width: 0;
+  container-type: inline-size;
+  font-family: var(--font-sans);
+  font-size: var(--fs-label);
+  line-height: var(--lh-ui);
+  letter-spacing: var(--ls-ui);
+  color: var(--fg-3);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.tl {
+  --tl-spark-h: 30px; /* 折れ線の高さ */
+  --tl-label-pad: 14px; /* ホバー中の年の値を出す余白 */
+  display: block;
+  touch-action: none;
+  cursor: pointer;
+  border-radius: 1px;
+}
+.tl:focus { outline: none; }
+.tl:focus-visible { outline: 1.5px solid var(--focus); outline-offset: 6px; }
+
+/* 見出しの行。左に系列の名前、右はホバー中の年の値などの余地として空けておく */
+.tl-cap {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-label);
+  color: var(--fg-3);
+  letter-spacing: .04em;
+  min-height: 1.5em;
+}
+
+.tl-spark { display: block; }
+.tl-spark svg { display: block; overflow: visible; }
+.tl-line { fill: none; stroke: var(--line-1); stroke-width: 1; }
+.tl-dot { fill: var(--fg-3); }
+.tl-now { fill: var(--fg-1); }
+.tl-cur, .tl-zero { stroke: var(--line-2); stroke-width: 1; }
+.tl-hov { fill: none; stroke: var(--fg-1); stroke-width: 1; }
+.tl-val {
+  fill: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-label);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* 年の行 */
+.tl-years {
+  display: grid;
+  grid-template-columns: repeat(var(--tl-n, 14), minmax(0, 1fr));
+  margin-top: 6px;
+}
+.tl-yr {
+  position: relative;
+  padding: 4px 0 6px;
+  text-align: center;
+  font-size: var(--fs-label);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: .02em;
+  color: var(--fg-3);
+  transition: color var(--dur-1) var(--ease-out);
+}
+.tl-yr.hov { color: var(--fg-1); }
+.tl-yr.on { color: var(--fg-1); font-weight: 500; }
+.tl-yr::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 20px;
+  height: 1.5px;
+  margin-left: -10px;
+  background: var(--fg-1);
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+.tl-yr.on::after { opacity: 1; }
+
+/* 幅が狭いときは、年を2桁(「12」〜「25」)で書く */
+@container (max-width: 520px) {
+  .tl-c { display: none; }
+}
+
+/* 無効(データの読み込み中など): 全体を薄くし、折れ線は描かない */
+.tl.is-off { cursor: default; color: var(--fg-off); }
+.tl.is-off .tl-yr, .tl.is-off .tl-cap { color: var(--fg-off); }
+
+/* 縦画面: ドックの2段目。見出しの行は出さない(系列の意味は1段目の要約で分かる) */
+@media (max-width: 1023.98px) {
+  #timeline {
+    left: 16px;
+    right: 16px;
+    width: auto;
+    bottom: 62px;
+  }
+  .tl { --tl-spark-h: 22px; --tl-label-pad: 0px; }
+  .tl-cap { display: none; }
+  .tl-years { margin-top: 2px; }
+  .tl-yr { padding: 3px 0 7px; font-size: 10.5px; }
+  .tl-yr::after { width: 14px; margin-left: -7px; }
+  .tl-c { display: none; }
 }

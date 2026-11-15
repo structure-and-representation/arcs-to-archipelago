@@ -1,7 +1,278 @@
-/* 地域の選択(ui/selector.js) */
+/* 地域の選択と読み出し(ui/selector.js)。デザイン仕様 5.4 節。色・文字・時間は tokens.css から読む。 */
 #selector {
   position: fixed;
-  z-index: 2;
-  left: var(--gutter);
-  top: var(--gutter);
+  z-index: 5;
+  top: 96px;
+  right: 40px;
+  left: auto;
+  width: 300px;
+  text-align: right;
+  font-family: var(--font-sans);
+  font-size: var(--fs-ui);
+  line-height: var(--lh-ui);
+  letter-spacing: var(--ls-ui);
+  color: var(--fg-1);
+}
+#selector [hidden] { display: none !important; }
+:where(#selector) button {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#selector button:focus { outline: none; }
+#selector button:focus-visible { outline: 1.5px solid var(--focus); outline-offset: 3px; border-radius: 1px; }
+:where(#selector) p { margin: 0; }
+
+/* ---- 読み出しの見出し(選択のボタン) ---- */
+.sel-head { position: relative; display: inline-block; }
+.sel-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  color: var(--fg-2);
+  border-bottom: 1px solid var(--line-2);
+  transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.sel-btn::before { content: ""; position: absolute; inset: -8px -6px; } /* 押せる範囲を 32px 以上にする */
+.sel-btn:hover { color: var(--fg-1); }
+.sel-chev { width: 8px; height: 8px; stroke: currentColor; fill: none; stroke-width: 1.2; transform: translateY(-1px); }
+.sel.is-sel .sel-btn {
+  color: var(--accent);
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: .08em;
+  border-bottom-color: currentColor;
+}
+
+/* ---- 読み出し(デスクトップ) ---- */
+.sel-big {
+  margin-top: 10px;
+  font-family: var(--font-serif);
+  font-size: var(--fs-num);
+  font-weight: 400;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: .01em;
+}
+.sel-unit {
+  margin-left: 4px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-caption);
+  font-weight: 400;
+  color: var(--fg-3);
+  letter-spacing: 0;
+}
+.sel-cap { margin-top: 2px; font-size: var(--fs-caption); color: var(--fg-3); }
+.sel-region .sel-cap:first-child { margin-top: 4px; }
+
+.sel-dl {
+  width: 220px;
+  margin: 14px 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: 2px;
+  align-items: baseline;
+}
+.sel-dl dt {
+  margin: 0;
+  padding-right: 16px;
+  text-align: left;
+  font-size: var(--fs-caption);
+  color: var(--fg-3);
+}
+.sel-dl dd {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  text-align: right;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.sel-dl dt.sel-net, .sel-dl dd.sel-net { align-self: stretch; margin-top: 2px; border-top: 1px solid var(--line-2); }
+.sel-dl dt.sel-net { padding-top: 15px; }
+.sel-dl dd.sel-net { padding-top: 4px; font-size: var(--fs-num); }
+.sel-back {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: var(--fs-caption);
+  color: var(--fg-2);
+  border-bottom: 1px solid var(--line-2);
+  transition: color var(--dur-1) var(--ease-out);
+}
+.sel-back:hover { color: var(--fg-1); }
+
+/* 数が変わるときは、新しい数を不透明度で入れ替えるだけ(数え上げない) */
+@keyframes sel-swap { from { opacity: 0; } to { opacity: 1; } }
+.swap { animation: sel-swap var(--dur-3) var(--ease-out); }
+
+.sel-sum { display: none; }
+.sel-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- 選択の一覧(ポップオーバー) ---- */
+.sel-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 6;
+  width: 520px;
+  max-width: calc(100vw - 80px);
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+  text-align: left;
+  color: var(--fg-1);
+  background: var(--veil-solid);
+  border: 1px solid var(--line-2);
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out), visibility 0s linear var(--dur-2);
+}
+.sel-pop.is-open {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  transition-delay: 0s;
+}
+.sel-search {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  font-size: var(--fs-caption);
+  color: var(--fg-3);
+  border-bottom: 1px solid var(--line-1);
+}
+.sel-search:focus-within { border-bottom-color: var(--fg-1); }
+.sel-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: var(--fs-ui);
+  letter-spacing: inherit;
+  color: var(--fg-1);
+  background: none;
+  border: 0;
+  outline: none;
+  border-radius: 0;
+}
+.sel-input::placeholder { color: var(--fg-3); opacity: 1; font-size: var(--fs-caption); }
+.sel-esc { white-space: nowrap; }
+.sel-group {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 4px 12px;
+  padding: 6px 0;
+}
+.sel-group + .sel-group { border-top: 1px solid var(--line-3); }
+.sel-gname { padding-top: 3px; font-size: var(--fs-label); color: var(--fg-3); letter-spacing: .04em; }
+.sel-opts { display: flex; flex-wrap: wrap; gap: 0 2px; }
+.sel-opt {
+  position: relative;
+  padding: 2px 5px;
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out);
+}
+.sel-opt:hover {
+  color: var(--fg-1);
+  text-decoration: underline;
+  text-decoration-color: var(--line-1);
+  text-underline-offset: 3px;
+}
+.sel-opt[aria-selected="true"] { color: var(--accent); }
+.sel-opt[aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+/* キーボードで移動中の項目(マウスのホバーでは輪郭を出さない) */
+.sel-pop.kbd .sel-opt.is-active { outline: 1.5px solid var(--focus); outline-offset: 0; }
+.sel-empty { margin: 8px 0 2px; font-size: var(--fs-caption); color: var(--fg-3); }
+
+:lang(en) .sel-group { grid-template-columns: 92px 1fr; }
+
+/* ---- 縦画面(幅 1024px 未満): ドックの1段目。左に選択のボタン、右に要約 ---- */
+@media (max-width: 1023.98px) {
+  #selector {
+    left: 16px;
+    right: 16px;
+    top: auto;
+    bottom: 108px;
+    width: auto;
+    text-align: left;
+  }
+  .sel {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    height: 44px;
+    padding-top: 14px;
+  }
+  .sel-head { position: static; flex: none; }
+  .sel-btn { font-size: var(--fs-caption); white-space: nowrap; }
+  .sel-btn::before { inset: -14px -8px; }
+  .sel.is-sel .sel-btn { font-size: 15px; letter-spacing: .06em; }
+  .sel-all, .sel-region { display: none; }
+  .sel-sum {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+    gap: 10px;
+    font-size: var(--fs-caption);
+    color: var(--fg-3);
+    white-space: nowrap;
+  }
+  .sel-sum-all, .sel-sum-sel { display: inline-flex; align-items: baseline; gap: 4px; }
+  .sel-sum-sel { gap: 3px; }
+  .sel-sum-sel .sel-sl:not(:first-child) { margin-left: 7px; }
+  .sel-sum .sel-v {
+    font-family: var(--font-serif);
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--fg-1);
+    font-variant-numeric: tabular-nums lining-nums;
+    letter-spacing: 0;
+  }
+  .sel-sum .sel-v.lg, .sel-sum-all .sel-v { font-size: 17px; }
+
+  .sel-pop {
+    position: fixed;
+    top: auto;
+    left: 16px;
+    right: 16px;
+    bottom: calc(var(--dock-h) + 8px);
+    width: auto;
+    max-width: none;
+    max-height: 70vh;
+  }
 }
