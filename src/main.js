@@ -14,6 +14,7 @@ import { createStore } from './state.js';
 import { applyParams, syncUrl } from './params.js';
 import { applyStatic, setLang, t } from './i18n.js';
 import { selectionMask } from './geometry/flows.js';
+import { mainPartners } from './data/stats.js';
 import { createRenderer } from './scene/renderer.js';
 import { createCameraRig } from './scene/cameraRig.js';
 import { createFallback } from './scene/fallback2d.js';
@@ -89,7 +90,14 @@ async function main() {
 
   renderer.setStill(still);
   const picker = createPicker(data);
-  const rig = createCameraRig({ store, renderer, immediate: still });
+  const partnerCache = new Map();
+  const partners = (sel) => {
+    if (!sel) return null;
+    const key = JSON.stringify(sel);
+    if (!partnerCache.has(key)) partnerCache.set(key, mainPartners(data, sel));
+    return partnerCache.get(key);
+  };
+  const rig = createCameraRig({ store, renderer, immediate: still, partners });
   // 年の補間(--dur-year)。動きを減らす設定と still=1 では即時
   const yearSeconds = () => {
     const v = parseFloat(getComputedStyle(root).getPropertyValue('--dur-year'));

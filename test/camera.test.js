@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   clampOrbit, cubicBezier, dragToAngles, easeCamera, figureRegion, isPortrait, MORPH_DELAY, projectPoint, reorient,
-  screenAxes, SELECTION_ZOOM, topAzimuth, tween, USER_LIMITS, viewFor, viewOptions,
+  screenAxes, SELECTION_OBLIQUE, SELECTION_ZOOM, presetRegion, topAzimuth, tween, USER_LIMITS, viewFor, viewOptions,
 } from '../src/scene/camera.js';
 import { createCameraRig } from '../src/scene/cameraRig.js';
 import { createStore } from '../src/state.js';
@@ -97,7 +97,7 @@ describe('viewFor: 定位置', () => {
       for (const preset of ['side', 'oblique', 'top']) {
         const v = view(preset, w, h);
         const pts = nodesOnScreen(v, [w, h]);
-        const rr = preset === 'side' && w < 1024 ? { ...r, x1: r.x1 - 80 } : r; // 縦画面の真横は右に索引の余白
+        const rr = presetRegion(preset, r, w < 1024); // 縦画面の真横は右に索引の余白、斜め俯瞰と真上は読み出し・注記の下
         for (const pt of pts) expect(inside(pt, rr), `${preset} ${w}x${h} ${pt}`).toBe(true);
         // 図の中心(anchor)が領域の中心に映る
         const c = projectPoint(v, v.anchor, [w, h]);
@@ -168,15 +168,39 @@ describe('viewFor: 地域を選んでいるとき', () => {
     }
   });
 
-  it('拡大率は、選択なしの 2.5 倍(正投影のまま拡大するので、量の比は崩れない)', () => {
+  it('拡大率は、選択なしの 1〜2.5 倍。相手先がなければ 2.5 倍、遠い相手先があれば小さくなる', () => {
     expect(SELECTION_ZOOM).toBe(2.5);
     for (const [w, h] of SIZES) {
       for (const [, sel] of selections) {
-        const a = view('oblique', w, h), b = view('oblique', w, h, sel);
-        expect(b.zoom / a.zoom).toBeCloseTo(2.5, 9);
-        expect([b.azimuth, b.elevation, b.roll, b.lean]).toEqual([a.azimuth, a.elevation, a.roll, a.lean]);
+        for (const preset of ['oblique', 'top']) {
+          const a = view(preset, w, h);
+          const b = viewFor(preset, w / h, layout, opts(w, h, sel));
+          const z = b.zoom / viewFor(preset, w / h, layout, { ...opts(w, h), selection: null }).zoom;
+          expect(z).toBeGreaterThanOrEqual(1 - 1e-9);
+          expect(z).toBeLessThanOrEqual(2.5 + 1e-9);
+          expect([b.azimuth, b.roll]).toEqual([a.azimuth, a.roll]);
+        }
       }
+      // 北海道と沖縄県を相手先に含めると、ほぼ全体が収まる倍率になる
+      const far = viewFor('oblique', w / h, layout, viewOptions(w, h, { type: 'metro', id: 'tokyo' }, [0, 46]));
+      const near = viewFor('oblique', w / h, layout, viewOptions(w, h, { type: 'metro', id: 'tokyo' }, []));
+      expect(far.zoom).toBeLessThan(near.zoom);
     }
+  });
+
+  it('相手先の点は、選択地域を領域の内側に置いても領域から大きくはみ出さない(デスクトップ)', () => {
+    const partners = [26, 22, 7, 0, 21, 39, 27, 3]; // 東京圏の主要な相手先(大阪、愛知、茨城、北海道、静岡、福岡、兵庫、宮城)
+    const v = viewFor('oblique', 1440 / 900, layout, viewOptions(1440, 900, { type: 'metro', id: 'tokyo' }, partners));
+    const r = presetRegion('oblique', figureRegion(1440, 900), false);
+    const pts = nodesOnScreen(v, [1440, 900]);
+    for (const i of partners) expect(inside(pts[i], r, 60), `${i} ${pts[i]}`).toBe(true);
+  });
+
+  it('選択時の斜め俯瞰は、弧の倒しを小さく、仰角を少し上げる(地上と地下を分けて見せる)', () => {
+    const b = view('oblique', 1440, 900, { type: 'metro', id: 'osaka' });
+    expect(b.lean).toBe(SELECTION_OBLIQUE.lean);
+    expect(b.elevation).toBe(SELECTION_OBLIQUE.elevation);
+    expect(view('top', 1440, 900, { type: 'metro', id: 'osaka' }).lean).toBe(view('top', 1440, 900).lean);
   });
 
   it('東京圏を選ぶと、東京圏が領域の中央寄りに来る', () => {

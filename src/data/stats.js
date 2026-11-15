@@ -150,6 +150,33 @@ export function tableRows(matrix, selection) {
   return { mode: 'region', rows, total: region.total };
 }
 
+/**
+ * 選択地域の主要な相手先(カメラの構図に収める都道府県)。全年の合計で、選択地域との転入と転出の合計が多い順に、
+ * 合計の share(既定 75%)に届くまで、多くても max 個。年を変えても構図が動かないよう、年によらない。
+ */
+export function mainPartners(data, selection, { share = 0.75, max = 10 } = {}) {
+  const mask = selectionMask(selection);
+  if (!mask.some(Boolean)) return [];
+  const vol = new Array(N).fill(0);
+  for (const y of data.years) {
+    const m = data.matrix(y);
+    for (let i = 0; i < N; i++) {
+      if (mask[i]) continue;
+      for (let s = 0; s < N; s++) if (mask[s]) vol[i] += m[s * N + i] + m[i * N + s];
+    }
+  }
+  const order = vol.map((v, i) => [i, v]).filter(([i, v]) => !mask[i] && v > 0).sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+  const total = order.reduce((s, [, v]) => s + v, 0);
+  const out = [];
+  let acc = 0;
+  for (const [i, v] of order) {
+    if (out.length >= max || acc >= total * share) break;
+    out.push(i);
+    acc += v;
+  }
+  return out;
+}
+
 /** data.years の順に、年ごとの総数を並べた配列。 */
 export function totalSeries(data) {
   return data.years.map((y) => yearTotal(data, y));

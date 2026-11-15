@@ -1,7 +1,8 @@
 // store と renderer をつなぐカメラの配線。
-//   createCameraRig({ store, renderer, immediate, duration, element }) → { update(dtSec), resize(), reset(), orbit(dAz, dEl), zoomBy(f), dispose() }
+//   createCameraRig({ store, renderer, immediate, duration, element, partners }) → { update(dtSec), resize(), reset(), orbit(dAz, dEl), zoomBy(f), dispose() }
 //   state.camera(定位置)と state.selection(選択時の構図)が変わると、現在の視点から新しい視点まで補間する(state.morph も書き換える)。
 //   reducedMotion のとき、または immediate のときは即座に切り替える。
+//   partners(selection) → 選択地域の主要な相手先の添字(選択時の構図に収める。省略可)。
 //   毎フレーム update(dtSec) を呼ぶ。画面の大きさが変わったら resize() を呼ぶ。
 //   自由探索: element(既定は #stage)の上のドラッグで方位と仰角を、ホイール・ピンチで拡大縮小を、矢印キーと +/- で同じことを行う。
 //     範囲は camera.js の USER_LIMITS。定位置を選び直す(state.camera が変わる)と、利用者の操作は消える。
@@ -20,7 +21,7 @@ const sameView = (a, b) =>
   near(a.azimuth, b.azimuth) && near(a.elevation, b.elevation) && near(a.roll, b.roll) && near(a.zoom, b.zoom) &&
   a.center.every((v, k) => near(v, b.center[k]));
 
-export function createCameraRig({ store, renderer, immediate = false, duration = TRANSITION_SECONDS, element }) {
+export function createCameraRig({ store, renderer, immediate = false, duration = TRANSITION_SECONDS, element, partners }) {
   const el = element ?? (typeof document !== 'undefined' ? document.getElementById('stage') : null);
 
   // 利用者の操作: 定位置の方位・仰角からの差と、拡大の倍率
@@ -29,7 +30,7 @@ export function createCameraRig({ store, renderer, immediate = false, duration =
   const baseView = () => {
     const { width, height } = renderer.getState();
     const s = store.get();
-    return viewFor(s.camera, width / height, renderer.layout, viewOptions(width, height, s.selection));
+    return viewFor(s.camera, width / height, renderer.layout, viewOptions(width, height, s.selection, partners?.(s.selection)));
   };
   const target = () => {
     const base = baseView();
